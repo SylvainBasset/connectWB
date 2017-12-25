@@ -1,0 +1,13 @@
+TODO : à reporter dans spécifications
+	-> Etudes connectivité wifi:
+		. carte fille nucléo (X-NUCLEO-IDW04A1)
+		. basé sur un module "SPWF04SA"
+		. comm UART (commandes AT ou SPI)
+	-> Etudes connectivité bluetooth
+		. carte fille nucélo (X-NUCLEO-IDB05A1)
+		. basé sur un module "SPBTLE-RF"
+        	. comm SPI uniquement
+
+TODO: poser questions sur fonctionnement RAPI open EVSE
+
+TODO: dimentionnement carte nucléo
