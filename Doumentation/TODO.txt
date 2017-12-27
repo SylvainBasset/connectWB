@@ -3,11 +3,25 @@ TODO : à reporter dans spécifications
 		. carte fille nucléo (X-NUCLEO-IDW04A1)
 		. basé sur un module "SPWF04SA"
 		. comm UART (commandes AT ou SPI)
+		. Possibilité serveur
 	-> Etudes connectivité bluetooth
 		. carte fille nucélo (X-NUCLEO-IDB05A1)
 		. basé sur un module "SPBTLE-RF"
         	. comm SPI uniquement
 
-TODO: poser questions sur fonctionnement RAPI open EVSE
+
+TODO: poser l'ébauche du fonctionnement de l'IHM 
+	. 4 leds (marche, charge, forcage, erreur)
+	. 1 bouton/levier pour forçage général
+	. Présence calendrier à la semaine dans l'interface WEB
+	. Présence case à cocher dans l'interface web pour forcer calendrier/delestage/pourcentage
+
 
 TODO: dimentionnement carte nucléo
+
+
+TODO: poser questions sur fonctionnement RAPI open EVSE
+
+TODO: schéma cablage EVSE
+	. Voir si besoin cable ou prise + cable
+	. Comment faire pour cable retractable
