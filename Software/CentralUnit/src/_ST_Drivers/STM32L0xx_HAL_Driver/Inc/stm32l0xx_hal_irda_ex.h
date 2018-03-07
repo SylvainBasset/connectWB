@@ -2,13 +2,11 @@
   ******************************************************************************
   * @file    stm32l0xx_hal_irda_ex.h
   * @author  MCD Application Team
-  * @version V1.0.0
-  * @date    22-April-2014
-  * @brief   Header file of IRDA HAL Extension module.
+  * @brief   Header file of IRDA HAL Extended module.
   ******************************************************************************
   * @attention
-  *                               
-  * <h2><center>&copy; COPYRIGHT(c) 2013 STMicroelectronics</center></h2>
+  *
+  * <h2><center>&copy; COPYRIGHT(c) 2016 STMicroelectronics</center></h2>
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -32,7 +30,7 @@
   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
-  ******************************************************************************  
+  ******************************************************************************
   */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
@@ -44,7 +42,7 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include <stm32l0xx_hal_def.h>
+#include "stm32l0xx_hal_def.h"
 
 /** @addtogroup STM32L0xx_HAL_Driver
   * @{
@@ -52,65 +50,28 @@
 
 /** @addtogroup IRDAEx
   * @{
-  */ 
+  */
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
-/** @defgroup IRDAEx_Extended_Exported_Constants
-  * @{
-  */
-  
-/** @defgroup IRDAEx_Word_Length IRDA Word Length
-  * @{
-  */
-#define IRDA_WORDLENGTH_7B                  ((uint32_t)USART_CR1_M_1)
-#define IRDA_WORDLENGTH_8B                  ((uint32_t)0x00000000)
-#define IRDA_WORDLENGTH_9B                  ((uint32_t)USART_CR1_M_0)
-#define IS_IRDA_WORD_LENGTH(LENGTH) (((LENGTH) == IRDA_WORDLENGTH_7B) || \
-                                     ((LENGTH) == IRDA_WORDLENGTH_8B) || \
-                                     ((LENGTH) == IRDA_WORDLENGTH_9B))
-/**
-  * @}
-  */
-  
-  
-/**
-  * @}
-  */  
-  
-/* Exported macro ------------------------------------------------------------*/
+/* Exported macros -----------------------------------------------------------*/
+/* Exported functions --------------------------------------------------------*/
 
-/** @defgroup IRDAEx_Extended_Exported_Macros
+/* Private macros ------------------------------------------------------------*/
+
+/** @defgroup IRDAEx_Private_Macros IRDAEx Private Macros
   * @{
   */
-/** @brief  Reports the IRDA clock source.
-  * @param  __HANDLE__: specifies the UART Handle
-  * @param  __CLOCKSOURCE__ : output variable   
+
+/** @brief  Report the IRDA clock source.
+  * @param  __HANDLE__: specifies the IRDA Handle.
+  * @param  __CLOCKSOURCE__: output variable.
   * @retval IRDA clocking source, written in __CLOCKSOURCE__.
   */
-#define __HAL_IRDA_GETCLOCKSOURCE(__HANDLE__,__CLOCKSOURCE__) \
+#if defined (STM32L031xx) || defined (STM32L041xx) || defined (STM32L011xx) || defined (STM32L021xx)
+#define IRDA_GETCLOCKSOURCE(__HANDLE__,__CLOCKSOURCE__) \
   do {                                                        \
-    if((__HANDLE__)->Instance == USART1)                      \
-    {                                                         \
-       switch(__HAL_RCC_GET_USART1_SOURCE())                  \
-       {                                                      \
-        case RCC_USART1CLKSOURCE_PCLK2:                       \
-          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_PCLK2;         \
-          break;                                              \
-        case RCC_USART1CLKSOURCE_HSI:                         \
-          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_HSI;           \
-          break;                                              \
-        case RCC_USART1CLKSOURCE_SYSCLK:                      \
-          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_SYSCLK;        \
-          break;                                              \
-        case RCC_USART1CLKSOURCE_LSE:                         \
-          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_LSE;           \
-          break;                                              \
-        default:                                              \
-          break;                                              \
-       }                                                      \
-    }                                                         \
-    else if((__HANDLE__)->Instance == USART2)                 \
+    if((__HANDLE__)->Instance == USART2)                      \
     {                                                         \
        switch(__HAL_RCC_GET_USART2_SOURCE())                  \
        {                                                      \
@@ -127,6 +88,7 @@
           (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_LSE;           \
           break;                                              \
         default:                                              \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_UNDEFINED;     \
           break;                                              \
        }                                                      \
     }                                                         \
@@ -147,71 +109,96 @@
           (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_LSE;           \
           break;                                              \
         default:                                              \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_UNDEFINED;     \
           break;                                              \
        }                                                      \
     }                                                         \
   } while(0)
 
-/** @brief  Reports the mask to apply to retrieve the received data
-  *         according to the word length and to the parity bits activation.
-  * @param  __HANDLE__: specifies the IRDA Handle
-  * @retval mask to apply to USART RDR register value.
-  */    
-#define __HAL_IRDA_MASK_COMPUTATION(__HANDLE__)                       \
-  do {                                                                \
-  if ((__HANDLE__)->Init.WordLength == IRDA_WORDLENGTH_9B)            \
-  {                                                                   \
-     if ((__HANDLE__)->Init.Parity == IRDA_PARITY_NONE)               \
-     {                                                                \
-        (__HANDLE__)->Mask = 0x01FF ;                                 \
-     }                                                                \
-     else                                                             \
-     {                                                                \
-        (__HANDLE__)->Mask = 0x00FF ;                                 \
-     }                                                                \
-  }                                                                   \
-  else if ((__HANDLE__)->Init.WordLength == IRDA_WORDLENGTH_8B)       \
-  {                                                                   \
-     if ((__HANDLE__)->Init.Parity == IRDA_PARITY_NONE)               \
-     {                                                                \
-        (__HANDLE__)->Mask = 0x00FF ;                                 \
-     }                                                                \
-     else                                                             \
-     {                                                                \
-        (__HANDLE__)->Mask = 0x007F ;                                 \
-     }                                                                \
-  }                                                                   \
-  else if ((__HANDLE__)->Init.WordLength == IRDA_WORDLENGTH_7B)       \
-  {                                                                   \
-     if ((__HANDLE__)->Init.Parity == IRDA_PARITY_NONE)               \
-     {                                                                \
-        (__HANDLE__)->Mask = 0x007F ;                                 \
-     }                                                                \
-     else                                                             \
-     {                                                                \
-        (__HANDLE__)->Mask = 0x003F ;                                 \
-     }                                                                \
-  }                                                                   \
-} while(0)
+#else /* (STM32L031xx) || defined (STM32L041xx) || (STM32L011xx) || defined (STM32L021xx) */
+
+#define IRDA_GETCLOCKSOURCE(__HANDLE__,__CLOCKSOURCE__) \
+  do {                                                        \
+    if((__HANDLE__)->Instance == USART1)                      \
+    {                                                         \
+       switch(__HAL_RCC_GET_USART1_SOURCE())                  \
+       {                                                      \
+        case RCC_USART1CLKSOURCE_PCLK2:                       \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_PCLK2;         \
+          break;                                              \
+        case RCC_USART1CLKSOURCE_HSI:                         \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_HSI;           \
+          break;                                              \
+        case RCC_USART1CLKSOURCE_SYSCLK:                      \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_SYSCLK;        \
+          break;                                              \
+        case RCC_USART1CLKSOURCE_LSE:                         \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_LSE;           \
+          break;                                              \
+        default:                                              \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_UNDEFINED;     \
+          break;                                              \
+       }                                                      \
+    }                                                         \
+    else if((__HANDLE__)->Instance == USART2)                 \
+    {                                                         \
+       switch(__HAL_RCC_GET_USART2_SOURCE())                  \
+       {                                                      \
+        case RCC_USART2CLKSOURCE_PCLK1:                       \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_PCLK1;         \
+          break;                                              \
+        case RCC_USART2CLKSOURCE_HSI:                         \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_HSI;           \
+          break;                                              \
+        case RCC_USART2CLKSOURCE_SYSCLK:                      \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_SYSCLK;        \
+          break;                                              \
+        case RCC_USART2CLKSOURCE_LSE:                         \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_LSE;           \
+          break;                                              \
+        default:                                              \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_UNDEFINED;     \
+          break;                                              \
+       }                                                      \
+    }                                                         \
+    else if((__HANDLE__)->Instance == LPUART1)                \
+    {                                                         \
+       switch(__HAL_RCC_GET_LPUART1_SOURCE())                 \
+       {                                                      \
+        case RCC_LPUART1CLKSOURCE_PCLK1:                      \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_PCLK1;         \
+          break;                                              \
+        case RCC_LPUART1CLKSOURCE_HSI:                        \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_HSI;           \
+          break;                                              \
+        case RCC_LPUART1CLKSOURCE_SYSCLK:                     \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_SYSCLK;        \
+          break;                                              \
+        case RCC_LPUART1CLKSOURCE_LSE:                        \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_LSE;           \
+          break;                                              \
+        default:                                              \
+          (__CLOCKSOURCE__) = IRDA_CLOCKSOURCE_UNDEFINED;     \
+          break;                                              \
+       }                                                      \
+    }                                                         \
+  } while(0)
+#endif /* (STM32L031xx) || (STM32L041xx) || (STM32L011xx) || (STM32L021xx) */
+
 /**
   * @}
   */
-  
+
 /* Exported functions --------------------------------------------------------*/
-/* Initialization/de-initialization methods  **********************************/
-/* IO operation methods *******************************************************/
-/* Peripheral Control methods  ************************************************/
-/* Peripheral State methods  **************************************************/
-
 
 /**
   * @}
-  */ 
+  */
 
 /**
   * @}
-  */ 
-  
+  */
+
 #ifdef __cplusplus
 }
 #endif
@@ -219,3 +206,4 @@
 #endif /* __STM32L0xx_HAL_IRDA_EX_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+

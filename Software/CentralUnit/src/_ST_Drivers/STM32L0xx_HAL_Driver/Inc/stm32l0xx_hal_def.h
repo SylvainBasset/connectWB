@@ -2,14 +2,12 @@
   ******************************************************************************
   * @file    stm32l0xx_hal_def.h
   * @author  MCD Application Team
-  * @version V1.0.0
-  * @date    22-April-2014
   * @brief   This file contains HAL common defines, enumeration, macros and 
   *          structures definitions. 
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2014 STMicroelectronics</center></h2>
+  * <h2><center>&copy; COPYRIGHT(c) 2016 STMicroelectronics</center></h2>
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -45,7 +43,9 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include <stm32l0xx.h>
+#include "stm32l0xx.h"
+#include "Legacy/stm32_hal_legacy.h"
+#include <stdio.h>
 
 /* Exported types ------------------------------------------------------------*/
 
@@ -54,10 +54,10 @@
   */  
 typedef enum 
 {
-  HAL_OK       = 0x00,
-  HAL_ERROR    = 0x01,
-  HAL_BUSY     = 0x02,
-  HAL_TIMEOUT  = 0x03
+  HAL_OK       = 0x00U,
+  HAL_ERROR    = 0x01U,
+  HAL_BUSY     = 0x02U,
+  HAL_TIMEOUT  = 0x03U
 } HAL_StatusTypeDef;
 
 /** 
@@ -65,16 +65,15 @@ typedef enum
   */
 typedef enum 
 {
-  HAL_UNLOCKED = 0x00,
-  HAL_LOCKED   = 0x01  
+  HAL_UNLOCKED = 0x00U,
+  HAL_LOCKED   = 0x01U  
 } HAL_LockTypeDef;
 
 /* Exported macro ------------------------------------------------------------*/
-#ifndef NULL
-  #define NULL      (void *) 0
-#endif
 
-#define HAL_MAX_DELAY      0xFFFFFFFF
+#define UNUSED(x) ((void)(x))
+
+#define HAL_MAX_DELAY      0xFFFFFFFFU
 
 #define HAL_IS_BIT_SET(REG, BIT)         (((REG) & (BIT)) != RESET)
 #define HAL_IS_BIT_CLR(REG, BIT)         (((REG) & (BIT)) == RESET)
@@ -85,8 +84,28 @@ typedef enum
                             (__DMA_HANDLE__).Parent = (__HANDLE__);             \
                           } while(0)
 
+/** @brief Reset the Handle's State field.
+  * @param __HANDLE__: specifies the Peripheral Handle.
+  * @note  This macro can be used for the following purpose: 
+  *          - When the Handle is declared as local variable; before passing it as parameter
+  *            to HAL_PPP_Init() for the first time, it is mandatory to use this macro 
+  *            to set to 0 the Handle's "State" field.
+  *            Otherwise, "State" field may have any random value and the first time the function 
+  *            HAL_PPP_Init() is called, the low level hardware initialization will be missed
+  *            (i.e. HAL_PPP_MspInit() will not be executed).
+  *          - When there is a need to reconfigure the low level hardware: instead of calling
+  *            HAL_PPP_DeInit() then HAL_PPP_Init(), user can make a call to this macro then HAL_PPP_Init().
+  *            In this later function, when the Handle's "State" field is set to 0, it will execute the function
+  *            HAL_PPP_MspInit() which will reconfigure the low level hardware.
+  * @retval None
+  */
+#define __HAL_RESET_HANDLE_STATE(__HANDLE__) ((__HANDLE__)->State = 0U)
+
 #if (USE_RTOS == 1)
- 
+                            
+  /* Reserved for future use */
+  #error "USE_RTOS should be 0 in the current HAL release"
+                            
 #else
   #define __HAL_LOCK(__HANDLE__)                                               \
                                 do{                                            \
@@ -113,6 +132,9 @@ typedef enum
   #ifndef __packed
     #define __packed __attribute__((__packed__))
   #endif /* __packed */
+  
+  #define __NOINLINE __attribute__ ( (noinline) ) 
+
 #endif /* __GNUC__ */
 
 
@@ -133,8 +155,6 @@ typedef enum
       #define __ALIGN_BEGIN    __align(4)  
     #elif defined (__ICCARM__)    /* IAR Compiler */
       #define __ALIGN_BEGIN 
-    #elif defined  (__TASKING__)  /* TASKING Compiler */
-      #define __ALIGN_BEGIN    __align(4) 
     #endif /* __CC_ARM */
   #endif /* __ALIGN_BEGIN */
 #endif /* __GNUC__ */
@@ -154,12 +174,17 @@ typedef enum
 */
 #define __RAM_FUNC HAL_StatusTypeDef 
 
+#define __NOINLINE __attribute__ ( (noinline) ) 
+
+
 #elif defined ( __ICCARM__ )
 /* ICCARM Compiler
    ---------------
    RAM functions are defined using a specific toolchain keyword "__ramfunc". 
 */
 #define __RAM_FUNC __ramfunc HAL_StatusTypeDef
+
+#define __NOINLINE _Pragma("optimize = no_inline")
 
 #elif defined   (  __GNUC__  )
 /* GNU Compiler
@@ -178,3 +203,4 @@ typedef enum
 #endif /* ___STM32L0xx_HAL_DEF */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+

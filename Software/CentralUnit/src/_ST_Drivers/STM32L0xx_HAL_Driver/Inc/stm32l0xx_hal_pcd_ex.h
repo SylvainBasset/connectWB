@@ -2,13 +2,11 @@
   ******************************************************************************
   * @file    stm32l0xx_hal_pcd.h
   * @author  MCD Application Team
-  * @version V1.0.0
-  * @date    22-April-2014
   * @brief   Header file of PCD HAL module.
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2014 STMicroelectronics</center></h2>
+  * <h2><center>&copy; COPYRIGHT(c) 2016 STMicroelectronics</center></h2>
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -44,25 +42,59 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include <stm32l0xx_hal_def.h>
+#include "stm32l0xx_hal_def.h"  
    
 /** @addtogroup STM32L0xx_HAL_Driver
   * @{
   */
 
-/** @addtogroup PCDEx
+/** @defgroup PCDEx PCDEx
   * @{
-  */ 
-
+  */
 /* Exported types ------------------------------------------------------------*/
+typedef enum  
+{
+  PCD_LPM_L0_ACTIVE = 0x00, /* on */
+  PCD_LPM_L1_ACTIVE = 0x01, /* LPM L1 sleep */
+}PCD_LPM_MsgTypeDef;
+
+typedef enum  
+{
+  PCD_BCD_ERROR                     = 0xFF, 
+  PCD_BCD_CONTACT_DETECTION         = 0xFE,
+  PCD_BCD_STD_DOWNSTREAM_PORT       = 0xFD,
+  PCD_BCD_CHARGING_DOWNSTREAM_PORT  = 0xFC,
+  PCD_BCD_DEDICATED_CHARGING_PORT   = 0xFB,
+  PCD_BCD_DISCOVERY_COMPLETED       = 0x00,
+  
+}PCD_BCD_MsgTypeDef;
+
 /* Exported constants --------------------------------------------------------*/
 /* Exported macros -----------------------------------------------------------*/
-/* Internal macros -----------------------------------------------------------*/
 /* Exported functions --------------------------------------------------------*/
+
+/** @defgroup PCDEx_Exported_Functions PCDEx Exported Functions
+  * @{
+  */
+
+/** @defgroup PCDEx__Exported_Functions_Group1 Initialization and de-initialization functions
+ *  @brief    Initialization and Configuration functions
+ */
 HAL_StatusTypeDef HAL_PCDEx_PMAConfig(PCD_HandleTypeDef *hpcd, 
                                      uint16_t ep_addr,
                                      uint16_t ep_kind,
                                      uint32_t pmaadress);
+HAL_StatusTypeDef HAL_PCDEx_ActivateLPM(PCD_HandleTypeDef *hpcd);
+HAL_StatusTypeDef HAL_PCDEx_DeActivateLPM(PCD_HandleTypeDef *hpcd);
+HAL_StatusTypeDef HAL_PCDEx_ActivateBCD(PCD_HandleTypeDef *hpcd);
+HAL_StatusTypeDef HAL_PCDEx_DeActivateBCD(PCD_HandleTypeDef *hpcd);
+void HAL_PCDEx_BCD_VBUSDetect(PCD_HandleTypeDef *hpcd);
+void HAL_PCDEx_LPM_Callback(PCD_HandleTypeDef *hpcd, PCD_LPM_MsgTypeDef msg);
+void HAL_PCDEx_BCD_Callback(PCD_HandleTypeDef *hpcd, PCD_BCD_MsgTypeDef msg);
+
+/**
+  * @}
+  */
 
 /**
   * @}
@@ -80,3 +112,4 @@ HAL_StatusTypeDef HAL_PCDEx_PMAConfig(PCD_HandleTypeDef *hpcd,
 #endif /* __STM32L0xx_HAL_PCD_EX_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+

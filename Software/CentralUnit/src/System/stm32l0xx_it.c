@@ -1,18 +1,17 @@
 /**
   ******************************************************************************
-  * @file    CORTEXM/CORTEXM_SysTick/Src/stm32l0xx_it.c 
+  * @file    CORTEXM/CORTEXM_SysTick/Src/stm32l0xx_it.c
   * @author  MCD Application Team
   * @version V1.0.0
   * @date    24-April-2014
   * @brief   Main Interrupt Service Routines.
-  *          This file provides template for all exceptions handler and 
+  *          This file provides template for all exceptions handler and
   *          peripherals interrupt service routine.
   ******************************************************************************
   */
 
 /* Includes ------------------------------------------------------------------*/
 #include "System/stm32l0xx_it.h"
-   
 
 
 /******************************************************************************/
@@ -80,7 +79,7 @@ i++;
   HAL_IncTick();
 
 }
-  
+
 
 /******************************************************************************/
 /*                 STM32L0xx Peripherals Interrupt Handlers                   */
@@ -100,7 +99,7 @@ i++;
 
 /**
   * @}
-  */ 
+  */
 
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

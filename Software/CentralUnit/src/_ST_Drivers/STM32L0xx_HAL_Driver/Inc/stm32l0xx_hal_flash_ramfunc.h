@@ -2,13 +2,11 @@
   ******************************************************************************
   * @file    stm32l0xx_hal_flash_ramfunc.h
   * @author  MCD Application Team
-  * @version V1.0.0
-  * @date    22-April-2014
   * @brief   Header file of FLASH RAMFUNC driver.
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2014 STMicroelectronics</center></h2>
+  * <h2><center>&copy; COPYRIGHT(c) 2016 STMicroelectronics</center></h2>
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -44,7 +42,7 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include <stm32l0xx_hal_def.h>
+#include "stm32l0xx_hal_def.h"
 
 /** @addtogroup STM32L0xx_HAL_Driver
   * @{
@@ -59,14 +57,55 @@
 
 /* Exported functions --------------------------------------------------------*/
 
-/* I/O operation functions  *****************************************************/
-/* Peripheral Control functions  ************************************************/
+/** @addtogroup FLASH_RAMFUNC_Exported_Functions
+  * @{
+  */
 
+/*
+  * @brief  FLASH memory functions that should be executed from internal SRAM.
+  *         These functions are defined inside the "stm32l0xx_hal_flash_ramfunc.c"
+  *         file.
+  */
+  
+/** @addtogroup FLASH_RAMFUNC_Exported_Functions_Group1
+  * @{
+  */
 
-__RAM_FUNC  FLASH_HalfPageProgram(uint32_t Address, uint32_t *Data);
-__RAM_FUNC  FLASH_EnableRunPowerDown(void);
-__RAM_FUNC  FLASH_DisableRunPowerDown(void);
+__RAM_FUNC HAL_FLASHEx_EnableRunPowerDown(void);
+__RAM_FUNC HAL_FLASHEx_DisableRunPowerDown(void);
 
+/**
+  * @}
+  */ 
+
+/** @addtogroup FLASH_RAMFUNC_Exported_Functions_Group2
+  * @{
+  */
+
+#if defined(FLASH_PECR_PARALLBANK)
+
+__RAM_FUNC HAL_FLASHEx_EraseParallelPage(uint32_t Page_Address1, uint32_t Page_Address2);
+__RAM_FUNC HAL_FLASHEx_ProgramParallelHalfPage(uint32_t Address1, uint32_t* pBuffer1, uint32_t Address2, uint32_t* pBuffer2);
+
+#endif /* FLASH_PECR_PARALLBANK */
+
+__RAM_FUNC HAL_FLASHEx_HalfPageProgram(uint32_t Address, uint32_t* pBuffer);
+
+/**
+  * @}
+  */ 
+
+/** @addtogroup FLASH_RAMFUNC_Exported_Functions_Group3
+  * @{
+  */
+__RAM_FUNC  HAL_FLASHEx_GetError(uint32_t *Error);
+/**
+  * @}
+  */ 
+
+/**
+  * @}
+  */ 
 
 /**
   * @}

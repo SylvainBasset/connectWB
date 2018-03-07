@@ -2,13 +2,11 @@
   ******************************************************************************
   * @file    stm32l0xx_hal_dac_ex.h
   * @author  MCD Application Team
-  * @version V1.0.0
-  * @date    22-April-2014
-  * @brief   Header file of DAC HAL module.
+  * @brief   Header file of DAC HAL Extension module.
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2014 STMicroelectronics</center></h2>
+  * <h2><center>&copy; COPYRIGHT(c) 2016 STMicroelectronics</center></h2>
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -43,45 +41,31 @@
  extern "C" {
 #endif
 
-#if !defined (STM32L051xx) && !defined (STM32L061xx)
+#if !defined (STM32L011xx) && !defined (STM32L021xx) && !defined (STM32L031xx) && !defined (STM32L041xx) && !defined (STM32L051xx) && !defined (STM32L061xx) && !defined (STM32L071xx) && !defined (STM32L081xx)
    
 /* Includes ------------------------------------------------------------------*/
-#include <stm32l0xx_hal_def.h>
+#include "stm32l0xx_hal_def.h"
 
 /** @addtogroup STM32L0xx_HAL_Driver
   * @{
   */
 
-/** @addtogroup DACEx
+/** @defgroup DACEx DACEx
   * @{
   */
 
 /* Exported types ------------------------------------------------------------*/
    
-/** 
-  * @brief  HAL State structures definition  
-  */ 
-
 /* Exported constants --------------------------------------------------------*/
   
-/** @defgroup DACEx_wave_generation 
+/** @defgroup DACEx_Exported_Constants DACEx Exported Constants
+  * @{
+  */ 
+   
+/** @defgroup DACEx_lfsrunmask_triangleamplitude DACEx lfsrunmask triangleamplitude
   * @{
   */
-#define DAC_WAVEGENERATION_NONE            ((uint32_t)0x00000000)
-#define DAC_WAVEGENERATION_NOISE           ((uint32_t)DAC_CR_WAVE1_0)
-#define DAC_WAVEGENERATION_TRIANGLE        ((uint32_t)DAC_CR_WAVE1_1)
-
-#define IS_DAC_GENERATE_WAVE(WAVE) (((WAVE) == DAC_WAVEGENERATION_NONE) || \
-                                    ((WAVE) == DAC_WAVEGENERATION_NOISE) || \
-                                    ((WAVE) == DAC_WAVEGENERATION_TRIANGLE))
-/**
-  * @}
-  */
-
-/** @defgroup DACEx_lfsrunmask_triangleamplitude
-  * @{
-  */
-#define DAC_LFSRUNMASK_BIT0                ((uint32_t)0x00000000) /*!< Unmask DAC channel LFSR bit0 for noise wave generation */
+#define DAC_LFSRUNMASK_BIT0                ((uint32_t)0x00000000U) /*!< Unmask DAC channel LFSR bit0 for noise wave generation */
 #define DAC_LFSRUNMASK_BITS1_0             ((uint32_t)DAC_CR_MAMP1_0) /*!< Unmask DAC channel LFSR bit[1:0] for noise wave generation */
 #define DAC_LFSRUNMASK_BITS2_0             ((uint32_t)DAC_CR_MAMP1_1) /*!< Unmask DAC channel LFSR bit[2:0] for noise wave generation */
 #define DAC_LFSRUNMASK_BITS3_0             ((uint32_t)DAC_CR_MAMP1_1 | DAC_CR_MAMP1_0)/*!< Unmask DAC channel LFSR bit[3:0] for noise wave generation */
@@ -93,7 +77,7 @@
 #define DAC_LFSRUNMASK_BITS9_0             ((uint32_t)DAC_CR_MAMP1_3 | DAC_CR_MAMP1_0) /*!< Unmask DAC channel LFSR bit[9:0] for noise wave generation */
 #define DAC_LFSRUNMASK_BITS10_0            ((uint32_t)DAC_CR_MAMP1_3 | DAC_CR_MAMP1_1) /*!< Unmask DAC channel LFSR bit[10:0] for noise wave generation */
 #define DAC_LFSRUNMASK_BITS11_0            ((uint32_t)DAC_CR_MAMP1_3 | DAC_CR_MAMP1_1 | DAC_CR_MAMP1_0) /*!< Unmask DAC channel LFSR bit[11:0] for noise wave generation */
-#define DAC_TRIANGLEAMPLITUDE_1            ((uint32_t)0x00000000) /*!< Select max triangle amplitude of 1 */
+#define DAC_TRIANGLEAMPLITUDE_1            ((uint32_t)0x00000000U) /*!< Select max triangle amplitude of 1 */
 #define DAC_TRIANGLEAMPLITUDE_3            ((uint32_t)DAC_CR_MAMP1_0) /*!< Select max triangle amplitude of 3 */
 #define DAC_TRIANGLEAMPLITUDE_7            ((uint32_t)DAC_CR_MAMP1_1) /*!< Select max triangle amplitude of 7 */
 #define DAC_TRIANGLEAMPLITUDE_15           ((uint32_t)DAC_CR_MAMP1_1 | DAC_CR_MAMP1_0) /*!< Select max triangle amplitude of 15 */
@@ -134,14 +118,35 @@
   * @}
   */
 
+
+/**
+  * @}
+  */
+
 /* Exported macro ------------------------------------------------------------*/  
+
 /* Exported functions --------------------------------------------------------*/  
 
-/* Peripheral Control methods *************************************************/
-HAL_StatusTypeDef HAL_DACEx_TriangleWaveGenerate(DAC_HandleTypeDef* hdac, uint32_t channel, uint32_t Amplitude);
-HAL_StatusTypeDef HAL_DACEx_NoiseWaveGenerate(DAC_HandleTypeDef* hdac, uint32_t channel, uint32_t Amplitude);
+/** @defgroup DACEx_Exported_Functions DACEx Exported Functions
+  * @{
+  */
 
-#endif /* STM32L051xx && STM32L061xx*/
+/** @defgroup DACEx_Exported_Functions_Group1  Extended features functions
+  * @{
+  */
+/* Extension features functions ***********************************************/
+HAL_StatusTypeDef HAL_DACEx_TriangleWaveGenerate(DAC_HandleTypeDef* hdac, uint32_t Channel, uint32_t Amplitude);
+HAL_StatusTypeDef HAL_DACEx_NoiseWaveGenerate(DAC_HandleTypeDef* hdac, uint32_t Channel, uint32_t Amplitude);
+
+#if defined (STM32L072xx) || defined (STM32L073xx) || defined (STM32L082xx) || defined (STM32L083xx)
+uint32_t HAL_DACEx_DualGetValue(DAC_HandleTypeDef* hdac);
+HAL_StatusTypeDef HAL_DACEx_DualSetValue(DAC_HandleTypeDef* hdac, uint32_t Alignment, uint32_t Data1, uint32_t Data2);
+void HAL_DACEx_ConvCpltCallbackCh2(DAC_HandleTypeDef* hdac);
+void HAL_DACEx_ConvHalfCpltCallbackCh2(DAC_HandleTypeDef* hdac);
+void HAL_DACEx_ErrorCallbackCh2(DAC_HandleTypeDef* hdac);
+void HAL_DACEx_DMAUnderrunCallbackCh2(DAC_HandleTypeDef* hdac);
+#endif
+
 /**
   * @}
   */
@@ -149,12 +154,30 @@ HAL_StatusTypeDef HAL_DACEx_NoiseWaveGenerate(DAC_HandleTypeDef* hdac, uint32_t 
 /**
   * @}
   */
+/* Define the private group ***********************************/
+/**************************************************************/
+/** @defgroup DACEx_Private DACEx Private
+  * @{
+  */
+/**
+  * @}
+  */
+/**************************************************************/
+
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
+#endif /* !STM32L011xx && !STM32L021xx && !STM32L031xx && !STM32L041xx && !STM32L051xx && !STM32L061xx && !STM32L071xx && !STM32L081xx*/
   
 #ifdef __cplusplus
 }
 #endif
 
-
-#endif /*__STM32L0xx_HAL_DAC_H */
+#endif /*__STM32L0xx_HAL_DAC_EX_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+

@@ -35,7 +35,6 @@
 								</option>
 								<option id="com.atollic.truestudio.as.general.incpath.1065945382" name="Include path" superClass="com.atollic.truestudio.as.general.incpath" valueType="includePath">
 									<listOptionValue builtIn="false" value="../src"/>
-									<listOptionValue builtIn="false" value="../Utilities/STM32L053_Nucleo"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/CMSIS/Include"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/STM32L0xx_HAL_Driver/Inc"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/CMSIS/Device/ST/STM32L0xx/Include"/>
@@ -50,7 +49,6 @@
 								</option>
 								<option id="com.atollic.truestudio.gcc.directories.select.1320715947" name="Include path" superClass="com.atollic.truestudio.gcc.directories.select" valueType="includePath">
 									<listOptionValue builtIn="false" value="../src"/>
-									<listOptionValue builtIn="false" value="../Utilities/STM32L053_Nucleo"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/CMSIS/Include"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/CMSIS/Device/ST/STM32L0xx/Include"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/STM32L0xx_HAL_Driver/Inc"/>
@@ -114,7 +112,6 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Utilities"/>
 						<entry excluding="_ST_Drivers" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src/_ST_Drivers"/>
 					</sourceEntries>
@@ -154,7 +151,6 @@
 								</option>
 								<option id="com.atollic.truestudio.as.general.incpath.787853893" name="Include path" superClass="com.atollic.truestudio.as.general.incpath" valueType="includePath">
 									<listOptionValue builtIn="false" value="../src"/>
-									<listOptionValue builtIn="false" value="../Utilities/STM32L053_Nucleo"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/CMSIS/Include"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/CMSIS/Device/ST/STM32L0xx/Include"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/STM32L0xx_HAL_Driver/Inc"/>
@@ -169,7 +165,6 @@
 								</option>
 								<option id="com.atollic.truestudio.gcc.directories.select.553292337" name="Include path" superClass="com.atollic.truestudio.gcc.directories.select" valueType="includePath">
 									<listOptionValue builtIn="false" value="../src"/>
-									<listOptionValue builtIn="false" value="../Utilities/STM32L053_Nucleo"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/CMSIS/Include"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/STM32L0xx_HAL_Driver/Inc"/>
 									<listOptionValue builtIn="false" value="../src/_ST_Drivers/CMSIS/Device/ST/STM32L0xx/Include"/>
@@ -233,7 +228,6 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Utilities"/>
 						<entry excluding="_ST_Drivers" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src/_ST_Drivers"/>
 					</sourceEntries>
@@ -246,7 +240,14 @@
 		<project id="CentralUnit.com.atollic.truestudio.exe.1959958733" name="Executable" projectType="com.atollic.truestudio.exe"/>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
-	<storageModule moduleId="refreshScope"/>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="Debug">
+			<resource resourceType="PROJECT" workspacePath="/CentralUnit"/>
+		</configuration>
+		<configuration configurationName="Release">
+			<resource resourceType="PROJECT" workspacePath="/CentralUnit"/>
+		</configuration>
+	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
