@@ -9,8 +9,8 @@
 
 
 #include <stm32l0xx_hal.h>
-#include "main.h"
-#include "System/hard.h"
+#include "Main.h"
+#include "System/Hard.h"
 
 
 static void main_AliveLedInit( void ) ;   //
