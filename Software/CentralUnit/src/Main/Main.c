@@ -9,6 +9,7 @@
 
 
 #include <stm32l0xx_hal.h>
+#include "Define.h"
 #include "Main.h"
 #include "System/Hard.h"
 

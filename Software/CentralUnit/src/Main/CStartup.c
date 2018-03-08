@@ -10,6 +10,7 @@
 
 #include <stm32l0xx.h>
 #include <stm32l0xx_hal.h>
+#include "Define.h"
 
 
 /*----------------------------------------------------------------------------*/
@@ -20,7 +21,7 @@
 	/* to relocate your  vector Table in Internal SRAM. */
 
 /* #define VECT_TAB_SRAM */
-#define VECT_TAB_OFFSET  0x00          /* Vector Table base offset field.
+#define VECT_TAB_OFFSET  0x00          /* Vector Table base offset field. */
 													/* Must be a multiple of 0x200. */
 
 

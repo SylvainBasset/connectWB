@@ -1,15 +1,13 @@
-/**
-  ******************************************************************************
-  * @file    GPIO/GPIO_IOToggle/Inc/main.h 
-  * @author  MCD Application Team
-  * @version V1.0.0
-  * @date    24-April-2014
-  * @brief   Header for main.c module
-  ******************************************************************************
-*/
+/******************************************************************************/
+/*                                                                            */
+/*                                   Main.h                                   */
+/*                                                                            */
+/******************************************************************************/
+/* Created on:    8 mars 2018   Sylvain BASSET        Version 0.1             */
+/* Modifications:                                                             */
+/******************************************************************************/
 
-/* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __MAIN_H
+#ifndef __MAIN_H                       /* to prevent recursive inclusion */
 #define __MAIN_H
 
 
