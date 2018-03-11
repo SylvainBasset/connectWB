@@ -11,16 +11,23 @@
 #include <stm32l0xx_hal.h>
 #include "Define.h"
 #include "Main.h"
+#include "System.h"
 #include "System/Hard.h"
 
 
-static void main_AliveLedInit( void ) ;   //
-static void BSP_LED_On( void ) ;     //
-static void BSP_LED_Toggle( void ) ; //
+/*----------------------------------------------------------------------------*/
+/* Prototypes                                                                 */
+/*----------------------------------------------------------------------------*/
+
+static void main_LedInit( void ) ;
+static void main_LedOn( void ) ;
+static void main_LedToggle( void ) ;
+
 
 /*----------------------------------------------------------------------------*/
 /* Main program                                                               */
 /*----------------------------------------------------------------------------*/
+
 int main( void )
 {
       /* Note: The call to HAL_Init() perform these oprations:               */
@@ -33,27 +40,27 @@ int main( void )
       /*	- Low Level Initialization                                          */
 
 
-   HAL_Init();                         /* STM32L0xx HAL library initialization */
+   HAL_Init() ;                        /* STM32L0xx HAL library initialization */
 
-   main_AliveLedInit();                /* Configure LED2 */
+   main_LedInit() ;                    /* Configure LED2 */
 
-   BSP_LED_On();                       /* Turn on LED2 */
+   main_LedOn() ;                      /* Turn on LED2 */
 
-   BSP_LED_Toggle();                   /* Toggle LED2 */
-
-   volatile int i ;
-   for( i = 0 ; i < 10000000 ; i++ ) {}
-
-   while (1)                           /* Infinite loop */
+   while ( TRUE )                      /* Infinite loop */
    {
-      BSP_LED_Toggle();                /* Toggle LED2 */
-      HAL_Delay(500);                   /* Insert 50 ms delay */
+      main_LedToggle() ;               /* Toggle LED2 */
+      HAL_Delay( 500 ) ;               /* 500 ms delay */
    }
 }
 
+
+/*============================================================================*/
+
 /*----------------------------------------------------------------------------*/
-//
-static void main_AliveLedInit( void )
+/* Main led initialization                                                    */
+/*----------------------------------------------------------------------------*/
+
+static void main_LedInit( void )
 {
    GPIO_InitTypeDef  GPIO_InitStruct ;
 
@@ -68,16 +75,22 @@ static void main_AliveLedInit( void )
    //timer init
 }
 
+
 /*----------------------------------------------------------------------------*/
-//
-static void BSP_LED_On( void )
+/* Main led On                                                                */
+/*----------------------------------------------------------------------------*/
+
+static void main_LedOn( void )
 {
    HAL_GPIO_WritePin( LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_SET ) ;
 }
 
+
 /*----------------------------------------------------------------------------*/
-//
-static void BSP_LED_Toggle( void )
+/* Main led Toggle                                                            */
+/*----------------------------------------------------------------------------*/
+
+static void main_LedToggle( void )
 {
    HAL_GPIO_TogglePin( LED2_GPIO_PORT, LED2_PIN ) ;
 }

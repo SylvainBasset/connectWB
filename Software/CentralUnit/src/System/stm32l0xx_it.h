@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file    GPIO/GPIO_IOToggle/Inc/stm32l0xx_it.h 
+  * @file    GPIO/GPIO_IOToggle/Inc/stm32l0xx_it.h
   * @author  MCD Application Team
   * @version V1.0.0
   * @date    24-April-2014
@@ -14,7 +14,7 @@
 
 #ifdef __cplusplus
  extern "C" {
-#endif 
+#endif
 
 /* Includes ------------------------------------------------------------------*/
 /* Exported types ------------------------------------------------------------*/
@@ -22,11 +22,6 @@
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 
-void NMI_Handler(void);
-void HardFault_Handler(void);
-void SVC_Handler(void);
-void DebugMon_Handler(void);
-void PendSV_Handler(void);
 void SysTick_Handler(void);
 #ifdef __cplusplus
 }

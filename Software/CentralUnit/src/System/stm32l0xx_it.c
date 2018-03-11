@@ -12,60 +12,14 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "System/stm32l0xx_it.h"
-
+#include <stm32l0xx_hal.h>
 
 /******************************************************************************/
 /*            Cortex-M0+ Processor Exceptions Handlers                         */
 /******************************************************************************/
 
-/**
-  * @brief   This function handles NMI exception.
-  * @param  None
-  * @retval None
-  */
-void NMI_Handler(void)
-{
-}
 
-/**
-  * @brief  This function handles Hard Fault exception.
-  * @param  None
-  * @retval None
-  */
-void HardFault_Handler(void)
-{
-  /* Go to infinite loop when Hard Fault exception occurs */
-  while (1)
-  {
-  }
-}
 
-/**
-  * @brief  This function handles SVCall exception.
-  * @param  None
-  * @retval None
-  */
-void SVC_Handler(void)
-{
-}
-
-/**
-  * @brief  This function handles Debug Monitor exception.
-  * @param  None
-  * @retval None
-  */
-void DebugMon_Handler(void)
-{
-}
-
-/**
-  * @brief  This function handles PendSVC exception.
-  * @param  None
-  * @retval None
-  */
-void PendSV_Handler(void)
-{
-}
 
 /**
   * @brief  This function handles SysTick Handler.
