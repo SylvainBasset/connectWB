@@ -8,34 +8,40 @@
 /******************************************************************************/
 
 
+#ifndef __HARD_H                     /* to prevent recursive inclusion */
+#define __HARD_H
+
 #include "stm32l0xx_hal.h"
 
 
 /*----------------------------------------------------------------------------*/
-/* IO pins definitions                                                        */
+/* IOs pins definitions                                                       */
 /*----------------------------------------------------------------------------*/
 
-                                       /* Led from nucleo example */
-#define LED2_PIN                       GPIO_PIN_5
-#define LED2_GPIO_PORT                 GPIOA
-#define LED2_GPIO_CLK_ENABLE()         __GPIOA_CLK_ENABLE()
-#define LED2_GPIO_CLK_DISABLE()        __GPIOA_CLK_DISABLE()
-
-
-/*----------------------------------------------------------------------------*/
-/* IRQ Priority                                                               */
-/*----------------------------------------------------------------------------*/
-
-#define TIMLED_IRQPri           3
+                                       /* User Led from nucleo board (LD2) */
+#define SYSLED_PIN                  GPIO_PIN_5
+#define SYSLED_GPIO_PORT            GPIOA
+#define SYSLED_GPIO_CLK_ENABLE()    __GPIOA_CLK_ENABLE()
+#define SYSLED_GPIO_CLK_DISABLE()   __GPIOA_CLK_DISABLE()
 
 
 /*----------------------------------------------------------------------------*/
-/* IRQ Timer example                                                          */
+/* IRQs Priorities                                                            */
 /*----------------------------------------------------------------------------*/
 
-#define TIMLED                  TIM2
-#define TIMLED_CLK_ENABLE()     __TIM2_CLK_ENABLE()
-#define TIMLED_CLK_DISABLE()    __TIM2_CLK_DISABLE()
+#define TIMSYSLED_IRQPri   3           /* system Led timer IRQ priority */
 
-#define TIMLED_IRQn             TIM2_IRQn
-#define TIMLED_IRQHandler       TIM2_IRQHandler
+
+/*----------------------------------------------------------------------------*/
+/* IRQ definitions for system LED Timer (example)                             */
+/*----------------------------------------------------------------------------*/
+
+#define TIMSYSLED    TIM6              /* timer driver for system LED */
+                                       /* system Led timer clock enable/disable */
+#define TIMSYSLED_CLK_ENABLE()     __TIM6_CLK_ENABLE()
+#define TIMSYSLED_CLK_DISABLE()    __TIM6_CLK_DISABLE()
+
+#define TIMSYSLED_IRQn             TIM6_IRQn
+#define TIMSYSLED_IRQHandler       TIM6_DAC_IRQHandler
+
+#endif /* __HARD_H */

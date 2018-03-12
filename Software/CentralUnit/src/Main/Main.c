@@ -21,7 +21,6 @@
 
 static void main_LedInit( void ) ;
 static void main_LedOn( void ) ;
-static void main_LedToggle( void ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -39,17 +38,14 @@ int main( void )
       /*   PPP_TIMEOUT_VALUEs are defined and handled in milliseconds basis. */
       /*	- Low Level Initialization                                          */
 
-
    HAL_Init() ;                        /* STM32L0xx HAL library initialization */
 
-   main_LedInit() ;                    /* Configure LED2 */
+   main_LedInit() ;                    /* Configure system LED */
 
-   main_LedOn() ;                      /* Turn on LED2 */
+   main_LedOn() ;                      /* Turn on system LED */
 
    while ( TRUE )                      /* Infinite loop */
    {
-      main_LedToggle() ;               /* Toggle LED2 */
-      HAL_Delay( 500 ) ;               /* 500 ms delay */
    }
 }
 
@@ -57,40 +53,69 @@ int main( void )
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-/* Main led initialization                                                    */
+/* System led initialization                                                    */
 /*----------------------------------------------------------------------------*/
 
 static void main_LedInit( void )
 {
-   GPIO_InitTypeDef  GPIO_InitStruct ;
+   GPIO_InitTypeDef sGpioInit ;
+   TIM_HandleTypeDef hTimSysLed ;
 
-   LED2_GPIO_CLK_ENABLE() ;            /* Enable the GPIO_LED Clock */
-                                       /* Configure the GPIO_LED pin */
-   GPIO_InitStruct.Pin = LED2_PIN ;
-   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP ;
-   GPIO_InitStruct.Pull = GPIO_PULLUP ;
-   GPIO_InitStruct.Speed = GPIO_SPEED_FAST ;
-   HAL_GPIO_Init( LED2_GPIO_PORT, &GPIO_InitStruct ) ;
+      /* Note : it is not necessary to keep the System LED timer */
+      /* handle <hTimSysLed> as global variable, because it is   */
+      /* not reused after timer initialization.                  */
 
-   //timer init
+   SYSLED_GPIO_CLK_ENABLE() ;          /* enable the GPIO_LED Clock */
+                                       /* configure SYSLED_PIN pin as output push-pull */
+   sGpioInit.Pin = SYSLED_PIN ;
+   sGpioInit.Mode = GPIO_MODE_OUTPUT_PP ;
+   sGpioInit.Pull = GPIO_PULLUP ;
+   sGpioInit.Speed = GPIO_SPEED_FAST ;
+   HAL_GPIO_Init( SYSLED_GPIO_PORT, &sGpioInit ) ;
+
+
+   TIMSYSLED_CLK_ENABLE() ;            /* enable clock for system led timer */
+
+   hTimSysLed.Instance = TIMSYSLED ;   /* set timer instance */
+                                       /* set counter incr frequency to 1 ms */
+   hTimSysLed.Init.Prescaler     = ( SystemCoreClock / 1000lu ) - 1lu ;
+                                       /* set period to 500 ms */
+   hTimSysLed.Init.Period        = 500 - 1 ;
+   hTimSysLed.Init.ClockDivision = 0 ;
+   hTimSysLed.Init.CounterMode   = TIM_COUNTERMODE_UP ;
+                                       /* set timer configuration */
+   if ( HAL_TIM_Base_Init( &hTimSysLed ) != HAL_OK )
+   {
+	   ERR_FATAL() ;
+   }
+                                       /* set the TIMx priority */
+   HAL_NVIC_SetPriority( TIMSYSLED_IRQn, 3, 0 ) ;
+                                       /* enable the TIMx global Interrupt */
+   HAL_NVIC_EnableIRQ( TIMSYSLED_IRQn ) ;
+                                       /* start timer and enble IT */
+   HAL_TIM_Base_Start_IT( &hTimSysLed ) ;
 }
 
 
 /*----------------------------------------------------------------------------*/
-/* Main led On                                                                */
+/* Set system led On                                                          */
 /*----------------------------------------------------------------------------*/
 
 static void main_LedOn( void )
 {
-   HAL_GPIO_WritePin( LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_SET ) ;
+                                       /* activate system LED pin */
+   HAL_GPIO_WritePin( SYSLED_GPIO_PORT, SYSLED_PIN, GPIO_PIN_SET ) ;
 }
 
 
 /*----------------------------------------------------------------------------*/
-/* Main led Toggle                                                            */
+/* IRQ system LED Timer                                                       */
 /*----------------------------------------------------------------------------*/
 
-static void main_LedToggle( void )
+void TIMSYSLED_IRQHandler( void )
 {
-   HAL_GPIO_TogglePin( LED2_GPIO_PORT, LED2_PIN ) ;
+                                       /* toggle system LED pin */
+   HAL_GPIO_TogglePin( SYSLED_GPIO_PORT, SYSLED_PIN ) ;
+
+   TIMSYSLED->SR = ~TIM_IT_UPDATE ;    /* IRQ acknowledgment */
 }

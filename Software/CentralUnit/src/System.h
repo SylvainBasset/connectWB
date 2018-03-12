@@ -8,15 +8,18 @@
 /******************************************************************************/
 
 
+#ifndef __SYSTEM_H                     /* to prevent recursive inclusion */
+#define __SYSTEM_H
+
 
 /*----------------------------------------------------------------------------*/
 /* Error.c                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define FATAL_ERR() \
+#define ERR_FATAL() \
    err_FatalError()
 
-#define FATAL_ERR_IF( cond ) \
+#define ERR_FATAL_IF( cond ) \
    if ( cond )             \
    {                       \
       err_FatalError() ;   \
@@ -30,3 +33,5 @@ void HardFault_Handler( void ) ;
 void SVC_Handler( void ) ;
 void PendSV_Handler( void ) ;
 void DebugMon_Handler( void ) ;
+
+#endif /* __SYSTEM_H */

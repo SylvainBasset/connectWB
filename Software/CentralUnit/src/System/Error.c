@@ -22,21 +22,21 @@
 
 void err_FatalError( void )
 {
-   GPIO_InitTypeDef  GPIO_InitStruct ;
+   GPIO_InitTypeDef sGpioInit ;
 
-   LED2_GPIO_CLK_ENABLE() ;            /* Enable the GPIO_LED Clock */
-                                       /* Configure the LED2_PIN pin as output */
-   GPIO_InitStruct.Pin = LED2_PIN ;
-   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP ;
-   GPIO_InitStruct.Pull = GPIO_PULLUP ;
-   GPIO_InitStruct.Speed = GPIO_SPEED_FAST ;
-   HAL_GPIO_Init( LED2_GPIO_PORT, &GPIO_InitStruct ) ;
-                                       /* LED2 on */
-   HAL_GPIO_WritePin( LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_SET ) ;
+   SYSLED_GPIO_CLK_ENABLE() ;          /* Enable the GPIO_LED Clock */
+                                       /* Configure SYSLED_PIN pin as output push-pull */
+   sGpioInit.Pin = SYSLED_PIN ;
+   sGpioInit.Mode = GPIO_MODE_OUTPUT_PP ;
+   sGpioInit.Pull = GPIO_PULLUP ;
+   sGpioInit.Speed = GPIO_SPEED_FAST ;
+   HAL_GPIO_Init( SYSLED_GPIO_PORT, &sGpioInit ) ;
+                                       /* system Led on */
+   HAL_GPIO_WritePin( SYSLED_GPIO_PORT, SYSLED_PIN, GPIO_PIN_SET ) ;
 
    while( TRUE )                       /* infinite loop */
    {
-      HAL_GPIO_TogglePin( LED2_GPIO_PORT, LED2_PIN ) ;
+      HAL_GPIO_TogglePin( SYSLED_GPIO_PORT, SYSLED_PIN ) ;
       HAL_Delay( 50 ) ;                /* 50 ms delay */
    }
 }
