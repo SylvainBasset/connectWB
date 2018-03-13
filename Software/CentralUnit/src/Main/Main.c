@@ -29,6 +29,8 @@ static void main_LedOn( void ) ;
 
 int main( void )
 {
+   DWORD dwTempo ;
+
       /* Note: The call to HAL_Init() perform these oprations:               */
       /* - Configure the Flash prefetch, Flash preread and Buffer caches     */
       /* - Systick timer is configured by default as source of time base,    */
@@ -44,8 +46,14 @@ int main( void )
 
    main_LedOn() ;                      /* Turn on system LED */
 
+   tim_StartSecTmp( &dwTempo ) ;
+
    while ( TRUE )                      /* Infinite loop */
-   {
+   {                                   // test tempo
+      if ( tim_IsEndSecTmp( &dwTempo, 10 ) )
+      {
+         ERR_FATAL() ;                 // test error
+      }
    }
 }
 
@@ -53,7 +61,7 @@ int main( void )
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-/* System led initialization                                                    */
+/* System led initialization                                                  */
 /*----------------------------------------------------------------------------*/
 
 static void main_LedInit( void )

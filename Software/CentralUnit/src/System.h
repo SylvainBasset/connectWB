@@ -20,18 +20,32 @@
    err_FatalError()
 
 #define ERR_FATAL_IF( cond ) \
-   if ( cond )             \
-   {                       \
-      err_FatalError() ;   \
+   if ( cond )               \
+   {                         \
+      err_FatalError() ;     \
    }
 
 
 void err_FatalError( void ) ;
 
-void NMI_Handler( void ) ;
-void HardFault_Handler( void ) ;
-void SVC_Handler( void ) ;
-void PendSV_Handler( void ) ;
-void DebugMon_Handler( void ) ;
+//void NMI_Handler( void ) ;
+//void HardFault_Handler( void ) ;
+//void SVC_Handler( void ) ;
+//void PendSV_Handler( void ) ;
+//void DebugMon_Handler( void ) ;
+
+
+/*----------------------------------------------------------------------------*/
+/* Timer.c                                                                    */
+/*----------------------------------------------------------------------------*/
+
+void tim_StartMsTmp( DWORD* io_pdwTempo ) ;
+void tim_StartSecTmp( DWORD* io_pdwTempo ) ;
+
+BOOL tim_IsEndMsTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
+BOOL tim_IsEndSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
+
+DWORD tim_GetRemainMsTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
+DWORD tim_GetRemainSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
 
 #endif /* __SYSTEM_H */
