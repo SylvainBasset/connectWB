@@ -1,0 +1,8 @@
+- Ajout note pour ordre accès au registres de la RTC et lecture
+- Vérifier si pas problème similaire avec l'écriture
+
+- Tester le passage en heure été hiver
+- Affiner possibilité de sauvegarde de l'heure (Absence, sauvegarde eeprom, ajout capa)
+- Unifier la gestion des init/handlers entre RTC et timer
+
+- Finaliser module

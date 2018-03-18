@@ -27,7 +27,7 @@
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
-static DWORD tim_ComRemainTmp( DWORD* io_pdwTempo, DWORD i_dwDelay, BOOL i_bIsMs ) ;
+static DWORD tim_ComRemainTmp( DWORD * io_pdwTempo, DWORD i_dwDelay, BOOL i_bIsMs ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -41,7 +41,7 @@ static DWORD l_dwSecCnt ;
 /* Start a millisecond-based temporisation                                    */
 /*----------------------------------------------------------------------------*/
 
-void tim_StartMsTmp( DWORD* io_pdwTempo )
+void tim_StartMsTmp( DWORD * io_pdwTempo )
 {
    *io_pdwTempo = HAL_GetTick() ;      /* get millisecond counter value */
    *io_pdwTempo |= TMP_START_FLAG ;    /* add flag to indicate tempo is started */
@@ -52,7 +52,7 @@ void tim_StartMsTmp( DWORD* io_pdwTempo )
 /* Start a second-based temporisation                                         */
 /*----------------------------------------------------------------------------*/
 
-void tim_StartSecTmp( DWORD* io_pdwTempo )
+void tim_StartSecTmp( DWORD * io_pdwTempo )
 {
    *io_pdwTempo = l_dwSecCnt ;          /* get second counter value */
    *io_pdwTempo |= TMP_START_FLAG ;     /* add flag to indicate tempo is started */
@@ -63,7 +63,7 @@ void tim_StartSecTmp( DWORD* io_pdwTempo )
 /* Test the end of a millisecond-based temporisation                          */
 /*----------------------------------------------------------------------------*/
 
-BOOL tim_IsEndMsTmp( DWORD* io_pdwTempo, DWORD i_dwDelay )
+BOOL tim_IsEndMsTmp( DWORD * io_pdwTempo, DWORD i_dwDelay )
 {
    BOOL bRet ;
 
@@ -84,7 +84,7 @@ BOOL tim_IsEndMsTmp( DWORD* io_pdwTempo, DWORD i_dwDelay )
 /* Test the end of a second-based temporisation                               */
 /*----------------------------------------------------------------------------*/
 
-BOOL tim_IsEndSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay )
+BOOL tim_IsEndSecTmp( DWORD * io_pdwTempo, DWORD i_dwDelay )
 {
    BOOL bRet ;
 
@@ -105,7 +105,7 @@ BOOL tim_IsEndSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay )
 /* Get remain time of a millisecond-based temporisation                       */
 /*----------------------------------------------------------------------------*/
 
-DWORD tim_GetRemainMsTmp( DWORD* io_pdwTempo, DWORD i_dwDelay )
+DWORD tim_GetRemainMsTmp( DWORD * io_pdwTempo, DWORD i_dwDelay )
 {
    DWORD dwRemainTime ;
                                        /* get remain value */
@@ -119,7 +119,7 @@ DWORD tim_GetRemainMsTmp( DWORD* io_pdwTempo, DWORD i_dwDelay )
 /* Get remain time of a second-based temporisation                            */
 /*----------------------------------------------------------------------------*/
 
-DWORD tim_GetRemainSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay )
+DWORD tim_GetRemainSecTmp( DWORD * io_pdwTempo, DWORD i_dwDelay )
 {
    DWORD dwRemainTime ;
                                        /* get remain value */
@@ -135,7 +135,7 @@ DWORD tim_GetRemainSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay )
 /* Common for remain time calculation                                         */
 /*----------------------------------------------------------------------------*/
 
-static DWORD tim_ComRemainTmp( DWORD* io_pdwTempo, DWORD i_dwDelay, BOOL i_bIsMs )
+static DWORD tim_ComRemainTmp( DWORD * io_pdwTempo, DWORD i_dwDelay, BOOL i_bIsMs )
 {
    DWORD dwRet ;
    DWORD dwCurTime  ;

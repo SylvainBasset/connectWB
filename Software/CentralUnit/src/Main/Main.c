@@ -29,7 +29,13 @@ static void main_LedOn( void ) ;
 
 int main( void )
 {
-   DWORD dwTempo ;
+   DWORD dwTmp ;
+   DateTime sReadDT1 ;
+   DateTime sReadDT2 ;
+   DateTime sReadDT3 ;
+   DWORD byVal1 ;
+   DWORD byVal2 ;
+   DWORD byVal3 ;
 
       /* Note: The call to HAL_Init() perform these oprations:               */
       /* - Configure the Flash prefetch, Flash preread and Buffer caches     */
@@ -42,18 +48,36 @@ int main( void )
 
    HAL_Init() ;                        /* STM32L0xx HAL library initialization */
 
+   clk_Init() ;
+
    main_LedInit() ;                    /* Configure system LED */
 
    main_LedOn() ;                      /* Turn on system LED */
 
-   tim_StartSecTmp( &dwTempo ) ;
-
    while ( TRUE )                      /* Infinite loop */
-   {                                   // test tempo
-      if ( tim_IsEndSecTmp( &dwTempo, 10 ) )
-      {
-         ERR_FATAL() ;                 // test error
-      }
+   {
+
+      tim_StartMsTmp( &dwTmp ) ;
+      while ( ! tim_IsEndMsTmp( &dwTmp, 3000 ) ) ;
+      clk_GetDateTime( &sReadDT1 ) ;
+      byVal1 = sReadDT1.bySeconds ;
+
+      tim_StartMsTmp( &dwTmp ) ;
+      while ( ! tim_IsEndMsTmp( &dwTmp, 3000 ) ) ;
+      clk_GetDateTime( &sReadDT2 ) ;
+      byVal2 = sReadDT2.bySeconds ;
+
+      tim_StartMsTmp( &dwTmp ) ;
+      while ( ! tim_IsEndMsTmp( &dwTmp, 3000 ) ) ;
+      clk_GetDateTime( &sReadDT3 ) ;
+      byVal3 = sReadDT3.bySeconds ;
+
+      volatile int i ;
+      i++ ;
+
+      REFPARM(byVal1) ;
+      REFPARM(byVal2) ;
+      REFPARM(byVal3) ;
    }
 }
 
@@ -91,6 +115,9 @@ static void main_LedInit( void )
    hTimSysLed.Init.Period        = 500 - 1 ;
    hTimSysLed.Init.ClockDivision = 0 ;
    hTimSysLed.Init.CounterMode   = TIM_COUNTERMODE_UP ;
+   hTimSysLed.Lock = HAL_UNLOCKED ;
+   hTimSysLed.State = HAL_TIM_STATE_RESET ;
+
                                        /* set timer configuration */
    if ( HAL_TIM_Base_Init( &hTimSysLed ) != HAL_OK )
    {

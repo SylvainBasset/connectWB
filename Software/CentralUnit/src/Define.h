@@ -12,6 +12,9 @@
 #define __DEFINE_H
 
 
+#include <string.h>
+
+
 /*----------------------------------------------------------------------------*/
 /* Standard types                                                             */
 /*----------------------------------------------------------------------------*/
@@ -128,5 +131,7 @@ typedef BYTE RESULT ;               /* r   unsigned 8 bits for execution
 #define MAX( Value1, Value2 ) \
    ( ( (Value1) > (Value2) ) ? (Value1) : (Value2) )
 
+#define REFPARM( Value ) \
+   if ( Value ) {} ;
 
 #endif /* __DEFINE_H */

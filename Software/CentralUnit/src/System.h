@@ -48,4 +48,24 @@ BOOL tim_IsEndSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
 DWORD tim_GetRemainMsTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
 DWORD tim_GetRemainSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
 
+
+/*----------------------------------------------------------------------------*/
+/* Clock.c                                                                    */
+/*----------------------------------------------------------------------------*/
+
+
+typedef struct
+{
+   BYTE byYear ;
+   BYTE byMonth ;
+   BYTE byDate ;
+   BYTE byHours;
+   BYTE byMinutes;
+   BYTE bySeconds;
+} DateTime ;
+
+void clk_Init( void ) ;
+void clk_GetDateTime( DateTime * o_psDateTime ) ;
+void clk_SetDateTime( DateTime C* i_psDateTime ) ;
+
 #endif /* __SYSTEM_H */
