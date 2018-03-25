@@ -89,7 +89,7 @@ typedef BYTE RESULT ;               /* r   unsigned 8 bits for execution
 #define NULL   0                 /* null pointer */
 #endif
 
-#define C const                  /* constant keyword */
+//#define C   const                /* constant keyword */
 
                                  /* elements number of <Array> */
 #define ARRAY_SIZE( Array )  ( sizeof(Array) / sizeof((Array)[0]) )

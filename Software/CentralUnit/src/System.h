@@ -12,6 +12,12 @@
 #define __SYSTEM_H
 
 
+#define HSYS_CLK   32000000llu
+#define AHB_CLK    32000000llu
+#define APB1_CLK   32000000llu
+#define APB2_CLK   32000000llu
+
+
 /*----------------------------------------------------------------------------*/
 /* Error.c                                                                    */
 /*----------------------------------------------------------------------------*/
@@ -53,19 +59,20 @@ DWORD tim_GetRemainSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
 /* Clock.c                                                                    */
 /*----------------------------------------------------------------------------*/
 
-
 typedef struct
 {
    BYTE byYear ;
    BYTE byMonth ;
-   BYTE byDate ;
-   BYTE byHours;
-   BYTE byMinutes;
-   BYTE bySeconds;
-} DateTime ;
+   BYTE byDays ;
+   BYTE byHours ;
+   BYTE byMinutes ;
+   BYTE bySeconds ;
+} s_DateTime ;
 
 void clk_Init( void ) ;
-void clk_GetDateTime( DateTime * o_psDateTime ) ;
-void clk_SetDateTime( DateTime C* i_psDateTime ) ;
+BOOL clk_IsDateTimeLost( void ) ;
+void clk_GetDateTime( s_DateTime * o_psDateTime ) ;
+void clk_SetDateTime( s_DateTime const * i_psDateTime ) ;
+void clk_TaskCyc( void ) ;
 
 #endif /* __SYSTEM_H */

@@ -1,8 +1,2 @@
-- Ajout note pour ordre accès au registres de la RTC et lecture
-- Vérifier si pas problème similaire avec l'écriture
-
-- Tester le passage en heure été hiver
-- Affiner possibilité de sauvegarde de l'heure (Absence, sauvegarde eeprom, ajout capa)
-- Unifier la gestion des init/handlers entre RTC et timer
-
-- Finaliser module
+- ajout capa sur schema elec (uniquement sur partie backup ou général)
+- vérification si besoin de plus de tests si les appels à la HAL

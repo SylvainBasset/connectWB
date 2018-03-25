@@ -16,6 +16,40 @@
 
 
 /*----------------------------------------------------------------------------*/
+/* Defines                                                                    */
+/*----------------------------------------------------------------------------*/
+
+
+#define TIMSYSLED_FREQ_DIV    1000llu  /* set counter incr frequency to 1 ms */
+#define TIMSYSLED_PERIOD      500llu   /* set period to 500 ms*/
+
+                                       /* timer initialisation constant */
+TIM_Base_InitTypeDef const k_sTimSysLedInit =
+{
+   .Prescaler     = ( HSYS_CLK / TIMSYSLED_FREQ_DIV ) - 1lu,
+   .Period        = TIMSYSLED_PERIOD - 1,
+   .ClockDivision = 0,
+   .CounterMode   = TIM_COUNTERMODE_UP,
+} ;
+                                       /* sysled timer set init handle macro */
+#define SET_TIMSYSLED_HANDLE_INIT( handle )                 \
+   handle.Instance = TIMSYSLED ;                            \
+   handle.State = HAL_TIM_STATE_READY ;                     \
+   memcpy( &handle.Init, &k_sTimSysLedInit, sizeof(handle.Init) )
+
+                                       /* system led gpio constant */
+GPIO_InitTypeDef const k_sSysLedGpioInit =
+{
+   .Pin = SYSLED_PIN,
+   .Mode = GPIO_MODE_OUTPUT_PP,
+   .Pull = GPIO_PULLUP,
+   .Speed = GPIO_SPEED_FAST,
+} ;
+
+#define CLK_TASK_PER    100
+
+
+/*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
@@ -30,12 +64,9 @@ static void main_LedOn( void ) ;
 int main( void )
 {
    DWORD dwTmp ;
-   DateTime sReadDT1 ;
-   DateTime sReadDT2 ;
-   DateTime sReadDT3 ;
-   DWORD byVal1 ;
-   DWORD byVal2 ;
-   DWORD byVal3 ;
+   DWORD dwTaskTmp ;
+   s_DateTime sSetDT ;
+   s_DateTime sReadDT ;
 
       /* Note: The call to HAL_Init() perform these oprations:               */
       /* - Configure the Flash prefetch, Flash preread and Buffer caches     */
@@ -46,6 +77,7 @@ int main( void )
       /*   PPP_TIMEOUT_VALUEs are defined and handled in milliseconds basis. */
       /*	- Low Level Initialization                                          */
 
+
    HAL_Init() ;                        /* STM32L0xx HAL library initialization */
 
    clk_Init() ;
@@ -54,30 +86,31 @@ int main( void )
 
    main_LedOn() ;                      /* Turn on system LED */
 
+   sSetDT.byYear = 18 ;
+   sSetDT.byMonth = 10 ;
+   sSetDT.byDays = 28 ;
+   sSetDT.byHours = 2 ;
+   sSetDT.byMinutes = 59 ;
+   sSetDT.bySeconds = 56 ;
+   clk_SetDateTime( &sSetDT ) ;
+
+   tim_StartMsTmp( &dwTmp ) ;
+
    while ( TRUE )                      /* Infinite loop */
    {
+      clk_TaskCyc() ;
 
-      tim_StartMsTmp( &dwTmp ) ;
-      while ( ! tim_IsEndMsTmp( &dwTmp, 3000 ) ) ;
-      clk_GetDateTime( &sReadDT1 ) ;
-      byVal1 = sReadDT1.bySeconds ;
+      tim_StartMsTmp( &dwTaskTmp ) ;
+      while ( ! tim_IsEndMsTmp( &dwTaskTmp, 10 ) ) ;
 
-      tim_StartMsTmp( &dwTmp ) ;
-      while ( ! tim_IsEndMsTmp( &dwTmp, 3000 ) ) ;
-      clk_GetDateTime( &sReadDT2 ) ;
-      byVal2 = sReadDT2.bySeconds ;
+      if ( tim_IsEndMsTmp( &dwTmp, 6000 ) )
+      {
+         clk_GetDateTime( &sReadDT ) ;
 
-      tim_StartMsTmp( &dwTmp ) ;
-      while ( ! tim_IsEndMsTmp( &dwTmp, 3000 ) ) ;
-      clk_GetDateTime( &sReadDT3 ) ;
-      byVal3 = sReadDT3.bySeconds ;
-
-      volatile int i ;
-      i++ ;
-
-      REFPARM(byVal1) ;
-      REFPARM(byVal2) ;
-      REFPARM(byVal3) ;
+         BYTE val ;
+         val = sReadDT.byHours ;
+         REFPARM(val) ;
+      }
    }
 }
 
@@ -91,7 +124,7 @@ int main( void )
 static void main_LedInit( void )
 {
    GPIO_InitTypeDef sGpioInit ;
-   TIM_HandleTypeDef hTimSysLed ;
+   TIM_HandleTypeDef sTimSysLed ;
 
       /* Note : it is not necessary to keep the System LED timer */
       /* handle <hTimSysLed> as global variable, because it is   */
@@ -99,27 +132,16 @@ static void main_LedInit( void )
 
    SYSLED_GPIO_CLK_ENABLE() ;          /* enable the GPIO_LED Clock */
                                        /* configure SYSLED_PIN pin as output push-pull */
-   sGpioInit.Pin = SYSLED_PIN ;
-   sGpioInit.Mode = GPIO_MODE_OUTPUT_PP ;
-   sGpioInit.Pull = GPIO_PULLUP ;
-   sGpioInit.Speed = GPIO_SPEED_FAST ;
+
+   memcpy( &sGpioInit, &k_sSysLedGpioInit, sizeof(sGpioInit) ) ;
    HAL_GPIO_Init( SYSLED_GPIO_PORT, &sGpioInit ) ;
 
 
    TIMSYSLED_CLK_ENABLE() ;            /* enable clock for system led timer */
 
-   hTimSysLed.Instance = TIMSYSLED ;   /* set timer instance */
-                                       /* set counter incr frequency to 1 ms */
-   hTimSysLed.Init.Prescaler     = ( SystemCoreClock / 1000lu ) - 1lu ;
-                                       /* set period to 500 ms */
-   hTimSysLed.Init.Period        = 500 - 1 ;
-   hTimSysLed.Init.ClockDivision = 0 ;
-   hTimSysLed.Init.CounterMode   = TIM_COUNTERMODE_UP ;
-   hTimSysLed.Lock = HAL_UNLOCKED ;
-   hTimSysLed.State = HAL_TIM_STATE_RESET ;
-
+   SET_TIMSYSLED_HANDLE_INIT( sTimSysLed ) ;
                                        /* set timer configuration */
-   if ( HAL_TIM_Base_Init( &hTimSysLed ) != HAL_OK )
+   if ( HAL_TIM_Base_Init( &sTimSysLed ) != HAL_OK )
    {
 	   ERR_FATAL() ;
    }
@@ -128,7 +150,7 @@ static void main_LedInit( void )
                                        /* enable the TIMx global Interrupt */
    HAL_NVIC_EnableIRQ( TIMSYSLED_IRQn ) ;
                                        /* start timer and enble IT */
-   HAL_TIM_Base_Start_IT( &hTimSysLed ) ;
+   HAL_TIM_Base_Start_IT( &sTimSysLed ) ;
 }
 
 
