@@ -1,2 +1,5 @@
 - ajout capa sur schema elec (uniquement sur partie backup ou général)
-- vérification si besoin de plus de tests si les appels à la HAL
+- vérification si besoin de plus de tests valeur retour pour les appels à la HAL
+
+- test RTC sur le long terme
+- ajout gestion des weekday

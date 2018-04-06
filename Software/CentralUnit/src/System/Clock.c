@@ -71,21 +71,8 @@ typedef enum                           /* daytlight datetime type */
                                           middle of summer */
 DWORD const k_dwReprMDHMidSum = ( 7 * 100 * 100 ) + ( 1 * 100 ) ;
 
-                                       /* table of winter to summer day change */
-BYTE const k_abyDaySumSpr[] = { 26,25,31,30,28,27,26,25,30,29,28,27,25,31,30,29,27,
-                              26,25,31,29,28,27,26,31,30,29,28,26,25,31,30,28,27,
-                              26,25,30,29,28,27,25,31,30,29,27,26,25,31,29,28,27,
-                              26,31,30,29,28,26,25,31,30,28,27,26,25,30,29,28,27,
-                              25,31,30,29,27,26,25,31,29,28,27,26,31,30,29,28,26,
-                              25,31,30,28,27,26,25,30,29,28,27,25,31,30,29 } ;
 
-                                       /* table of summer to winter day change */
-BYTE const k_abyDaySumAut[] = { 29,28,27,26,31,30,29,28,26,25,31,30,28,27,26,25,30,
-                              29,28,27,25,31,30,29,27,26,25,31,29,28,27,26,31,30,
-                              29,28,26,25,31,30,28,27,26,25,30,29,28,27,25,31,30,
-                              29,27,26,25,31,29,28,27,26,31,30,29,28,26,25,31,30,
-                              28,27,26,25,30,29,28,27,25,31,30,29,27,26,25,31,29,
-                              28,27,26,31,30,29,28,26,25,31,30,28,27,26,25 } ;
+#include "ClockConst.h"                /* import constants to manage datetime operations */
 
 
 /*----------------------------------------------------------------------------*/
@@ -93,7 +80,7 @@ BYTE const k_abyDaySumAut[] = { 29,28,27,26,31,30,29,28,26,25,31,30,28,27,26,25,
 /*----------------------------------------------------------------------------*/
 
 static void clk_ComSetDateTime( s_DateTime const* i_psDateTime ) ;
-static void clk_ComGetDateTime( s_DateTime * o_psDateTime ) ;
+static void clk_ComGetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday ) ;
 static e_SummerState clk_GetSummerState( s_DateTime const* i_psDateTime ) ;
 static DWORD clk_CalcReprMDH( BYTE i_byMonth, BYTE i_byDay, BYTE i_byHour ) ;
 static void clk_RtcInit( void ) ;
@@ -101,7 +88,7 @@ static void clk_32kHzInit( void ) ;
 
 
 /*----------------------------------------------------------------------------*/
-/* RTC init                                                                   */
+/* Clock module initialization                                                */
 /*----------------------------------------------------------------------------*/
 
 void clk_Init( void )
@@ -116,7 +103,7 @@ void clk_Init( void )
    /* datetime is set "temporarly" to 01/01/2000 00:00:00. Datetime is     */
    /*  considered as valid when clk_ComSetDateTime() is called             */
 
-   HAL_PWR_EnableBkUpAccess() ;        /* Enable backup and RTC domain access */
+   HAL_PWR_EnableBkUpAccess() ;        /* enable backup and RTC domain access */
 
                                        /* test if datetime is lost */
    if ( ( ! ISSET( RCC->CSR, RCC_CSR_LSERDY ) ) ||
@@ -174,9 +161,9 @@ void clk_SetDateTime( s_DateTime const* i_psDateTime )
 /* Date/time reading                                                          */
 /*----------------------------------------------------------------------------*/
 
-void clk_GetDateTime( s_DateTime * o_psDateTime )
+void clk_GetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday )
 {
-   clk_ComGetDateTime( o_psDateTime ) ;
+   clk_ComGetDateTime( o_psDateTime, o_pbyWeekday ) ;
 }
 
 
@@ -188,33 +175,39 @@ void clk_TaskCyc( void )
 {
    s_DateTime sDateTime ;
    e_SummerState eSummerState ;
+                                       /* current datetime read */
+   clk_ComGetDateTime( &sDateTime, NULL ) ;
+                                       /* if current datetime reach 31/12/2099 */
+   if ( ( sDateTime.byYear == 99 ) && ( sDateTime.byMonth == 12 ) && ( sDateTime.byDays == 31 ) )
+   {                                   /* set current Datetime to init value */
+      clk_ComSetDateTime( &k_sDateTimeInit ) ;
+      RTC->BKP0R = 0 ;                 /* mark as lost datetime */
+   }
+   else
+   {                                   /* get daylight status for this datetime */
+      eSummerState = clk_GetSummerState( &sDateTime ) ;
 
-   clk_ComGetDateTime( &sDateTime ) ;  /* current datetime read */
-
-                                       /* get daylight status for this datetime */
-   eSummerState = clk_GetSummerState( &sDateTime ) ;
-
-   RTC->WPR = 0xCAU ;                  /* disable RTC register write protection */
-   RTC->WPR = 0x53U ;
-
+      RTC->WPR = 0xCAU ;               /* disable RTC register write protection */
+      RTC->WPR = 0x53U ;
                                        /* test if datetime is in first part of summer */
                                        /* while summer +1hour has not been added */
-   if ( ( eSummerState == CLK_SUMMER_1 ) && ( ! ISSET( RTC->CR, RTC_CR_BCK ) ) )
-   {                                   /* indicate the +1hour operation is done */
+      if ( ( eSummerState == CLK_SUMMER_1 ) && ( ! ISSET( RTC->CR, RTC_CR_BCK ) ) )
+      {                                /* indicate the +1 hour operation is done */
                                        /* (summer time) */
-      SET_BIT( RTC->CR, RTC_CR_BCK ) ;
-      SET_BIT( RTC->CR, RTC_CR_ADD1H ) ; /* add 1 hour to current datetime */
-   }
+         SET_BIT( RTC->CR, RTC_CR_BCK ) ;
+                                       /* add 1 hour to current datetime */
+         SET_BIT( RTC->CR, RTC_CR_ADD1H ) ;
+      }
 
-   if ( ( eSummerState == CLK_WINTER ) && ( ISSET( RTC->CR, RTC_CR_BCK ) ) )
-   {                                   /* indicate the -1hour operation is done */
-                                       /* (winter time) */
-      CLEAR_BIT( RTC->CR, RTC_CR_BCK ) ;
-                                       /* add 1 hour from current datetime */
-      SET_BIT( RTC->CR, RTC_CR_SUB1H ) ;
+      if ( ( eSummerState == CLK_WINTER ) && ( ISSET( RTC->CR, RTC_CR_BCK ) ) )
+      {                                   /* indicate the -1hour operation is done */
+                                          /* (winter time) */
+         CLEAR_BIT( RTC->CR, RTC_CR_BCK ) ;
+                                          /* add 1 hour from current datetime */
+         SET_BIT( RTC->CR, RTC_CR_SUB1H ) ;
+      }
+      RTC->WPR = 0xFFU ;                  /* enable RTC register write protection */
    }
-
-   RTC->WPR = 0xFFU ;                  /* enable RTC register write protection */
 }
 
 
@@ -228,16 +221,61 @@ static void clk_ComSetDateTime( s_DateTime const* i_psDateTime )
 {
    RTC_HandleTypeDef sRtcHandle ;
    RTC_DateTypeDef sRtcDate ;
+   BYTE byYear ;
+   BYTE byMonth ;
+   BYTE byDays ;
+   BYTE by1StWeekday ;
+   BYTE byWeekday ;
+   WORD wIdxFirstDayOfMonth ;
    RTC_TimeTypeDef sRtcTime ;
    e_SummerState eSummerState ;
 
+
+   ERR_FATAL_IF( i_psDateTime->byYear > 99 ) ;
+   ERR_FATAL_IF( i_psDateTime->byMonth > 12 ) ;
+   ERR_FATAL_IF( i_psDateTime->byDays > 31 ) ;
+   ERR_FATAL_IF( i_psDateTime->byHours > 23 ) ;
+   ERR_FATAL_IF( i_psDateTime->byMinutes > 59 ) ;
+   ERR_FATAL_IF( i_psDateTime->bySeconds > 59 ) ;
+
+
    SET_RTC_HANDLE( sRtcHandle ) ;      /* RTC set handle */
 
+   byYear = i_psDateTime->byYear ;
+   byMonth = i_psDateTime->byMonth ;
+   byDays = i_psDateTime->byDays ;
                                        /* set HAL date structure */
    memset( &sRtcDate, 0, sizeof(sRtcDate) ) ;
-   sRtcDate.Year = i_psDateTime->byYear ;
-   sRtcDate.Month = i_psDateTime->byMonth ;
-   sRtcDate.Date = i_psDateTime->byDays ;
+   sRtcDate.Year = byYear ;
+   sRtcDate.Month = byMonth ;
+   sRtcDate.Date = byDays ;
+                                       /* calculate index to find first day of */
+                                       /* month weekeday value */
+   wIdxFirstDayOfMonth = ( byYear * 12 + ( byMonth - 1 ) ) / 2 ;
+
+      /* Note: each element of <k_abyFirstDayOfMonth> containt   */
+      /* the weekday for 2 months, which explain the /2 division */
+
+   ERR_FATAL_IF( wIdxFirstDayOfMonth >= ARRAY_SIZE(k_abyFirstDayOfMonth) ) ;
+
+   if ( ( byMonth - 1 ) % 2 == 0 )     /* if month is odd (jan., march, etc..) */
+   {                                   /* weekday of 1st day of this month is */
+                                       /* the low 4 bits of element */
+      by1StWeekday = LO4B( k_abyFirstDayOfMonth[wIdxFirstDayOfMonth] ) ;
+   }
+   else
+   {                                   /* weekday of 1st day of this month is */
+                                       /* the high 4 bits of element */
+      by1StWeekday = HI4B( k_abyFirstDayOfMonth[wIdxFirstDayOfMonth] ) ;
+   }
+
+      /* Note : in the STM32L0 Rtc, weekday is coded from 1 (monday) */
+      /* to 7 (sunday). So, it is necessary to add +1 to the value   */
+
+                                       /* get the weekday of <byDays> in this month */
+   byWeekday = ( ( by1StWeekday + ( byDays - 1 ) ) % NB_DAYS_WEEK ) + 1 ;
+
+   sRtcDate.WeekDay = byWeekday ;      /* set weekday value */
 
       /* Note: To ensure data integrity both shadows registers are    */
       /* copied to calendar register when the TR register is written. */
@@ -283,7 +321,7 @@ static void clk_ComSetDateTime( s_DateTime const* i_psDateTime )
 /* Date/time reading                                                          */
 /*----------------------------------------------------------------------------*/
 
-static void clk_ComGetDateTime( s_DateTime * o_psDateTime )
+static void clk_ComGetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday )
 {
    RTC_HandleTypeDef sRtcHandle ;
    RTC_DateTypeDef sRtcDate ;
@@ -308,6 +346,11 @@ static void clk_ComGetDateTime( s_DateTime * o_psDateTime )
    o_psDateTime->byYear = sRtcDate.Year ;
    o_psDateTime->byMonth = sRtcDate.Month ;
    o_psDateTime->byDays = sRtcDate.Date ;
+
+   if ( o_pbyWeekday != NULL )         /* if weekday is requested */
+   {                                   /* set weekday */
+      *o_pbyWeekday = sRtcDate.WeekDay - 1 ;
+   }
 }
 
 

@@ -104,6 +104,13 @@ typedef BYTE RESULT ;               /* r   unsigned 8 bits for execution
 #define ISSET( Value, Msk )  ( ( (Value) & (Msk) ) != 0 )
 
 
+#define LO4B( byValue )    ( byValue & 0xFu )
+
+#define HI4B( byValue )    ( (byValue) >> 4u )
+
+#define MAKEBYTE(byLow, byHigh) \
+   ( ( ( (BYTE)(byHigh) & 0xFu ) << 4 ) | ( (BYTE)(byLow) & 0xFu ) )
+
                                  /* 8 bits LSB of 16 bits value <wValue> */
 #define LOBYTE( wValue )    ( (BYTE)( (WORD)(wValue) & 0xFFu ) )
                                  /* 8 bits MSB of 16 bits value <wValue> */
@@ -133,5 +140,45 @@ typedef BYTE RESULT ;               /* r   unsigned 8 bits for execution
 
 #define REFPARM( Value ) \
    if ( Value ) {} ;
+
+
+/*-------------------------------------------------------------------------*/
+/* Common defines                                                          */
+/*-------------------------------------------------------------------------*/
+
+typedef struct
+{
+   BYTE byYear ;
+   BYTE byMonth ;
+   BYTE byDays ;
+} s_Date ;                             /* date (day/month/year) structure */
+
+typedef struct
+{
+   BYTE byHours ;
+   BYTE byMinutes ;
+   BYTE bySeconds ;
+} s_Time ;                             /* time (second/minutes/hours) structure */
+
+typedef struct
+{
+   union
+   {
+      struct
+      {
+         BYTE byYear ;
+         BYTE byMonth ;
+         BYTE byDays ;
+         BYTE byHours ;
+         BYTE byMinutes ;
+         BYTE bySeconds ;
+      } ;
+      struct
+      {
+         s_Date sDate ;
+         s_Time sTime ;
+      } ;
+   } ;
+} s_DateTime ;                         /* datetime (date+time) structure */
 
 #endif /* __DEFINE_H */

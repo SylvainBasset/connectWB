@@ -12,6 +12,7 @@
 #include "Define.h"
 #include "Main.h"
 #include "System.h"
+#include "Control.h"
 #include "System/Hard.h"
 
 
@@ -46,8 +47,14 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
    .Speed = GPIO_SPEED_FAST,
 } ;
 
-#define CLK_TASK_PER    100
+#define TASK_PER_LOOP   100                        //SBA: doit être multiple de toutes les periodes
 
+#define CLK_TASK_PER    100
+#define CLK_TASK_ORDER    0
+
+
+const s_Time k_TimeStart = { .byHours = 06, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
+const s_Time k_TimeEnd = { .byHours = 07, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
 
 /*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
@@ -63,10 +70,12 @@ static void main_LedOn( void ) ;
 
 int main( void )
 {
-   DWORD dwTmp ;
    DWORD dwTaskTmp ;
    s_DateTime sSetDT ;
-   s_DateTime sReadDT ;
+   BYTE byTaskPerCnt ;
+   s_Time sTimeS ;
+   s_Time sTimeE ;
+
 
       /* Note: The call to HAL_Init() perform these oprations:               */
       /* - Configure the Flash prefetch, Flash preread and Buffer caches     */
@@ -82,35 +91,57 @@ int main( void )
 
    clk_Init() ;
 
+   cal_Init() ;
+
    main_LedInit() ;                    /* Configure system LED */
 
    main_LedOn() ;                      /* Turn on system LED */
 
    sSetDT.byYear = 18 ;
-   sSetDT.byMonth = 10 ;
-   sSetDT.byDays = 28 ;
-   sSetDT.byHours = 2 ;
+   sSetDT.byMonth = 04 ;
+   sSetDT.byDays = 01 ;
+   sSetDT.byHours = 23 ;
    sSetDT.byMinutes = 59 ;
-   sSetDT.bySeconds = 56 ;
+   sSetDT.bySeconds = 50 ;
    clk_SetDateTime( &sSetDT ) ;
 
-   tim_StartMsTmp( &dwTmp ) ;
+   sTimeS.byHours = 6 ;
+   sTimeS.byMinutes = 0 ;
+   sTimeS.bySeconds = 0 ;
+   sTimeE.byHours = 6 ;
+   sTimeE.byMinutes = 0 ;
+   sTimeE.bySeconds = 0 ;
+
+   cal_SetDayVals( 0, &sTimeS, &sTimeE ) ;
+   cal_SetDayVals( 1, &sTimeS, &sTimeE ) ;
+   cal_SetDayVals( 2, &sTimeS, &sTimeE ) ;
+   cal_SetDayVals( 3, &sTimeS, &sTimeE ) ;
+   cal_SetDayVals( 4, &sTimeS, &sTimeE ) ;
+   cal_SetDayVals( 5, &sTimeS, &sTimeE ) ;
+   cal_SetDayVals( 6, &sTimeS, &sTimeE ) ;
+
+   byTaskPerCnt = 0 ;
 
    while ( TRUE )                      /* Infinite loop */
    {
-      clk_TaskCyc() ;
+      if ( ( byTaskPerCnt % CLK_TASK_PER ) == CLK_TASK_ORDER )
+      {
+         clk_TaskCyc() ;
+
+         if ( cal_IsChargeEnable() )
+         {
+            main_LedOn() ;
+         }
+         else
+         {
+            HAL_GPIO_WritePin( SYSLED_GPIO_PORT, SYSLED_PIN, GPIO_PIN_RESET ) ;
+         }
+      }
 
       tim_StartMsTmp( &dwTaskTmp ) ;
       while ( ! tim_IsEndMsTmp( &dwTaskTmp, 10 ) ) ;
 
-      if ( tim_IsEndMsTmp( &dwTmp, 6000 ) )
-      {
-         clk_GetDateTime( &sReadDT ) ;
-
-         BYTE val ;
-         val = sReadDT.byHours ;
-         REFPARM(val) ;
-      }
+      byTaskPerCnt = ( byTaskPerCnt + 1 ) % TASK_PER_LOOP ;
    }
 }
 
