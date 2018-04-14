@@ -12,8 +12,9 @@
 #include "Define.h"
 #include "Main.h"
 #include "System.h"
-#include "Control.h"
 #include "System/Hard.h"
+#include "Control.h"
+#include "Communic.h"
 
 
 /*----------------------------------------------------------------------------*/
@@ -90,8 +91,16 @@ int main( void )
    HAL_Init() ;                        /* STM32L0xx HAL library initialization */
 
    clk_Init() ;
-
    cal_Init() ;
+
+   //uwifi_Init() ;
+   cwifi_Init() ;
+   cwifi_Reset() ;
+
+   uwifi_Init() ;
+   uwifi_StartReceive() ;
+   cwifi_UnReset() ;
+   while(1) ;
 
    main_LedInit() ;                    /* Configure system LED */
 
