@@ -90,4 +90,6 @@
 #define WIFI_UART_IRQn                 USART1_IRQn
 #define WIFI_UART_IRQHandler           USART1_DAC_IRQHandler
 
+#define WIFI_UART_DMA_TX               DMA1_Channel2
+
 #endif /* __HARD_H */

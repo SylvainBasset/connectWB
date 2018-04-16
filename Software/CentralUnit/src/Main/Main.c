@@ -98,10 +98,13 @@ int main( void )
    cwifi_Reset() ;
    uwifi_Init() ;
 
-   BYTE abyData[4] ;
-   abyData[0] = 0 ; abyData[1] = 1 ;
-   abyData[2] = 2 ; abyData[3] = 3 ;
-   //uwifi_Transmit( abyData, sizeof(abyData) ) ;
+   BYTE abyData[10] ;
+   BYTE byIdx ;
+   for ( byIdx = 0 ; byIdx < 10 ; byIdx++ )
+   {
+      abyData[byIdx] = byIdx ;
+   }
+   uwifi_Transmit( abyData, sizeof(abyData) ) ;
 
    cwifi_UnReset() ;
    while(1) ;

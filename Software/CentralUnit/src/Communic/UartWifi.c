@@ -61,7 +61,7 @@ void uwifi_Init( void )
 
    uwifi_HrdInit() ;
 
-   uwifi_StartReceive() ;
+   //uwifi_StartReceive() ;      //SBA
 }
 
 
@@ -69,39 +69,46 @@ void uwifi_Init( void )
 
 void uwifi_Transmit( void const* i_pvData, DWORD i_dwSize )
 {
-   DWORD dwSendTmp ;
-   GPIO_InitTypeDef sGpioInit ;
-   DWORD dwRemainSize ;
-   BYTE const* pData ;
+   //DWORD dwSendTmp ;
+   //GPIO_InitTypeDef sGpioInit ;
+   //DWORD dwRemainSize ;
+   BYTE const* pbyData ;
 
-   __GPIOB_CLK_ENABLE() ;
-   sGpioInit.Pin = GPIO_PIN_12 ;
-   sGpioInit.Mode = GPIO_MODE_OUTPUT_PP ;
-   sGpioInit.Pull = GPIO_PULLUP ;
-   sGpioInit.Speed = GPIO_SPEED_HIGH ;
-   sGpioInit.Alternate = 0 ;
-   HAL_GPIO_Init( GPIOB, &sGpioInit ) ;
+   //__GPIOB_CLK_ENABLE() ;
+   //sGpioInit.Pin = GPIO_PIN_12 ;
+   //sGpioInit.Mode = GPIO_MODE_OUTPUT_PP ;
+   //sGpioInit.Pull = GPIO_PULLUP ;
+   //sGpioInit.Speed = GPIO_SPEED_HIGH ;
+   //sGpioInit.Alternate = 0 ;
+   //HAL_GPIO_Init( GPIOB, &sGpioInit ) ;
 
-   HAL_GPIO_WritePin( GPIOB, GPIO_PIN_12, GPIO_PIN_RESET ) ;
-   HAL_GPIO_WritePin( GPIOB, GPIO_PIN_12, GPIO_PIN_SET ) ;
+   //HAL_GPIO_WritePin( GPIOB, GPIO_PIN_12, GPIO_PIN_RESET ) ;
+   //HAL_GPIO_WritePin( GPIOB, GPIO_PIN_12, GPIO_PIN_SET ) ;
 
-   dwRemainSize = i_dwSize ;
-   pData = (BYTE *)i_pvData ;
+   //dwRemainSize = i_dwSize ;
+   pbyData = (BYTE *)i_pvData ;
 
-   while ( dwRemainSize > 0 )
-   {
-      tim_StartMsTmp( &dwSendTmp ) ;
-      while ( ! ISSET( WIFI_UART->ISR, USART_ISR_TXE ) )
-      {
-         if ( tim_IsEndMsTmp( &dwSendTmp, UWIFI_TX_TIMEOUT ) )
-         {
-            ERR_FATAL() ;
-         }
-      }
-      WIFI_UART->TDR = (*pData & (uint8_t)0xFFU);
-      pData++ ;
-      dwRemainSize-- ;
-   }
+   WIFI_UART_DMA_TX->CNDTR = i_dwSize ;
+   WIFI_UART_DMA_TX->CPAR = (DWORD)&(WIFI_UART->TDR) ;
+   WIFI_UART_DMA_TX->CMAR = (DWORD)&pbyData[0] ;
+   WIFI_UART_DMA_TX->CCR |= DMA_CCR_EN ;
+
+   WIFI_UART->ICR |= USART_ICR_TCCF ;
+
+   //while ( dwRemainSize > 0 )
+   //{
+   //   tim_StartMsTmp( &dwSendTmp ) ;
+   //   while ( ! ISSET( WIFI_UART->ISR, USART_ISR_TXE ) )
+   //   {
+   //      if ( tim_IsEndMsTmp( &dwSendTmp, UWIFI_TX_TIMEOUT ) )
+   //      {
+   //         ERR_FATAL() ;
+   //      }
+   //   }
+   //   WIFI_UART->TDR = (*pData & (uint8_t)0xFFU);
+   //   pData++ ;
+   //   dwRemainSize-- ;
+   //}
 }
 
 
@@ -166,7 +173,7 @@ static void uwifi_HrdInit( void )
                                        /* activate emission and reception */
    WIFI_UART->CR1 |= ( USART_CR1_TE |USART_CR1_RE ) ;
                                        /* activation RTS/CTS managment */
-   WIFI_UART->CR3 |= ( USART_CR3_RTSE | USART_CR3_CTSE ) ;
+   WIFI_UART->CR3 |= USART_CR3_DMAT ; //( USART_CR3_RTSE | USART_CR3_CTSE ) ;
 
    WIFI_UART->BRR = (uint16_t)( UART_DIV_SAMPLING16( APB1_CLK, UWIFI_BAUDRATE ) ) ;
 
@@ -176,8 +183,16 @@ static void uwifi_HrdInit( void )
 
    WIFI_UART->ICR |= ( USART_ICR_PECF | USART_ICR_FECF | USART_ICR_NCF | USART_ICR_ORECF ) ;
 
-   HAL_NVIC_SetPriority(WIFI_UART_IRQn, 0, 1);
-   HAL_NVIC_EnableIRQ(WIFI_UART_IRQn);
+   HAL_NVIC_SetPriority(WIFI_UART_IRQn, 0, 1) ;
+   HAL_NVIC_EnableIRQ(WIFI_UART_IRQn) ;
+
+
+   __HAL_RCC_DMA1_CLK_ENABLE(); //SBA: define wifi
+
+   WIFI_UART_DMA_TX->CCR = ( DMA_CCR_DIR | DMA_CCR_MINC ) ; //DMA_CIRCULAR
+
+   DMA1_CSELR->CSELR &= ~DMA_CSELR_C2S ;        //SBA: define wifi
+   DMA1_CSELR->CSELR |= ( DMA_REQUEST_3 << 4 ) ;         //SBA: define wifi et vérif spec
 }
 
 
