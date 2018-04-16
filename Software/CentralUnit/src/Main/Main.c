@@ -96,9 +96,13 @@ int main( void )
    //uwifi_Init() ;
    cwifi_Init() ;
    cwifi_Reset() ;
-
    uwifi_Init() ;
-   uwifi_StartReceive() ;
+
+   BYTE abyData[4] ;
+   abyData[0] = 0 ; abyData[1] = 1 ;
+   abyData[2] = 2 ; abyData[3] = 3 ;
+   //uwifi_Transmit( abyData, sizeof(abyData) ) ;
+
    cwifi_UnReset() ;
    while(1) ;
 

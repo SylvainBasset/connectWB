@@ -25,7 +25,6 @@ void cwifi_UnReset( void ) ;
 /*----------------------------------------------------------------------------*/
 
 void uwifi_Init( void ) ;
-void uwifi_StartReceive( void ) ;
-void uwifi_Tramsmit( void ) ;
+void uwifi_Transmit( void const* i_pvData, DWORD i_dwSize ) ;
 void WIFI_UART_IRQHandler(void) ;
 #endif /* __COMMUNIC_H */
