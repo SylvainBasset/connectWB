@@ -93,7 +93,6 @@ int main( void )
    clk_Init() ;
    cal_Init() ;
 
-   //uwifi_Init() ;
    cwifi_Init() ;
    cwifi_Reset() ;
    uwifi_Init() ;
@@ -104,7 +103,7 @@ int main( void )
    {
       abyData[byIdx] = byIdx ;
    }
-   uwifi_Transmit( abyData, sizeof(abyData) ) ;
+   //uwifi_Transmit( abyData, sizeof(abyData) ) ;
 
    cwifi_UnReset() ;
    while(1) ;

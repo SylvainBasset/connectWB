@@ -90,6 +90,28 @@
 #define WIFI_UART_IRQn                 USART1_IRQn
 #define WIFI_UART_IRQHandler           USART1_DAC_IRQHandler
 
+
+
+/*----------------------------------------------------------------------------*/
+/* definitions for DMAs                                                       */
+/*----------------------------------------------------------------------------*/
+
+#define DMA_CSELR_CxS_Msk  DMA_CSELR_C1S_Msk
+
+#define DMA_MAKE_CSELR( Value, Channel )   \
+   ( ( Value & DMA_CSELR_C1S_Msk ) << ( 4 * ( Channel - 1 ) ) )
+
+#define WIFI_UART_DMA_TX_CLK_ENABLE()  __HAL_RCC_DMA1_CLK_ENABLE()
 #define WIFI_UART_DMA_TX               DMA1_Channel2
+#define WIFI_UART_DMA_TX_CHANNEL       2
+#define WIFI_UART_DMA_TX_CSELR         DMA1_CSELR
+#define WIFI_UART_DMA_TX_REQ           DMA_REQUEST_3
+
+
+#define WIFI_UART_DMA_RX_CLK_ENABLE()  __HAL_RCC_DMA1_CLK_ENABLE()
+#define WIFI_UART_DMA_RX               DMA1_Channel3
+#define WIFI_UART_DMA_RX_CHANNEL       3
+#define WIFI_UART_DMA_RX_CSELR         DMA1_CSELR
+#define WIFI_UART_DMA_RX_REQ           DMA_REQUEST_3
 
 #endif /* __HARD_H */
