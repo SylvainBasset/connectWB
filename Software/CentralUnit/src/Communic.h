@@ -20,11 +20,20 @@ void cwifi_Init( void ) ;
 void cwifi_Reset( void ) ;
 void cwifi_UnReset( void ) ;
 
+
 /*----------------------------------------------------------------------------*/
 /* UartWifi.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
+#define UWIFI_ERROR_RX        1u
+#define UWIFI_ERROR_DMA_TX    2u
+#define UWIFI_ERROR_DMA_RX    4u
+
 void uwifi_Init( void ) ;
-void uwifi_Transmit( void const* i_pvData, DWORD i_dwSize ) ;
-void WIFI_UART_IRQHandler(void) ;
+void uwifi_StartReceive( void ) ;
+void uwifi_SetRecErrorDetection( BOOL i_bEnable ) ;
+WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize ) ;
+BOOL uwifi_Transmit( void const* i_pvData, DWORD i_dwSize ) ;
+BYTE uwifi_GetError( void ) ;
+//void WIFI_UART_IRQHandler(void) ;
 #endif /* __COMMUNIC_H */

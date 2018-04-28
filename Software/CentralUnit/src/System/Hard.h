@@ -60,6 +60,9 @@
 /* IRQs Priorities                                                            */
 /*----------------------------------------------------------------------------*/
 
+#define TIMCALIB_IRQPri    0           /* calibration timer IRQ priority */
+#define UWIFI_DMA_IRQPri   1           /* Wifi DMA UART */
+#define UWIFI_IRQPri       2           /* Wifi UART */
 #define TIMSYSLED_IRQPri   3           /* system Led timer IRQ priority */
 
 
@@ -77,41 +80,63 @@
 
 
 /*----------------------------------------------------------------------------*/
+/* definitions for calib Timer                                                */
+/*----------------------------------------------------------------------------*/
+
+#define TIMCALIB    TIM21
+#define TIMCALIB_CLK_ENABLE()     __TIM21_CLK_ENABLE()
+#define TIMCALIB_CLK_DISABLE()    __TIM21_CLK_DISABLE()
+
+#define TIMCALIB_IRQn             TIM21_IRQn
+#define TIMCALIB_IRQHandler       TIM21_IRQHandler
+
+
+/*----------------------------------------------------------------------------*/
 /* definitions for Wifi USART                                                 */
 /*----------------------------------------------------------------------------*/
 
-#define WIFI_UART                      USART1
-#define WIFI_UART_CLK_ENABLE()         __USART1_CLK_ENABLE()
-#define WIFI_UART_CLK_DISABLE()        __USART1_CLK_DISABLE()
+#define UWIFI                      USART1
+#define UWIFI_CLK_ENABLE()         __USART1_CLK_ENABLE()
+#define UWIFI_CLK_DISABLE()        __USART1_CLK_DISABLE()
 
-#define WIFI_UART_FORCE_RESET()        __USART1_FORCE_RESET()
-#define WIFI_UART_RELEASE_RESET()      __USART1_RELEASE_RESET()
+#define UWIFI_FORCE_RESET()        __USART1_FORCE_RESET()
+#define UWIFI_RELEASE_RESET()      __USART1_RELEASE_RESET()
 
-#define WIFI_UART_IRQn                 USART1_IRQn
-#define WIFI_UART_IRQHandler           USART1_DAC_IRQHandler
-
+#define UWIFI_IRQn                 USART1_IRQn
+#define UWIFI_IRQHandler           USART1_DAC_IRQHandler
 
 
 /*----------------------------------------------------------------------------*/
 /* definitions for DMAs                                                       */
 /*----------------------------------------------------------------------------*/
 
-#define DMA_CSELR_CxS_Msk  DMA_CSELR_C1S_Msk
-
 #define DMA_MAKE_CSELR( Value, Channel )   \
    ( ( Value & DMA_CSELR_C1S_Msk ) << ( 4 * ( Channel - 1 ) ) )
 
-#define WIFI_UART_DMA_TX_CLK_ENABLE()  __HAL_RCC_DMA1_CLK_ENABLE()
-#define WIFI_UART_DMA_TX               DMA1_Channel2
-#define WIFI_UART_DMA_TX_CHANNEL       2
-#define WIFI_UART_DMA_TX_CSELR         DMA1_CSELR
-#define WIFI_UART_DMA_TX_REQ           DMA_REQUEST_3
+#define DMA_MAKE_ISRIFCR( Value, Channel )  \
+   ( ( Value & 0x0F ) << ( 4 * ( Channel - 1 ) ) )
 
 
-#define WIFI_UART_DMA_RX_CLK_ENABLE()  __HAL_RCC_DMA1_CLK_ENABLE()
-#define WIFI_UART_DMA_RX               DMA1_Channel3
-#define WIFI_UART_DMA_RX_CHANNEL       3
-#define WIFI_UART_DMA_RX_CSELR         DMA1_CSELR
-#define WIFI_UART_DMA_RX_REQ           DMA_REQUEST_3
+#define UWIFI_DMA                   DMA1
+#define UWIFI_DMA_CSELR             DMA1_CSELR
+
+#define UWIFI_DMA_TX_CLK_ENABLE()   __HAL_RCC_DMA1_CLK_ENABLE()
+#define UWIFI_DMA_TX                DMA1_Channel2
+#define UWIFI_DMA_TX_CHANNEL        2
+#define UWIFI_DMA_TX_REQ            DMA_REQUEST_3
+#define UWIFI_DMA_TX_CSELR( Value ) DMA_MAKE_CSELR( Value, UWIFI_DMA_TX_CHANNEL )
+#define UWIFI_DMA_TX_ISRIFCR( Value ) \
+                                    DMA_MAKE_ISRIFCR( Value, UWIFI_DMA_TX_CHANNEL )
+
+#define UWIFI_DMA_RX_CLK_ENABLE()   __HAL_RCC_DMA1_CLK_ENABLE()
+#define UWIFI_DMA_RX                DMA1_Channel3
+#define UWIFI_DMA_RX_CHANNEL        3
+#define UWIFI_DMA_RX_REQ            DMA_REQUEST_3
+#define UWIFI_DMA_RX_CSELR( Value ) DMA_MAKE_CSELR( Value, UWIFI_DMA_RX_CHANNEL )
+#define UWIFI_DMA_RX_ISRIFCR( Value ) \
+                                    DMA_MAKE_ISRIFCR( Value, UWIFI_DMA_RX_CHANNEL )
+
+#define UWIFI_DMA_IRQn             DMA1_Channel2_3_IRQn
+#define UWIFI_DMA_IRQHandler       DMA1_Channel2_3_IRQHandler
 
 #endif /* __HARD_H */

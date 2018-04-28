@@ -11,11 +11,14 @@
 #include <stm32l0xx_hal.h>
 #include "Define.h"
 #include "System.h"
+#include "System/Hard.h"
 
 
 /*----------------------------------------------------------------------------*/
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
+
+#define LSE_FREQ           32768llu
 
 #define CLK_ASYNC_PREDIV   64llu       /* RTC asynchronous prediv */
 #define CLK_SYNC_PREDIV    512llu      /* RTC synchronous prediv */
@@ -74,6 +77,13 @@ DWORD const k_dwReprMDHMidSum = ( 7 * 100 * 100 ) + ( 1 * 100 ) ;
 
 #include "ClockConst.h"                /* import constants to manage datetime operations */
 
+#define CLK_CALIB_LO    ( ( ( ( APB1_CLK * 997  ) / LSE_FREQ ) / 1000 ) + 1 )
+
+#define CLK_CALIB_HI    ( ( ( APB1_CLK * 1003 ) / LSE_FREQ ) / 1000 )
+
+#define CLK_CALIB_MAXPPM   5000
+#define CLK_CALIB_MINPPM   -5000
+
 
 /*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
@@ -85,6 +95,19 @@ static e_SummerState clk_GetSummerState( s_DateTime const* i_psDateTime ) ;
 static DWORD clk_CalcReprMDH( BYTE i_byMonth, BYTE i_byDay, BYTE i_byHour ) ;
 static void clk_RtcInit( void ) ;
 static void clk_32kHzInit( void ) ;
+static void clk_CalibInit( void ) ;
+
+
+/*----------------------------------------------------------------------------*/
+/* Variables                                                                  */
+/*----------------------------------------------------------------------------*/
+
+static BYTE l_byHSITrim ;
+static DWORD l_dwCalibSum ;
+static BYTE l_byCalibIdx ;
+
+static DWORD l_dwNbCalibActions ; //
+static WORD l_wCalibVal ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -93,6 +116,9 @@ static void clk_32kHzInit( void ) ;
 
 void clk_Init( void )
 {
+   DWORD dwInitTmp ;
+   SWORD sdwCalibPpmErr ;
+
    // ajout capa sur schema elec (uniquement sur partie backup ou général)
    // vérification si besoin de plus de tests si les appels à la HAL
 
@@ -121,6 +147,18 @@ void clk_Init( void )
                                        /* datetime is not yet considered as valid */
       clk_ComSetDateTime( &k_sDateTimeInit ) ;
    }
+
+   clk_CalibInit() ;
+
+   tim_StartMsTmp( &dwInitTmp ) ;      /* wait clock trim to stabilize */
+   while ( ! tim_IsEndMsTmp( &dwInitTmp, 20 ) ) ;
+
+   sdwCalibPpmErr = clk_GetCalib( NULL ) ;
+   if ( ( sdwCalibPpmErr > CLK_CALIB_MAXPPM ) ||
+        ( sdwCalibPpmErr < CLK_CALIB_MINPPM ) )
+   {
+      ERR_FATAL() ;
+   }
 }
 
 
@@ -142,6 +180,30 @@ BOOL clk_IsDateTimeLost( void )
    }
 
    return bRet ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Get calibration informations                                               */
+/*----------------------------------------------------------------------------*/
+
+SDWORD clk_GetCalib( DWORD * o_dwNbCalibActions )
+{
+   DWORD dwThTimeRef ;
+   DWORD dwThTimeVal ;
+   SDWORD sdwPpmErr ;
+
+   if ( o_dwNbCalibActions != NULL )
+   {
+      *o_dwNbCalibActions = l_dwNbCalibActions ;
+   }
+
+   dwThTimeRef = ( ( APB1_CLK * 1000llu ) / LSE_FREQ ) ;
+   dwThTimeVal = l_wCalibVal * 1000llu ;
+
+   sdwPpmErr = ( ( (SDWORD)dwThTimeVal - (SDWORD)dwThTimeRef ) * 1000000 ) / (SDWORD)dwThTimeRef ;
+
+   return sdwPpmErr ;
 }
 
 
@@ -175,6 +237,15 @@ void clk_TaskCyc( void )
 {
    s_DateTime sDateTime ;
    e_SummerState eSummerState ;
+   SWORD sdwCalibPpmErr ;
+
+   sdwCalibPpmErr = clk_GetCalib( NULL ) ;
+   if ( ( sdwCalibPpmErr > CLK_CALIB_MAXPPM ) ||
+        ( sdwCalibPpmErr < CLK_CALIB_MINPPM ) )
+   {
+      ERR_FATAL() ;
+   }
+
                                        /* current datetime read */
    clk_ComGetDateTime( &sDateTime, NULL ) ;
                                        /* if current datetime reach 31/12/2099 */
@@ -442,4 +513,73 @@ static void clk_32kHzInit( void )
    sRtcClkInitStruct.LSEState = RCC_LSE_ON ;
    sRtcClkInitStruct.PLL.PLLState = RCC_PLL_NONE ;
    HAL_RCC_OscConfig(&sRtcClkInitStruct) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* //Calib                                                                   */
+/*----------------------------------------------------------------------------*/
+
+static void clk_CalibInit( void )
+{
+   TIMCALIB_CLK_ENABLE() ;
+                                             /* TS 101, SMS 100 */
+   TIMCALIB->SMCR = TIM_SMCR_TS_2 | TIM_SMCR_TS_0 | TIM_SMCR_SMS_2 ;
+
+   TIMCALIB->ARR = 0xFFFF ;
+   TIMCALIB->PSC = 0 ;
+
+   TIMCALIB->CCMR1 = TIM_CCMR1_CC1S_0 ;
+   TIMCALIB->CCER = TIM_CCER_CC1E ;
+
+   TIMCALIB->OR = TIM21_OR_TI1_RMP_2 ;
+
+   TIMCALIB->DIER = TIM_DIER_CC1IE ;
+
+                                       /* set the TIMx priority */
+   HAL_NVIC_SetPriority( TIMCALIB_IRQn, TIMCALIB_IRQPri, 0 ) ;
+                                       /* enable the TIMx global Interrupt */
+   HAL_NVIC_EnableIRQ( TIMCALIB_IRQn ) ;
+
+   TIMCALIB->CR1 = TIM_CR1_CEN ;
+
+   l_dwCalibSum = 0 ;
+   l_byCalibIdx = 0 ;
+   l_dwNbCalibActions = 0 ;
+   RCC->ICSCR = 0 ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* IRQ system LED Timer                                                       */
+/*----------------------------------------------------------------------------*/
+
+void TIMCALIB_IRQHandler( void )
+{
+   WORD wCalibVal ;
+
+   l_dwCalibSum += TIMCALIB->CCR1 ;
+   l_byCalibIdx++ ;
+
+   if ( l_byCalibIdx == 64 )
+   {
+      wCalibVal = l_dwCalibSum >> 6 ;
+      l_wCalibVal = wCalibVal ;
+
+      if ( ( wCalibVal < CLK_CALIB_LO ) && ( l_byHSITrim < 0x1F ) )
+      {
+         l_dwNbCalibActions++ ;
+         l_byHSITrim++ ;
+         RCC->ICSCR = ( ( l_byHSITrim & 0x1FU ) << RCC_ICSCR_HSITRIM_Pos ) ;
+      }
+      else if ( ( wCalibVal > CLK_CALIB_HI ) && ( l_byHSITrim > 0x00 ) )
+      {
+         l_dwNbCalibActions++ ;
+         l_byHSITrim-- ;
+         RCC->ICSCR = ( ( l_byHSITrim & 0x1FU ) << RCC_ICSCR_HSITRIM_Pos ) ;
+      }
+
+      l_dwCalibSum = 0 ;
+      l_byCalibIdx = 0 ;
+   }
 }

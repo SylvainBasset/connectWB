@@ -87,7 +87,7 @@ void cstart_SystemInit(void)
 /*----------------------------------------------------------------------------*/
 /* System Clock Configuration                                                 */
 /* Note: The system Clock is configured as follow :                           */
-/*       System Clock source            = HSI + PLL                           */
+/*       System Clock source            = HSE + PLL                           */
 /*       SYSCLK(Hz)                     = 32000000                            */
 /*       HCLK(Hz)                       = 32000000                            */
 /*       AHB Prescaler                  = 1                                   */
@@ -117,7 +117,9 @@ void cstart_ClkConfig(void)
    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI ;
    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_4 ;
    RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_2 ;
-   HAL_RCC_OscConfig(&RCC_OscInitStruct) ;
+   HAL_RCC_OscConfig( &RCC_OscInitStruct ) ;
+
+   //RCC->ICSCR = 0x0FU << RCC_ICSCR_HSITRIM_Pos ;
 
                                        /* Select PLL as system clock source and */
                                        /* configure the HCLK, PCLK1 and PCLK2 */

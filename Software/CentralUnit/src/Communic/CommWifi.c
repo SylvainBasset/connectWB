@@ -19,7 +19,7 @@
 /*----------------------------------------------------------------------------*/
 
 #define CWIFI_RESET_DURATION     200         /* wifi module reset duration (ms) */
-#define CWIFI_PWRUP_DURATION      50         /* duration to wait after reset release (ms) */
+#define CWIFI_PWRUP_DURATION       1         /* duration to wait after reset release (ms) */
 
 
 /*----------------------------------------------------------------------------*/
@@ -35,10 +35,38 @@ static void cwifi_HrdInit( void ) ;
 
 void cwifi_Init( void )
 {
+   BYTE abyData[64] ;
+   DWORD dwInitTmp ;
+   WORD wNbReadVal ;
+
    cwifi_HrdInit() ;
 
-}
+   cwifi_Reset() ;
+   uwifi_Init() ;
+   uwifi_SetRecErrorDetection( FALSE ) ;
 
+   cwifi_UnReset() ;
+
+   tim_StartMsTmp( &dwInitTmp ) ;      // wait time before enabling error detection
+   while ( ! tim_IsEndMsTmp( &dwInitTmp, CWIFI_PWRUP_DURATION ) ) ;
+
+   uwifi_SetRecErrorDetection( TRUE ) ;
+
+   while(1)
+   {
+      tim_StartMsTmp( &dwInitTmp ) ;      // wait time before enabling error detection
+      while ( ! tim_IsEndMsTmp( &dwInitTmp, 5000 ) ) ;
+
+
+      wNbReadVal = uwifi_Read( abyData, sizeof(abyData) ) ;
+
+      //abyData[0] = 'A' ;
+      //abyData[1] = 'T' ;
+      //abyData[2] = 0x0D ;
+      //abyData[3] = 0x0A ;
+      //uwifi_Transmit( abyData, 3 ) ;
+   }
+}
 
 /*----------------------------------------------------------------------------*/
 /* Wifi module reset                                                          */
@@ -59,13 +87,8 @@ void cwifi_Reset( void )
 /*----------------------------------------------------------------------------*/
 
 void cwifi_UnReset( void )
-{
-   DWORD dwRstTmp ;
-                                          /* set reset pin to 1 */
+{                                        /* set reset pin to 1 */
    HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
-
-   tim_StartMsTmp( &dwRstTmp ) ;
-   while ( ! tim_IsEndMsTmp( &dwRstTmp, CWIFI_PWRUP_DURATION ) ) ;
 }
 
 /*============================================================================*/

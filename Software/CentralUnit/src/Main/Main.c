@@ -72,6 +72,7 @@ static void main_LedOn( void ) ;
 int main( void )
 {
    DWORD dwTaskTmp ;
+
    s_DateTime sSetDT ;
    BYTE byTaskPerCnt ;
    s_Time sTimeS ;
@@ -93,19 +94,18 @@ int main( void )
    clk_Init() ;
    cal_Init() ;
 
+   sSetDT.byYear = 01 ;
+   sSetDT.byMonth = 01 ;
+   sSetDT.byDays = 01 ;
+   sSetDT.byHours = 00 ;
+   sSetDT.byMinutes = 00 ;
+   sSetDT.bySeconds = 00 ;
+   clk_SetDateTime( &sSetDT ) ;
+
+   //uwifi_Init() ;
    cwifi_Init() ;
-   cwifi_Reset() ;
-   uwifi_Init() ;
 
-   BYTE abyData[10] ;
-   BYTE byIdx ;
-   for ( byIdx = 0 ; byIdx < 10 ; byIdx++ )
-   {
-      abyData[byIdx] = byIdx ;
-   }
-   //uwifi_Transmit( abyData, sizeof(abyData) ) ;
 
-   cwifi_UnReset() ;
    while(1) ;
 
    main_LedInit() ;                    /* Configure system LED */
