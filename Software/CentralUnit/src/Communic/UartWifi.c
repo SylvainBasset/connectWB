@@ -14,16 +14,53 @@
 #include "System/Hard.h"
 
 
+/*
+Module description:
+//TBD
+   - uilisation de l'USART 1
+   - Gestion hard flow RTS/CTS
+   - Gestion détection erreur de bruit, de débordement, et d'erreur de trames (a détailler)
+   - Détection d'erreur activable/désactivable
+   - DMA utilisé en emission et en récpetion
+   - En emission:
+      . configuration du channel DMA sur le buffer à mettre
+      . indication transfert en cours et si nouvelle demande alors la
+        fonction Send() renvoie FALSE
+      . interruption en fin de transfert pour autoriser nouvelle transmission
+      . détection erreurs DMA
+   - En réception:
+      . configuration du channel DMA sur le buffer de lecture "l_byRxBuffer" en
+        mode circulaire
+      . pointeur l_wRxIdxIn pour écriture dans buffer et l_wRxIdxOut pour lecture
+        dans buffer
+      . interruption DMA sur fin demi-transfert et fin transfert. Si pas assez
+        de place libre pour demi transfert suivant alors on suspend la réception
+        (arrêt DMA et donc mise à 1 de RTS)
+      . Fonction Read() pour lecture n octets. Si on est en réception suspendue
+        et que la lecture permet de libérer assez de place, alors la réception
+        est a nouveau autorisée.
+      . Il aurait été aussi possible d'activer l'inerruption DMA à chaque transfert
+        d'octet (permettant une gestion plus fine du buffer de réception). Mais
+        cette méthode d'interruption demi/fin transfert permet de réduire le
+        taux d'occupation CPU, (au prix d'une consommation de RAM un peu plus
+        importante)
+*/
+
+
 /*----------------------------------------------------------------------------*/
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define UWIFI_BAUDRATE     115200llu
-#define UWIFI_RXBUFSIZE    400 //512
+#define UWIFI_BAUDRATE     115200llu   /* baudrate (bits per second) value  */
+#define UWIFI_RXBUFSIZE    512         /* size of reception buffer */
 
+                                       /* disable/suspend reception channel DMA */
 #define UWIFI_DISABLE_DMA_RX()     ( UWIFI_DMA_RX->CCR &= ~DMA_CCR_EN )
+                                       /* enable reception channel DMA */
 #define UWIFI_ENABLE_DMA_RX()      ( UWIFI_DMA_RX->CCR |= DMA_CCR_EN )
+                                       /* disable/suspend transmit channel DMA */
 #define UWIFI_DISABLE_DMA_TX()     ( UWIFI_DMA_TX->CCR &= ~DMA_CCR_EN )
+                                       /* enable transmit channel DMA */
 #define UWIFI_ENABLE_DMA_TX()      ( UWIFI_DMA_TX->CCR |= DMA_CCR_EN )
 
 
@@ -34,74 +71,74 @@
 static void uwifi_HrdInit( void ) ;
 static void wifi_DmaTxIrqHandle( void ) ;
 static void wifi_DmaRxIrqHandle( void ) ;
-static BOOL uwifi_UpdateCheckIdx( void ) ;
+static BOOL uwifi_IsNeedRxSuspend( void ) ;
+
 
 /*----------------------------------------------------------------------------*/
 /* Variables                                                                  */
 /*----------------------------------------------------------------------------*/
 
-BYTE l_byRxBuffer [UWIFI_RXBUFSIZE] ;
-WORD l_wRxIdxIn ;
-WORD l_wRxIdxOut ;
-BOOL l_bRxSuspend ;
+BYTE l_byRxBuffer [UWIFI_RXBUFSIZE] ;  /* circular reception buffer */
+WORD l_wRxIdxIn ;                      /* input index of reception buffer  */
+WORD l_wRxIdxOut ;                     /* output index of reception buffer */
+BOOL l_bRxSuspend ;                    /* suspended reception indicator */
 
-BOOL l_bTxPending ;
-BOOL l_byErrors ;
+BOOL l_bTxPending ;                    /* transmission DMA transfer is ongoing */
+BOOL l_byErrors ;                      /* errors status, cf. UWIFI_ERROR_xxx */
 
 
 /*----------------------------------------------------------------------------*/
-/* Uart communication initialisation                                          */
+/* initialization of UART communication                                       */
 /*----------------------------------------------------------------------------*/
 
 void uwifi_Init( void )
 {
+                                       /* clear reception buffer */
    memset( l_byRxBuffer, 0, sizeof(l_byRxBuffer) ) ;
-   l_wRxIdxIn = 0 ;
-   l_wRxIdxOut = 0 ;
-   l_bRxSuspend = FALSE ;
+   l_wRxIdxIn = 0 ;                    /* set RX input index to 0 */
+   l_wRxIdxOut = 0 ;                   /* set RX output index to 0 */
+   l_bRxSuspend = FALSE ;              /* reception is active */
 
-   l_bTxPending = 0 ;
-   l_byErrors = 0 ;
+   l_bTxPending = 0 ;                  /* no TX DMA transfer */
+   l_byErrors = 0 ;                    /* no errors */
 
-   uwifi_HrdInit() ;
-
-   uwifi_StartReceive() ;//
+   uwifi_HrdInit() ;                   /* WIFI UART hardware initialization */
 }
 
 
 /*----------------------------------------------------------------------------*/
-
-void uwifi_StartReceive( void )
-{
-   UWIFI_DMA_RX->CNDTR = sizeof(l_byRxBuffer) ; //SBA
-   UWIFI_DMA_RX->CPAR = (DWORD)&(UWIFI->RDR) ;
-   UWIFI_DMA_RX->CMAR = (DWORD)l_byRxBuffer ;
-   UWIFI_ENABLE_DMA_RX() ;
-}
-
-
+/* Send Data to Wifi module                                                   */
+/*    - <i_pvData> transmit data buffer                                        */
+/*    - <i_dwSize> number of bytes to send                                    */
+/* Return:                                                                    */
+/*    - Transfer acceptation:                                                 */
+/*       . TRUE : data transfer to wifi module is accpted                     */
+/*       . FALSE : data transfer to wifi module is denied, as previous        */
+/*                 transfer is not complete                                   */
 /*----------------------------------------------------------------------------*/
 
-BOOL uwifi_Transmit( void const* i_pvData, DWORD i_dwSize )
+BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize )
 {
    BOOL bRet ;
 
-   if ( ! l_bTxPending )
+   if ( ! l_bTxPending )            /* no TX transfer is pending */
    {
-      l_bTxPending = TRUE ;
+      l_bTxPending = TRUE ;         /* Start of TX transfer */
 
-      UWIFI->ICR |= USART_ICR_TCCF ;
-
+      UWIFI->ICR |= USART_ICR_TCCF ; /* clear UART transmission complete flasg */
+                                    /* set the size of transfer */
       UWIFI_DMA_TX->CNDTR = i_dwSize ;
-      UWIFI_DMA_TX->CPAR = (DWORD)&(UWIFI->TDR) ; //SBA à mettre dans init
+                                    /* set periferal address (USART TDR register) */
+      UWIFI_DMA_TX->CPAR = (DWORD)&(UWIFI->TDR) ;
+                                    /* set memory address (transmit buffer) */
       UWIFI_DMA_TX->CMAR = (DWORD)i_pvData ;
-      UWIFI_ENABLE_DMA_TX() ;
+      UWIFI_ENABLE_DMA_TX() ;       /* enable TX DMA channel */
 
-      bRet = TRUE ;
+      bRet = TRUE ;                 /* transfer accepted */
    }
    else
    {
-      bRet = FALSE ;
+      bRet = FALSE ;                /* transfer denied */
    }
 
    return bRet ;
@@ -109,41 +146,58 @@ BOOL uwifi_Transmit( void const* i_pvData, DWORD i_dwSize )
 
 
 /*----------------------------------------------------------------------------*/
+/* Read data received from Wifi module                                        */
+/*    - <o_pvData> reception buffer address                                   */
+/*    - <i_dwMaxSize> maximum size to read in bytes                           */
+/* Return:                                                                    */
+/*    - actual size of read data in bytes                                     */
+/*----------------------------------------------------------------------------*/
 
 WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize )
 {
    BOOL bNeedSuspendRx ;
    WORD wSizeRead ;
 
-   UWIFI_DISABLE_DMA_RX() ;
+   UWIFI_DISABLE_DMA_RX() ;            /* suspend RX reception DMA channel (atomic read) */
+                                       /* disable interruption to prevent data corruption */
    HAL_NVIC_DisableIRQ( UWIFI_DMA_IRQn ) ;
+                                       /* update input buffer index */
+   l_wRxIdxIn = sizeof(l_byRxBuffer) - UWIFI_DMA_RX->CNDTR ;
 
-   uwifi_UpdateCheckIdx() ;
-
-   if ( l_wRxIdxIn < l_wRxIdxOut )
-   {
+   if ( l_wRxIdxIn < l_wRxIdxOut )     /* if input index is below output index */
+   {                                   /* compute size with overflow */
       wSizeRead = sizeof(l_byRxBuffer) - ( l_wRxIdxOut - l_wRxIdxIn ) ;
    }
-   else
-   {
+   else                                /* input index is above (or equal) output index */
+   {                                   /* compute size without overflow */
       wSizeRead = l_wRxIdxIn - l_wRxIdxOut ;
    }
 
-   if ( wSizeRead > i_dwMaxSize )
+   if ( wSizeRead > i_dwMaxSize )      /* if unread data number is higher than requested */
    {
-      wSizeRead = i_dwMaxSize ;
+      wSizeRead = i_dwMaxSize ;        /* limit size to requested value */
    }
-
+                                       /* copy read data */
    memcpy( o_pvData, l_byRxBuffer, wSizeRead ) ;
+                                       /* update output index with size read */
    l_wRxIdxOut = ( l_wRxIdxOut + wSizeRead ) % sizeof(l_byRxBuffer) ;
+                                       /* test if RX suspention is needed */
+   bNeedSuspendRx = uwifi_IsNeedRxSuspend() ;
 
-   bNeedSuspendRx = uwifi_UpdateCheckIdx() ;
-   if ( ! bNeedSuspendRx )
+   if ( ! bNeedSuspendRx )             /* if suspention is not more needed */
    {
-      l_bRxSuspend = FALSE ;
-      UWIFI_ENABLE_DMA_RX() ;
+      l_bRxSuspend = FALSE ;           /* clear suspension flag */
    }
 
+      /* Note : as the read function only free data in reception buffer, it is */
+      /* only allowed to set the suspension status from suspended to enable.   */
+      /* The decision to suspend RX DMA is taken in RX channel DMA interrupt.  */
+
+   if ( ! l_bRxSuspend )
+   {                                   /* re-activate DMA only if RX DMA channel */
+      UWIFI_ENABLE_DMA_RX() ;          /* is not suspended */
+   }
+                                       /*re-activate interrupts */
    HAL_NVIC_EnableIRQ( UWIFI_DMA_IRQn ) ;
 
    return wSizeRead ;
@@ -151,73 +205,115 @@ WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize )
 
 
 /*----------------------------------------------------------------------------*/
+/* Enable/Disable error detection                                             */
+/*    - <i_bEnable> enable status:                                            */
+/*       . TRUE : enable detection                                            */
+/*       . FALSE : disable detection                                          */
+/* Note : Hardware errors may be raised by USART or DMAs modules. They        */
+/* trigger interrupts if their corresponding interrupt enable bit is set.     */
+/* Errors are analysed in USART and DMAs interrupt, and collected into        */
+/* <l_byError> status variable                                                */
+/*----------------------------------------------------------------------------*/
 
 void uwifi_SetRecErrorDetection( BOOL i_bEnable )
 {
    if ( i_bEnable )
    {
-      UWIFI->CR3 |= USART_CR3_EIE ;
-      UWIFI->CR1 |= USART_CR1_PEIE ;
-      UWIFI_DMA_TX->CCR |= DMA_CCR_TEIE ;
-      UWIFI_DMA_RX->CCR |= DMA_CCR_TEIE ;
+      l_byErrors = 0 ;                 /* clear error status variable */
+                                       /* clear all USART error flags */
+      UWIFI->ICR |= ( USART_ICR_PECF | USART_ICR_FECF | USART_ICR_NCF | USART_ICR_ORECF ) ;
+                                       /* clear DMA TX error flag */
+      UWIFI_DMA->IFCR = UWIFI_DMA_TX_ISRIFCR( DMA_IFCR_CTEIF1 ) ;
+                                       /* clear DMA RX error flag */
+      UWIFI_DMA->IFCR = UWIFI_DMA_RX_ISRIFCR( DMA_IFCR_CTEIF1 ) ;
 
-      l_byErrors = 0 ;
+      UWIFI->CR3 |= USART_CR3_EIE ;    /* enable USART overrun/noise/frame errors interrupt */
+      UWIFI->CR1 |= USART_CR1_PEIE ;   /* enable USART parity error interrupt */
+                                       /* enable DMA TX error interrupt */
+      UWIFI_DMA_TX->CCR |= DMA_CCR_TEIE ;
+                                       /* enable DMA RX error interrupt */
+      UWIFI_DMA_RX->CCR |= DMA_CCR_TEIE ;
    }
    else
    {
-      UWIFI->CR3 &= ~USART_CR3_EIE ;
-      UWIFI->CR1 &= ~USART_CR1_PEIE ;
+      UWIFI->CR3 &= ~USART_CR3_EIE ;   /* disable USART overrun/noise/frame errors interrupt */
+      UWIFI->CR1 &= ~USART_CR1_PEIE ;  /* disable USART parity error interrupt */
+                                       /* disable DMA TX error interrupt */
       UWIFI_DMA_TX->CCR &= ~DMA_CCR_TEIE ;
+                                       /* disable DMA RX error interrupt */
       UWIFI_DMA_RX->CCR &= ~DMA_CCR_TEIE ;
    }
 }
 
 
 /*----------------------------------------------------------------------------*/
+/* Read error status                                                          */
+/*    - <i_bReset> ask for error reset :                                      */
+/*       . TRUE : reset errors status                                         */
+/*       . FALSE : keep previous errors                                       */
+/* Return :                                                                   */
+/*    - error status, cf. UWIFI_ERROR_xxx                                     */
+/*----------------------------------------------------------------------------*/
 
-BYTE uwifi_GetError( void )
+BYTE uwifi_GetError( BOOL i_bReset )
 {
-   return l_byErrors ;
+   BYTE byErrors ;
+
+   byErrors = l_byErrors ;             /* read error status */
+
+   if ( i_bReset )
+   {
+      l_byErrors = 0 ;                 /* reset errors if needed */
+   }
+
+   return byErrors ;                   /* return errors */
 }
 
 
 /*----------------------------------------------------------------------------*/
+/* Wifi USART interrupt                                                       */
+/*----------------------------------------------------------------------------*/
 
-void USART1_IRQHandler( void )
+void UWIFI_IRQHandler( void )
 {
    DWORD dwErrorFlag ;
-
+                                       /* tested errors are "Parity error",  */
+                                       /* "Framing error", "Noise error", "OverRun error" */
    dwErrorFlag = USART_ISR_PE | USART_ISR_FE | USART_ISR_ORE | USART_ISR_NE ;
-
+                                       /* if one error bit is set */
    if ( ( UWIFI->ISR & dwErrorFlag ) != 0 )
-   {
-         /* Parity Error Clear Flag, Framing Error Clear Flag */
-         /* Noise detected Clear Flag, OverRun Error Clear Flag */
+   {                                   /* clear error bits */
       UWIFI->ICR |= ( USART_ICR_PECF | USART_ICR_FECF | USART_ICR_NCF | USART_ICR_ORECF ) ;
 
-      l_byErrors |= UWIFI_ERROR_RX ;
+      l_byErrors |= UWIFI_ERROR_RX ;   /* set RX UASRT error */
    }
 }
 
 
 /*----------------------------------------------------------------------------*/
+/* DMA interrupt interrupt                                                    */
+/* Note : this interrupt is raised for both TX and RX channel                 */
+/*----------------------------------------------------------------------------*/
 
 void UWIFI_DMA_IRQHandler( void )
 {
-   wifi_DmaTxIrqHandle() ;
-   wifi_DmaRxIrqHandle() ;
+   wifi_DmaTxIrqHandle() ;             /* process TX DMA interrupt */
+   wifi_DmaRxIrqHandle() ;             /* process RX DMA interrupt */
 }
 
 
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
+/* Hardware initialization                                                    */
+/*----------------------------------------------------------------------------*/
 
 static void uwifi_HrdInit( void )
 {
    GPIO_InitTypeDef sGpioInit ;
 
-   WIFI_TX_GPIO_CLK_ENABLE() ;
+      /* configure TX pin as alternate, no push/pull, high freq */
+   WIFI_TX_GPIO_CLK_ENABLE() ;         /* start TX gpio clock */
    sGpioInit.Pin = WIFI_TX_PIN ;
    sGpioInit.Mode = GPIO_MODE_AF_PP ;
    sGpioInit.Pull = GPIO_NOPULL ;
@@ -225,91 +321,112 @@ static void uwifi_HrdInit( void )
    sGpioInit.Alternate = WIFI_TX_AF ;
    HAL_GPIO_Init( WIFI_TX_GPIO_PORT, &sGpioInit ) ;
 
-   WIFI_RX_GPIO_CLK_ENABLE() ;
+      /* configure RX pin as alternate, no push/pull, high freq */
+   WIFI_RX_GPIO_CLK_ENABLE() ;         /* start RX gpio clock */
    sGpioInit.Pin = WIFI_RX_PIN ;
    sGpioInit.Alternate = WIFI_RX_AF ;
    HAL_GPIO_Init( WIFI_RX_GPIO_PORT, &sGpioInit ) ;
 
-   WIFI_RTS_GPIO_CLK_ENABLE() ;
+      /* configure RTS pin as alternate, no push/pull, high freq */
+   WIFI_RTS_GPIO_CLK_ENABLE() ;        /* start RTS gpio clock */
    sGpioInit.Pin = WIFI_RTS_PIN ;
    sGpioInit.Alternate = WIFI_RTS_AF ;
    HAL_GPIO_Init( WIFI_RTS_GPIO_PORT, &sGpioInit ) ;
 
-   WIFI_CTS_GPIO_CLK_ENABLE() ;
+      /* configure CTS pin as alternate, no push/pull, high freq */
+   WIFI_CTS_GPIO_CLK_ENABLE() ;        /* start CTS gpio clock */
    sGpioInit.Pin = WIFI_CTS_PIN ;
    sGpioInit.Alternate = WIFI_CTS_AF ;
    HAL_GPIO_Init( WIFI_CTS_GPIO_PORT, &sGpioInit ) ;
 
-  /* Enable USART2 clock */
-   UWIFI_CLK_ENABLE() ;
+   /* -------- USART -------- */
 
-   UWIFI_FORCE_RESET() ;
+   UWIFI_CLK_ENABLE() ;                /* enable USART clock */
+
+   UWIFI_FORCE_RESET() ;               /* reset USART  */
    UWIFI_RELEASE_RESET() ;
                                        /* activate emission and reception */
    UWIFI->CR1 |= ( USART_CR1_TE | USART_CR1_RE ) ;
                                        /* activate DMA and RTS/CTS management */
    UWIFI->CR3 |= ( USART_CR3_DMAR | USART_CR3_DMAT | USART_CR3_RTSE | USART_CR3_CTSE ) ;
-
+                                       /* set baudrate */
    UWIFI->BRR = (uint16_t)( UART_DIV_SAMPLING16( APB1_CLK, UWIFI_BAUDRATE ) ) ;
 
-   UWIFI->CR1 |= USART_CR1_UE ;
+   UWIFI->CR1 |= USART_CR1_UE ;        /* enable USART */
 
-   UWIFI->RDR ;
-
+   UWIFI->RDR ;                        /* read input register to avoid unwanted data */
+                                       /* reset errors */
    UWIFI->ICR |= ( USART_ICR_PECF | USART_ICR_FECF | USART_ICR_NCF | USART_ICR_ORECF ) ;
+                                       /* set USART interrupt priority level */
+   HAL_NVIC_SetPriority( UWIFI_IRQn, UWIFI_IRQPri, 0 ) ;
+   HAL_NVIC_EnableIRQ( UWIFI_IRQn ) ;  /* enable USART interrupt */
 
-   HAL_NVIC_SetPriority( UWIFI_IRQn, UWIFI_IRQPri, 1 ) ;
-   HAL_NVIC_EnableIRQ( UWIFI_IRQn ) ;
+   /* -------- DMA -------- */
 
-   /* DMA */
-
-   UWIFI_DMA_TX_CLK_ENABLE();
-
-   UWIFI_DMA_TX->CCR = ( DMA_CCR_DIR | DMA_CCR_MINC | DMA_CCR_TCIE ) ;
-
+   UWIFI_DMA_CLK_ENABLE() ;            /* enable DMA clock */
+                                       /* set direction mem-to-perif, memory increment, */
+                                       /* enable transfer complete and error interrupt */
+   UWIFI_DMA_TX->CCR = ( DMA_CCR_DIR | DMA_CCR_MINC | DMA_CCR_TEIE | DMA_CCR_TCIE ) ;
+                                       /* set TX request source */
    UWIFI_DMA_CSELR->CSELR &= ~UWIFI_DMA_TX_CSELR( DMA_CSELR_C1S_Msk ) ;
    UWIFI_DMA_CSELR->CSELR |= UWIFI_DMA_TX_CSELR( UWIFI_DMA_TX_REQ ) ;
 
-   UWIFI_DMA_RX_CLK_ENABLE() ;
-
-   UWIFI_DMA_RX->CCR = ( DMA_CCR_MINC | DMA_CCR_CIRC | DMA_CCR_TCIE | DMA_CCR_HTIE ) ;
-
+                                       /* direction perif-to-mem, memory increment, */
+                                       /* enable half-transfer, transfer-complete */
+                                       /* and error interrupt */
+   UWIFI_DMA_RX->CCR = ( DMA_CCR_MINC | DMA_CCR_CIRC |
+                         DMA_CCR_TEIE | DMA_CCR_HTIE | DMA_CCR_TCIE ) ;
+                                       /* set RX request source */
    UWIFI_DMA_CSELR->CSELR &= ~UWIFI_DMA_RX_CSELR( DMA_CSELR_C1S_Msk ) ;
    UWIFI_DMA_CSELR->CSELR |= UWIFI_DMA_RX_CSELR( UWIFI_DMA_RX_REQ ) ;
-
+                                       /* set RX transfer size (equals RX buffer size) */
+   UWIFI_DMA_RX->CNDTR = sizeof(l_byRxBuffer) ;
+                                       /* set periferal address (USART RDR register) */
+   UWIFI_DMA_RX->CPAR = (DWORD)&(UWIFI->RDR) ;
+                                       /* set memory address (reception buffer) */
+   UWIFI_DMA_RX->CMAR = (DWORD)l_byRxBuffer ;
+                                       /* set DMA interrupt priority level */
    HAL_NVIC_SetPriority( UWIFI_DMA_IRQn, UWIFI_DMA_IRQPri, 0 ) ;
+                                       /* enable USART interrupt */
    HAL_NVIC_EnableIRQ( UWIFI_DMA_IRQn ) ;
+
+   UWIFI_ENABLE_DMA_RX() ;             /* enable RX DMA channel */
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Test and management of TX DMA interrupt                                    */
 /*----------------------------------------------------------------------------*/
 
 static void wifi_DmaTxIrqHandle( void )
 {
    DWORD dwIsrVal ;
 
-   dwIsrVal = UWIFI_DMA->ISR ;
-
+   dwIsrVal = UWIFI_DMA->ISR ;         /* read DMA interrupt flags status */
+                                       /* if TX global interrupt flag is set */
    if ( ISSET( dwIsrVal, UWIFI_DMA_TX_ISRIFCR( DMA_ISR_GIF1 ) ) )
-   {
+   {                                   /* clear global interrupt flag */
       UWIFI_DMA->IFCR = UWIFI_DMA_TX_ISRIFCR( DMA_IFCR_CGIF1 ) ;
-
+                                       /* if end of transfer interrupt */
       if ( ISSET( dwIsrVal, UWIFI_DMA_TX_ISRIFCR( DMA_ISR_TCIF1 ) ) )
-      {
+      {                                /* clear end of tranfser flag */
          UWIFI_DMA->IFCR = UWIFI_DMA_TX_ISRIFCR( DMA_IFCR_CTCIF1 ) ;
-         UWIFI_DISABLE_DMA_TX() ;
-         l_bTxPending = FALSE ;
+         UWIFI_DISABLE_DMA_TX() ;      /* stop TX DMA channel */
+         l_bTxPending = FALSE ;        /* current tranfer is done */
       }
-
+                                       /* if tranfser error interrupt */
       if ( ISSET( dwIsrVal, UWIFI_DMA_TX_ISRIFCR( DMA_ISR_TEIF1 ) ) )
-      {
+      {                                /* clear error flag */
          UWIFI_DMA->IFCR = UWIFI_DMA_TX_ISRIFCR( DMA_IFCR_CTEIF1 ) ;
+                                       /* set DMA TX error */
          l_byErrors |= UWIFI_ERROR_DMA_TX ;
       }
    }
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Test and management of RX DMA interrupt                                    */
 /*----------------------------------------------------------------------------*/
 
 static void wifi_DmaRxIrqHandle( void )
@@ -318,37 +435,42 @@ static void wifi_DmaRxIrqHandle( void )
    BOOL bNeedCheck ;
    BOOL bNeedSuspendRx ;
 
-   dwIsrVal = UWIFI_DMA->ISR ;
-
+   dwIsrVal = UWIFI_DMA->ISR ;         /* read DMA interrupt flags status */
+                                       /* if TX global interrupt flag is set */
    if ( ISSET( dwIsrVal, UWIFI_DMA_RX_ISRIFCR( DMA_ISR_GIF1 ) ) )
-   {
+   {                                   /* clear global interrupt flag */
+      UWIFI_DMA->IFCR = UWIFI_DMA_TX_ISRIFCR( DMA_IFCR_CGIF1 ) ;
+
       bNeedCheck = FALSE ;
-
+                                       /* if end of transfer interrupt */
       if ( ISSET( dwIsrVal, UWIFI_DMA_RX_ISRIFCR( DMA_ISR_TCIF1 ) ) )
-      {
+      {                                /* clear end of tranfser flag */
          UWIFI_DMA->IFCR = UWIFI_DMA_RX_ISRIFCR( DMA_IFCR_CTCIF1 ) ;
-         bNeedCheck = TRUE ;
+         bNeedCheck = TRUE ;           /* check of index pointers is needed */
       }
-
+                                       /* if half transfer interrupt */
       if ( ISSET( dwIsrVal, UWIFI_DMA_RX_ISRIFCR( DMA_ISR_HTIF1 ) ) )
-      {
+      {                                /* clear half tranfser flag */
          UWIFI_DMA->IFCR = UWIFI_DMA_RX_ISRIFCR( DMA_IFCR_CHTIF1 ) ;
-         bNeedCheck = TRUE ;
+         bNeedCheck = TRUE ;           /* check of index pointers is needed */
       }
 
       if ( bNeedCheck )
-      {
-         bNeedSuspendRx = uwifi_UpdateCheckIdx() ;
-         if ( bNeedSuspendRx )
+      {                                /* update input index */
+         l_wRxIdxIn = sizeof(l_byRxBuffer) - UWIFI_DMA_RX->CNDTR ;
+                                       /* get suspend status */
+         bNeedSuspendRx = uwifi_IsNeedRxSuspend() ;
+         if ( bNeedSuspendRx )         /* if RX suspend is required */
          {
-            UWIFI_DISABLE_DMA_RX() ;
-            l_bRxSuspend = TRUE ;
+            UWIFI_DISABLE_DMA_RX() ;   /* suspend RX DMA channel */
+            l_bRxSuspend = TRUE ;      /* indicate RX is suspended */
          }
       }
-
+                                       /* if transfer error interrupt */
       if ( ISSET( dwIsrVal, UWIFI_DMA_RX_ISRIFCR( DMA_ISR_TEIF1 ) ) )
-      {
+      {                                /* clear error flag */
          UWIFI_DMA->IFCR = UWIFI_DMA_RX_ISRIFCR( DMA_IFCR_CTEIF1 ) ;
+                                       /* set DMA RX error */
          l_byErrors |= UWIFI_ERROR_DMA_RX ;
       }
    }
@@ -356,29 +478,32 @@ static void wifi_DmaRxIrqHandle( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Test if suspension of RX transfer is needed                                */
+/* Return :                                                                   */
+/*    - Suspension status :                                                   */
+/*       . TRUE : data reception must be suspended                            */
+/*       . FALSE : data reception can be processed, as reception buffer is    */
+/*                 empty enough until next interrupt (half buffer size)       */
+/*----------------------------------------------------------------------------*/
 
-static BOOL uwifi_UpdateCheckIdx( void )
+static BOOL uwifi_IsNeedRxSuspend( void )
 {
    BOOL bNeedSuspendRx ;
 
-   l_wRxIdxIn = sizeof(l_byRxBuffer) - UWIFI_DMA_RX->CNDTR ;
+   bNeedSuspendRx = FALSE ;            /* no halt by default */
 
-   bNeedSuspendRx = FALSE ;
-
-   if ( l_wRxIdxIn < l_wRxIdxOut )
-   {
-      //if ( ( l_wRxIdxIn + ( sizeof(l_byRxBuffer) / 2 ) >= l_wRxIdxOut )
-      //if ( ( ( sizeof(l_byRxBuffer) / 2 ) >= l_wRxIdxOut - l_wRxIdxIn )
+   if ( l_wRxIdxIn < l_wRxIdxOut )     /* if input index is below output index */
+   {                                   /* if free space is below half-buffer */
       if ( ( l_wRxIdxOut - l_wRxIdxIn ) <= ( sizeof(l_byRxBuffer) / 2 ) )
       {
-         bNeedSuspendRx = TRUE ;
+         bNeedSuspendRx = TRUE ;       /* RX suspension is needed */
       }
    }
    else
-   {
+   {                                   /* if free space is below half-buffer */
       if ( ( l_wRxIdxIn - l_wRxIdxOut ) >= ( sizeof(l_byRxBuffer) / 2 ) )
       {
-         bNeedSuspendRx = TRUE ;
+         bNeedSuspendRx = TRUE ;       /* RX suspension is needed */
       }
    }
 

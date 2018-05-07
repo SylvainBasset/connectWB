@@ -35,7 +35,7 @@ static void cwifi_HrdInit( void ) ;
 
 void cwifi_Init( void )
 {
-   BYTE abyData[64] ;
+   BYTE abyData[512] ;
    DWORD dwInitTmp ;
    WORD wNbReadVal ;
 
@@ -55,10 +55,10 @@ void cwifi_Init( void )
    while(1)
    {
       tim_StartMsTmp( &dwInitTmp ) ;      // wait time before enabling error detection
-      while ( ! tim_IsEndMsTmp( &dwInitTmp, 5000 ) ) ;
+      while ( ! tim_IsEndMsTmp( &dwInitTmp, 1000 ) ) ;
 
-
-      wNbReadVal = uwifi_Read( abyData, sizeof(abyData) ) ;
+      WORD wReadVar = 0 ;
+      wNbReadVal = uwifi_Read( abyData, wReadVar ) ;
 
       //abyData[0] = 'A' ;
       //abyData[1] = 'T' ;
@@ -90,6 +90,7 @@ void cwifi_UnReset( void )
 {                                        /* set reset pin to 1 */
    HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
 }
+
 
 /*============================================================================*/
 

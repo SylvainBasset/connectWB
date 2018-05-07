@@ -15,10 +15,26 @@
 
 
 /*----------------------------------------------------------------------------*/
+/* Module description:                                                        */
+/*    //TBD                                                                   */
+/* - //initialisation RTC                                                     */
+/* - //gestion changement d'heure à chaque traitement cyclique                */
+/* - //calibration de l'horloge HSI avec le timer 21 en input compare         */
+/*     si inferieur à seuil, augmentation du trimm                            */
+/*     si superieur à seuil, diminution du trimm                              */
+/*     moyennage de la valeur sur 64 mesures                                  */
+/*----------------------------------------------------------------------------*/
+//SBA:
+// voir si utilisation prescaller sur input compare pour réduire passage en IT
+// Actuellement on a un taux d'occupation CPU de ~3%
+// Permettrait de gagner 1 ou 2 % de taux d'occupation CPU
+
+
+/*----------------------------------------------------------------------------*/
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define LSE_FREQ           32768llu
+#define LSE_FREQ           32768llu    /* LSE clock frequency */
 
 #define CLK_ASYNC_PREDIV   64llu       /* RTC asynchronous prediv */
 #define CLK_SYNC_PREDIV    512llu      /* RTC synchronous prediv */
@@ -74,15 +90,20 @@ typedef enum                           /* daytlight datetime type */
                                           middle of summer */
 DWORD const k_dwReprMDHMidSum = ( 7 * 100 * 100 ) + ( 1 * 100 ) ;
 
-
 #include "ClockConst.h"                /* import constants to manage datetime operations */
 
-#define CLK_CALIB_LO    ( ( ( ( APB1_CLK * 997  ) / LSE_FREQ ) / 1000 ) + 1 )
 
-#define CLK_CALIB_HI    ( ( ( APB1_CLK * 1003 ) / LSE_FREQ ) / 1000 )
+#define CLK_CALIB_NBMEAS      64       /* number of mesures for averaging */
+                                       /* low calibration limit */
+#define CLK_CALIB_LO          ( ( ( ( APB1_CLK * 997  ) / LSE_FREQ ) / 1000 ) + 1 )
+                                       /* high calibration limit */
+#define CLK_CALIB_HI          ( ( ( APB1_CLK * 1003 ) / LSE_FREQ ) / 1000 )
 
-#define CLK_CALIB_MAXPPM   5000
-#define CLK_CALIB_MINPPM   -5000
+#define CLK_CALIB_MAXPPM      5000ll   /* maximum ppm delta for error setting */
+#define CLK_CALIB_MINPPM      -5000ll  /* minimum ppm delta for error setting */
+
+#define CLK_CALIB_MINTRIMM    0        /* minimum value for HSI trimm */
+#define CLK_CALIB_MAXTRIMM    0x1F     /* maximum value for HSI trimm */
 
 
 /*----------------------------------------------------------------------------*/
@@ -102,12 +123,12 @@ static void clk_CalibInit( void ) ;
 /* Variables                                                                  */
 /*----------------------------------------------------------------------------*/
 
-static BYTE l_byHSITrim ;
-static DWORD l_dwCalibSum ;
-static BYTE l_byCalibIdx ;
+static DWORD l_dwCalibSum ;            /* calibration total sum couter */
+static BYTE l_byCalibCnt ;             /* calibration measurements counter */
+static WORD l_wCalibMoy ;              /* average calibration value */
 
-static DWORD l_dwNbCalibActions ; //
-static WORD l_wCalibVal ;
+static BYTE l_byHSITrim ;              /* trimm value */
+static DWORD l_dwNbCalibActions ;      /* number of clock changes counter */
 
 
 /*----------------------------------------------------------------------------*/
@@ -148,7 +169,7 @@ void clk_Init( void )
       clk_ComSetDateTime( &k_sDateTimeInit ) ;
    }
 
-   clk_CalibInit() ;
+   clk_CalibInit() ;                   /* system clock calibration */
 
    tim_StartMsTmp( &dwInitTmp ) ;      /* wait clock trim to stabilize */
    while ( ! tim_IsEndMsTmp( &dwInitTmp, 20 ) ) ;
@@ -199,7 +220,7 @@ SDWORD clk_GetCalib( DWORD * o_dwNbCalibActions )
    }
 
    dwThTimeRef = ( ( APB1_CLK * 1000llu ) / LSE_FREQ ) ;
-   dwThTimeVal = l_wCalibVal * 1000llu ;
+   dwThTimeVal = l_wCalibMoy * 1000llu ;
 
    sdwPpmErr = ( ( (SDWORD)dwThTimeVal - (SDWORD)dwThTimeRef ) * 1000000 ) / (SDWORD)dwThTimeRef ;
 
@@ -517,69 +538,77 @@ static void clk_32kHzInit( void )
 
 
 /*----------------------------------------------------------------------------*/
-/* //Calib                                                                   */
+/* Internal system clock calibration by 32.768 kHz Quartz                     */
 /*----------------------------------------------------------------------------*/
 
 static void clk_CalibInit( void )
 {
-   TIMCALIB_CLK_ENABLE() ;
-                                             /* TS 101, SMS 100 */
-   TIMCALIB->SMCR = TIM_SMCR_TS_2 | TIM_SMCR_TS_0 | TIM_SMCR_SMS_2 ;
+   TIMCALIB_CLK_ENABLE() ;             /* enable calbration timer clock */
+                                       /* set TI1FP1 as timer event source */
+   TIMCALIB->SMCR = TIM_SMCR_TS_2 | TIM_SMCR_TS_0 ;
+   TIMCALIB->SMCR |= TIM_SMCR_SMS_2 ;  /* timer event reset the timer */
 
-   TIMCALIB->ARR = 0xFFFF ;
-   TIMCALIB->PSC = 0 ;
+   TIMCALIB->ARR = 0xFFFF ;            /* no reload value, as timer is reset by event */
+   TIMCALIB->PSC = 0 ;                 /* no prescaller */
 
-   TIMCALIB->CCMR1 = TIM_CCMR1_CC1S_0 ;
-   TIMCALIB->CCER = TIM_CCER_CC1E ;
+   TIMCALIB->CCMR1 = TIM_CCMR1_CC1S_0 ; /* map input capture source to IC1 */
+   TIMCALIB->CCER = TIM_CCER_CC1E ;    /* enable input capture 1 */
 
-   TIMCALIB->OR = TIM21_OR_TI1_RMP_2 ;
+   TIMCALIB->OR = TIM21_OR_TI1_RMP_2 ; /* TI1 input connected to LSE clock */
 
-   TIMCALIB->DIER = TIM_DIER_CC1IE ;
+   TIMCALIB->DIER = TIM_DIER_CC1IE ;   /* enable input capture 1 interruption */
 
-                                       /* set the TIMx priority */
+                                       /* set the calbration timer priority */
    HAL_NVIC_SetPriority( TIMCALIB_IRQn, TIMCALIB_IRQPri, 0 ) ;
-                                       /* enable the TIMx global Interrupt */
+                                       /* enable the calbration timer global interrupt */
    HAL_NVIC_EnableIRQ( TIMCALIB_IRQn ) ;
 
-   TIMCALIB->CR1 = TIM_CR1_CEN ;
+   TIMCALIB->CR1 = TIM_CR1_CEN ;       /* start the timer */
 
-   l_dwCalibSum = 0 ;
-   l_byCalibIdx = 0 ;
-   l_dwNbCalibActions = 0 ;
-   RCC->ICSCR = 0 ;
+   l_dwCalibSum = 0 ;                  /* initialize total sum couter */
+   l_byCalibCnt = 0 ;                  /* initialize calibration measurements counter */
+   l_dwNbCalibActions = 0 ;            /* initialize number of clock changes counter */
+
+   l_byHSITrim = 0 ;                   /* initialize trimm value */
+   RCC->ICSCR = 0 ;                    /* set actual trimm to 0 */
 }
 
 
 /*----------------------------------------------------------------------------*/
-/* IRQ system LED Timer                                                       */
+/* IRQ calbration timer                                                       */
 /*----------------------------------------------------------------------------*/
 
 void TIMCALIB_IRQHandler( void )
 {
-   WORD wCalibVal ;
+   WORD wCalibMoy ;
 
-   l_dwCalibSum += TIMCALIB->CCR1 ;
-   l_byCalibIdx++ ;
-
-   if ( l_byCalibIdx == 64 )
-   {
-      wCalibVal = l_dwCalibSum >> 6 ;
-      l_wCalibVal = wCalibVal ;
-
-      if ( ( wCalibVal < CLK_CALIB_LO ) && ( l_byHSITrim < 0x1F ) )
+   l_dwCalibSum += TIMCALIB->CCR1 ;    /* add input capture value */
+   l_byCalibCnt++ ;                    /* add 1 measure to counter */
+                                       /* all measurements done */
+   if ( l_byCalibCnt == CLK_CALIB_NBMEAS )
+   {                                   /* get average value */
+      wCalibMoy = l_dwCalibSum / CLK_CALIB_NBMEAS ;
+      l_wCalibMoy = wCalibMoy ;
+                                       /* if average value is below low limit */
+                                       /* and not maximum trimm value */
+      if ( ( wCalibMoy < CLK_CALIB_LO ) && ( l_byHSITrim < CLK_CALIB_MAXTRIMM ) )
       {
-         l_dwNbCalibActions++ ;
-         l_byHSITrim++ ;
-         RCC->ICSCR = ( ( l_byHSITrim & 0x1FU ) << RCC_ICSCR_HSITRIM_Pos ) ;
+         l_dwNbCalibActions++ ;        /* increment action counter */
+         l_byHSITrim++ ;               /* increment HSI trimm value */
+                                       /* set new HSI trimm value */
+         RCC->ICSCR = ( ( l_byHSITrim & CLK_CALIB_MAXTRIMM ) << RCC_ICSCR_HSITRIM_Pos ) ;
       }
-      else if ( ( wCalibVal > CLK_CALIB_HI ) && ( l_byHSITrim > 0x00 ) )
+                                       /* if average value is above high limit */
+                                       /* and not minimum trimm value */
+      else if ( ( wCalibMoy > CLK_CALIB_HI ) && ( l_byHSITrim > CLK_CALIB_MINTRIMM ) )
       {
-         l_dwNbCalibActions++ ;
-         l_byHSITrim-- ;
-         RCC->ICSCR = ( ( l_byHSITrim & 0x1FU ) << RCC_ICSCR_HSITRIM_Pos ) ;
+         l_dwNbCalibActions++ ;        /* increment action counter */
+         l_byHSITrim-- ;               /* decrement HSI trimm value */
+                                       /* set new HSI trimm value */
+         RCC->ICSCR = ( ( l_byHSITrim & CLK_CALIB_MAXTRIMM ) << RCC_ICSCR_HSITRIM_Pos ) ;
       }
 
-      l_dwCalibSum = 0 ;
-      l_byCalibIdx = 0 ;
+      l_dwCalibSum = 0 ;               /* re-initialize total sum couter */
+      l_byCalibCnt = 0 ;               /* re-initialize calibration measurements counter */
    }
 }

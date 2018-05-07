@@ -119,8 +119,8 @@
 
 #define UWIFI_DMA                   DMA1
 #define UWIFI_DMA_CSELR             DMA1_CSELR
+#define UWIFI_DMA_CLK_ENABLE()      __HAL_RCC_DMA1_CLK_ENABLE()
 
-#define UWIFI_DMA_TX_CLK_ENABLE()   __HAL_RCC_DMA1_CLK_ENABLE()
 #define UWIFI_DMA_TX                DMA1_Channel2
 #define UWIFI_DMA_TX_CHANNEL        2
 #define UWIFI_DMA_TX_REQ            DMA_REQUEST_3
@@ -128,7 +128,6 @@
 #define UWIFI_DMA_TX_ISRIFCR( Value ) \
                                     DMA_MAKE_ISRIFCR( Value, UWIFI_DMA_TX_CHANNEL )
 
-#define UWIFI_DMA_RX_CLK_ENABLE()   __HAL_RCC_DMA1_CLK_ENABLE()
 #define UWIFI_DMA_RX                DMA1_Channel3
 #define UWIFI_DMA_RX_CHANNEL        3
 #define UWIFI_DMA_RX_REQ            DMA_REQUEST_3

@@ -30,10 +30,8 @@ void cwifi_UnReset( void ) ;
 #define UWIFI_ERROR_DMA_RX    4u
 
 void uwifi_Init( void ) ;
-void uwifi_StartReceive( void ) ;
 void uwifi_SetRecErrorDetection( BOOL i_bEnable ) ;
 WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize ) ;
-BOOL uwifi_Transmit( void const* i_pvData, DWORD i_dwSize ) ;
-BYTE uwifi_GetError( void ) ;
-//void WIFI_UART_IRQHandler(void) ;
+BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize ) ;
+BYTE uwifi_GetError( BOOL i_bReset ) ;
 #endif /* __COMMUNIC_H */
