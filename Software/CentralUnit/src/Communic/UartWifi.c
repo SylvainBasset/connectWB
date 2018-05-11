@@ -149,14 +149,33 @@ BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize )
 /* Read data received from Wifi module                                        */
 /*    - <o_pvData> reception buffer address                                   */
 /*    - <i_dwMaxSize> maximum size to read in bytes                           */
+/*    - <i_bBetweenCrLf> limit the read to data between two CR+LF characters. */
+/*                       If this option is set and the condition is meet,     */
+/*                       only the data placed between CR+LF characters are    */
+/*                       copied to <o_pvData>. Any data before first CR+LF    */
+/*                       character is discarded as well as CR+LF charaters    */
+/*                       themselves.                                          */
+/*                       If the condition is not meet (0 or 1 CR+LS found     */
+/*                       before end of read) the read size is set to 0 (no    */
+/*                       read).                                               */
 /* Return:                                                                    */
 /*    - actual size of read data in bytes                                     */
 /*----------------------------------------------------------------------------*/
 
-WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize )
+WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize, BOOL i_bBetweenCrLf )
 {
-   BOOL bNeedSuspendRx ;
    WORD wSizeRead ;
+   BYTE bySizeNoRead ;
+   BYTE * pbyData ;
+   BYTE byData ;
+   BYTE byPrevData ;
+   BOOL bCrLfFound ;
+   BYTE wTmpSizeRead ;
+   WORD wIdx ;
+   WORD wMemIdx ;
+   WORD wCopySize1 ;
+   WORD wCopySize2 ;
+   BOOL bNeedSuspendRx ;
 
    UWIFI_DISABLE_DMA_RX() ;            /* suspend RX reception DMA channel (atomic read) */
                                        /* disable interruption to prevent data corruption */
@@ -177,10 +196,70 @@ WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize )
    {
       wSizeRead = i_dwMaxSize ;        /* limit size to requested value */
    }
-                                       /* copy read data */
-   memcpy( o_pvData, l_byRxBuffer, wSizeRead ) ;
+
+   bySizeNoRead = 0 ;
+
+   if ( i_bBetweenCrLf )
+   {                                   /* data pointer to first one */
+      pbyData = &l_byRxBuffer[l_wRxIdxOut] ;
+      byPrevData = 0 ;                 /* no previous data */
+      bCrLfFound = FALSE ;             /* CR+LF not found by default */
+      wTmpSizeRead = wSizeRead ;       /* memorise size read for data search loop */
+      wSizeRead = 0 ;                  /* new size set to 0 */
+
+                                       /* loop over data to read */
+      for ( wIdx = 0 ; wIdx < wTmpSizeRead ; wIdx++ )
+      {                                /* if buffer overflow */
+         if ( l_wRxIdxOut + wIdx == sizeof(l_byRxBuffer) )
+         {
+            pbyData = l_byRxBuffer ;   /* set data pointer to first element */
+         }
+         byData = *pbyData ;           /* get data value */
+                                       /* if data is 'LF' and previous is 'CR' */
+         if ( ( byData == 0x0A ) && ( byPrevData == 0x0D ) )
+         {
+            if ( ! bCrLfFound )        /* if first CR+LF found */
+            {
+               wMemIdx = wIdx ;        /* memorise position ('LF' character position) */
+               bCrLfFound = TRUE ;     /* indicate first CR+LF is found */
+            }
+            else                       /* CR+LF already found */
+            {                          /* set <l_wRxIdxOut> index to the next */
+                                       /* character located after first CR+LF */
+               l_wRxIdxOut = ( l_wRxIdxOut + wMemIdx + 1 ) % sizeof(l_byRxBuffer) ;
+                                       /* calculate data size between the two */
+                                       /* CR+LF characters */
+               wSizeRead = ( ( wIdx - wMemIdx ) - 2 ) ;
+               bySizeNoRead = 2 ;      /* indicate the second CR+LF characters */
+                                       /* are not read (discarded) */
+               break ;
+            }
+         }
+         byPrevData = byData ;         /* actual data becomes previous */
+         pbyData++ ;                   /* next data */
+      }
+   }
+                                       /* if read overflows over data buffer */
+                                       /* it must be split in two copies */
+   if ( ( l_wRxIdxOut + wSizeRead ) > sizeof(l_byRxBuffer) )
+   {                                   /* size to the end of buffer */
+      wCopySize1 = sizeof(l_byRxBuffer) - l_wRxIdxOut ;
+                                       /* remaining to complete read */
+      wCopySize2 = wSizeRead - wCopySize1 ;
+   }
+   else                                /* if no overflow */
+   {
+      wCopySize1 = wSizeRead ;         /* read is performed in one copy */
+      wCopySize2 = 0 ;
+   }
+                                       /* first copy (possibly to end of buffer) */
+   memcpy( o_pvData, &l_byRxBuffer[l_wRxIdxOut], wCopySize1 ) ;
+                                       /* second copy if needed (wCopySize2 != 0) */
+   memcpy( o_pvData+wCopySize1, &l_byRxBuffer[0], wCopySize2 ) ;
+
                                        /* update output index with size read */
-   l_wRxIdxOut = ( l_wRxIdxOut + wSizeRead ) % sizeof(l_byRxBuffer) ;
+   l_wRxIdxOut = ( l_wRxIdxOut + wSizeRead + bySizeNoRead ) % sizeof(l_byRxBuffer) ;
+
                                        /* test if RX suspention is needed */
    bNeedSuspendRx = uwifi_IsNeedRxSuspend() ;
 
@@ -436,10 +515,10 @@ static void wifi_DmaRxIrqHandle( void )
    BOOL bNeedSuspendRx ;
 
    dwIsrVal = UWIFI_DMA->ISR ;         /* read DMA interrupt flags status */
-                                       /* if TX global interrupt flag is set */
+                                       /* if RX global interrupt flag is set */
    if ( ISSET( dwIsrVal, UWIFI_DMA_RX_ISRIFCR( DMA_ISR_GIF1 ) ) )
    {                                   /* clear global interrupt flag */
-      UWIFI_DMA->IFCR = UWIFI_DMA_TX_ISRIFCR( DMA_IFCR_CGIF1 ) ;
+      UWIFI_DMA->IFCR = UWIFI_DMA_RX_ISRIFCR( DMA_IFCR_CGIF1 ) ;
 
       bNeedCheck = FALSE ;
                                        /* if end of transfer interrupt */

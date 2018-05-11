@@ -17,8 +17,8 @@
 /*----------------------------------------------------------------------------*/
 
 void cwifi_Init( void ) ;
-void cwifi_Reset( void ) ;
-void cwifi_UnReset( void ) ;
+void cwifi_SetReset( BOOL i_bReset ) ;
+void cwifi_TaskCyc( void ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -31,7 +31,7 @@ void cwifi_UnReset( void ) ;
 
 void uwifi_Init( void ) ;
 void uwifi_SetRecErrorDetection( BOOL i_bEnable ) ;
-WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize ) ;
+WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize, BYTE i_byUntilNbCrLf ) ;
 BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize ) ;
 BYTE uwifi_GetError( BOOL i_bReset ) ;
 #endif /* __COMMUNIC_H */

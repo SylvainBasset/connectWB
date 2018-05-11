@@ -53,6 +53,15 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
 #define CLK_TASK_PER    100
 #define CLK_TASK_ORDER    0
 
+#define CWIFI_TASK_PER    1
+#define CWIFI_TASK_ORDER  0
+
+#define TASK_CALL( prefixlow, prefixup )                                         \
+   if ( ( byTaskPerCnt % prefixup##_TASK_PER ) == prefixup##_TASK_ORDER )    \
+   {                                                                             \
+      prefixlow##_TaskCyc() ;                                                  \
+   }
+
 
 const s_Time k_TimeStart = { .byHours = 06, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
 const s_Time k_TimeEnd = { .byHours = 07, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
@@ -75,8 +84,6 @@ int main( void )
 
    s_DateTime sSetDT ;
    BYTE byTaskPerCnt ;
-   s_Time sTimeS ;
-   s_Time sTimeE ;
 
 
       /* Note: The call to HAL_Init() perform these oprations:               */
@@ -100,58 +107,19 @@ int main( void )
    sSetDT.byHours = 00 ;
    sSetDT.byMinutes = 00 ;
    sSetDT.bySeconds = 00 ;
-   clk_SetDateTime( &sSetDT ) ;
+   clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur système
 
-   //uwifi_Init() ;
    cwifi_Init() ;
 
-
-   while(1) ;
-
    main_LedInit() ;                    /* Configure system LED */
-
    main_LedOn() ;                      /* Turn on system LED */
-
-   sSetDT.byYear = 18 ;
-   sSetDT.byMonth = 04 ;
-   sSetDT.byDays = 01 ;
-   sSetDT.byHours = 23 ;
-   sSetDT.byMinutes = 59 ;
-   sSetDT.bySeconds = 50 ;
-   clk_SetDateTime( &sSetDT ) ;
-
-   sTimeS.byHours = 6 ;
-   sTimeS.byMinutes = 0 ;
-   sTimeS.bySeconds = 0 ;
-   sTimeE.byHours = 6 ;
-   sTimeE.byMinutes = 0 ;
-   sTimeE.bySeconds = 0 ;
-
-   cal_SetDayVals( 0, &sTimeS, &sTimeE ) ;
-   cal_SetDayVals( 1, &sTimeS, &sTimeE ) ;
-   cal_SetDayVals( 2, &sTimeS, &sTimeE ) ;
-   cal_SetDayVals( 3, &sTimeS, &sTimeE ) ;
-   cal_SetDayVals( 4, &sTimeS, &sTimeE ) ;
-   cal_SetDayVals( 5, &sTimeS, &sTimeE ) ;
-   cal_SetDayVals( 6, &sTimeS, &sTimeE ) ;
 
    byTaskPerCnt = 0 ;
 
    while ( TRUE )                      /* Infinite loop */
    {
-      if ( ( byTaskPerCnt % CLK_TASK_PER ) == CLK_TASK_ORDER )
-      {
-         clk_TaskCyc() ;
-
-         if ( cal_IsChargeEnable() )
-         {
-            main_LedOn() ;
-         }
-         else
-         {
-            HAL_GPIO_WritePin( SYSLED_GPIO_PORT, SYSLED_PIN, GPIO_PIN_RESET ) ;
-         }
-      }
+      TASK_CALL( clk, CLK ) ;
+      TASK_CALL( cwifi, CWIFI ) ;
 
       tim_StartMsTmp( &dwTaskTmp ) ;
       while ( ! tim_IsEndMsTmp( &dwTaskTmp, 10 ) ) ;

@@ -21,11 +21,14 @@
 #define CWIFI_RESET_DURATION     200         /* wifi module reset duration (ms) */
 #define CWIFI_PWRUP_DURATION       1         /* duration to wait after reset release (ms) */
 
+#define CWIFI_WIND_PREFIX       "+WIND"
+
 
 /*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
+static void cwifi_ProcessWind( BYTE const * i_abyData, WORD i_wDataSize ) ;
 static void cwifi_HrdInit( void ) ;
 
 
@@ -35,64 +38,88 @@ static void cwifi_HrdInit( void ) ;
 
 void cwifi_Init( void )
 {
-   BYTE abyData[512] ;
-   DWORD dwInitTmp ;
-   WORD wNbReadVal ;
-
    cwifi_HrdInit() ;
 
-   cwifi_Reset() ;
+   cwifi_SetReset( TRUE ) ;
    uwifi_Init() ;
    uwifi_SetRecErrorDetection( FALSE ) ;
 
-   cwifi_UnReset() ;
-
-   tim_StartMsTmp( &dwInitTmp ) ;      // wait time before enabling error detection
-   while ( ! tim_IsEndMsTmp( &dwInitTmp, CWIFI_PWRUP_DURATION ) ) ;
+   cwifi_SetReset( FALSE ) ;
 
    uwifi_SetRecErrorDetection( TRUE ) ;
-
-   while(1)
-   {
-      tim_StartMsTmp( &dwInitTmp ) ;      // wait time before enabling error detection
-      while ( ! tim_IsEndMsTmp( &dwInitTmp, 1000 ) ) ;
-
-      WORD wReadVar = 0 ;
-      wNbReadVal = uwifi_Read( abyData, wReadVar ) ;
-
-      //abyData[0] = 'A' ;
-      //abyData[1] = 'T' ;
-      //abyData[2] = 0x0D ;
-      //abyData[3] = 0x0A ;
-      //uwifi_Transmit( abyData, 3 ) ;
-   }
 }
+
 
 /*----------------------------------------------------------------------------*/
 /* Wifi module reset                                                          */
 /*----------------------------------------------------------------------------*/
 
-void cwifi_Reset( void )
+void cwifi_SetReset( BOOL i_bReset )
 {
-   DWORD dwRstTmp ;
+   DWORD dwTmp ;
 
-                                          /* set reset pin to 0 */
-   HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_RESET ) ;
+   if ( i_bReset )
+   {                                      /* set reset pin to 0 */
+      HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_RESET ) ;
 
-   tim_StartMsTmp( &dwRstTmp ) ;
-   while ( ! tim_IsEndMsTmp( &dwRstTmp, CWIFI_RESET_DURATION ) ) ;
+      tim_StartMsTmp( &dwTmp ) ;
+      while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_RESET_DURATION ) ) ;
+   }
+   else
+   {                                      /* set reset pin to 1 */
+      HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
+
+      tim_StartMsTmp( &dwTmp ) ;          /* set power-up tempo */
+      while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_PWRUP_DURATION ) ) ;
+   }
 }
 
 
 /*----------------------------------------------------------------------------*/
+/* Cyclic task ( period = 10 msec )                                           */
+/*----------------------------------------------------------------------------*/
 
-void cwifi_UnReset( void )
-{                                        /* set reset pin to 1 */
-   HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
+void cwifi_TaskCyc( void )
+{
+   BYTE abyReadData[512] ;
+   WORD wNbReadVal ;
+   BYTE * pbyProcessData ;
+   WORD wProcessSize ;
+
+   WORD wReadVar ;
+   WORD wSendVal ;
+   BYTE abySendData[32] = "AT+S.HELP\x0D" ;
+
+   memset( abyReadData, 0, sizeof(abyReadData) ) ;
+
+   wReadVar = 0 ;
+   wNbReadVal = uwifi_Read( abyReadData, wReadVar, TRUE ) ;
+
+   wSendVal = 0 ;
+   if ( wSendVal )
+   {
+      uwifi_Send( abySendData, wSendVal ) ;
+   }
+
+   if ( memcmp( abyReadData, CWIFI_WIND_PREFIX, sizeof(CWIFI_WIND_PREFIX) ) )
+   {
+      pbyProcessData = &abyReadData[sizeof(CWIFI_WIND_PREFIX)] ;
+      wProcessSize = wNbReadVal - sizeof(CWIFI_WIND_PREFIX) ;
+      cwifi_ProcessWind( pbyProcessData, wProcessSize ) ;
+   }
 }
 
-
 /*============================================================================*/
+
+/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+
+static void cwifi_ProcessWind( BYTE const * i_abyData, WORD i_wDataSize )
+{
+   if ( i_abyData ) {} ;   //SBA
+   if ( i_wDataSize ) {} ; //SBA
+}
+
 
 /*----------------------------------------------------------------------------*/
 /* Low level init                                                             */
