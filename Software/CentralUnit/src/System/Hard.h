@@ -103,7 +103,7 @@
 #define UWIFI_RELEASE_RESET()      __USART1_RELEASE_RESET()
 
 #define UWIFI_IRQn                 USART1_IRQn
-#define UWIFI_IRQHandler           USART1_DAC_IRQHandler
+#define UWIFI_IRQHandler           USART1_IRQHandler
 
 
 /*----------------------------------------------------------------------------*/

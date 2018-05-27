@@ -30,8 +30,9 @@ void cwifi_TaskCyc( void ) ;
 #define UWIFI_ERROR_DMA_RX    4u
 
 void uwifi_Init( void ) ;
-void uwifi_SetRecErrorDetection( BOOL i_bEnable ) ;
-WORD uwifi_Read( void * o_pvData, WORD i_dwMaxSize, BYTE i_byUntilNbCrLf ) ;
+WORD uwifi_Read( BYTE * o_pbyData, WORD i_dwMaxSize, BOOL i_bBetweenCrLf ) ;
 BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize ) ;
+BOOL uWifi_IsSendDone( void ) ;
+void uwifi_SetErrorDetection( BOOL i_bEnable ) ;
 BYTE uwifi_GetError( BOOL i_bReset ) ;
 #endif /* __COMMUNIC_H */

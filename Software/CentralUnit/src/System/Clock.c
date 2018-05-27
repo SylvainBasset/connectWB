@@ -51,14 +51,19 @@ RTC_InitTypeDef const k_sRtcInit =     /* HAL RTC initialisation constants */
 } ;
 
                                        /* RTC set handle macro */
-#define SET_RTC_HANDLE( handle ) \
-   handle.Instance = RTC ;       \
-   handle.State = HAL_RTC_STATE_READY
+#define SET_RTC_HANDLE( handle )        \
+   handle.Instance = RTC ;              \
+   handle.State = HAL_RTC_STATE_READY ; \
+   handle.Lock = HAL_UNLOCKED ;
+
+//SBA: vérifier tous les lock, et les champs non initialisés
+
 
                                        /* RTC set init handle macro */
 #define SET_RTC_HANDLE_INIT( handle )                       \
    handle.Instance = RTC ;                                  \
    handle.State = HAL_RTC_STATE_READY ;                     \
+   handle.Lock = HAL_UNLOCKED ;                             \
    memcpy( &handle.Init, &k_sRtcInit, sizeof(handle.Init) )
 
 

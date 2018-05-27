@@ -77,9 +77,16 @@ typedef struct                         /* eeprom structure definition for calend
    DWORD adwTimeSecEnd [ NB_DAYS_WEEK ] ;
 } s_CalData ;
 
+typedef struct                         /* eeprom strcuture for wifi SSID and password */
+{
+   char szWifiSSID [32] ;              /* wifi SSID */
+   char szWifiPassword [32] ;          /* wifi password */
+} s_WifiConInfo ;
+
 typedef struct                         /* eeprom data structure definition */
 {
    s_CalData sCalData ;                /* calendar module eeprom data */
+   s_WifiConInfo sWifiConInfo ;        /* wifi SSID and password */
 } s_DataEeprom ;
 
                                        /* global for eeprom data access */
