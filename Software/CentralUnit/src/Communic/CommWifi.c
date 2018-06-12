@@ -18,6 +18,16 @@
 //#endif
 
 
+
+///*----------------------------------------------------------------------------*/
+///* Variables                                                                  */
+///*----------------------------------------------------------------------------*/
+//
+//static BOOL l_bPowerOn ;
+//static BOOL l_bConsoleRdy ;
+//static BOOL l_bHrdStarted ;
+
+
 /*----------------------------------------------------------------------------*/
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
@@ -29,6 +39,69 @@
 
 #define CWIFI_WIND_PREFIX       "+WIND"
 #define CWIFI_WIND_OK           "OK\r\n"
+
+
+typedef void (*f_WindOpCallback)( char* i_pszStrParam ) ;
+
+typedef struct
+{
+   char szWindNum [6] ;
+   BOOL * pbVar ;
+   BOOL bValue ;
+   char * pszStrVal ;
+   f_WindOpCallback Callback ;
+} s_WindOperation ;
+
+#define LIST_WIND( Op, Opc ) \
+   Op( CONSOLE_RDY, ConsoleRdy, "0:",  TRUE, NULL ) \
+   Opc( POWER_ON,    PowerOn,    "1:",  TRUE, NULL ) \
+   Op( HRD_STARTED, HrdStarted, "32:", TRUE, NULL )
+//IP { .szWindNum= "xx:", pData = NULL, .dwValue = 0, .pszStrVal=szStrIp, .Callback = NULL},
+
+#define WIND_NULL( NameUp, NameLo, Variable, Value, String )
+
+#define WIND_ENUM( NameUp, NameLo, Variable, Value, String ) CWIFI_WIND_##NameUp,
+
+#define WIND_VAR( NameUp, NameLo, Numb, Value, String ) \
+   static BOOL l_b##NameLo ;
+
+#define WIND_CALLBACK( NameUp, NameLo, Numb, Value, String ) \
+   static void cwifi_WindCallBack##NameLo( char* i_pszStrParam ) ;
+
+#define WIND_OPERATION( NameUp, NameLo, Numb, Value, String ) \
+   { .szWindNum = Numb, .pbVar = &l_b##NameLo, .bValue = Value, .pszStrVal = String },
+
+#define WIND_OPERATION_C( NameUp, NameLo, Numb, Value, String ) \
+   { .szWindNum = Numb, .pbVar = &l_b##NameLo, .bValue = Value, \
+     .pszStrVal = String, .Callback = cwifi_WindCallBack##NameLo },
+
+typedef enum
+{
+   CWIFI_WIND_NONE = 0,
+   LIST_WIND( WIND_ENUM, WIND_ENUM )
+   CWIFI_WIND_LAST
+} e_WindNames ;
+
+LIST_WIND( WIND_VAR, WIND_VAR )
+
+LIST_WIND( WIND_NULL, WIND_CALLBACK )
+
+static s_WindOperation const k_WindOperations [] =
+{
+   LIST_WIND( WIND_OPERATION, WIND_OPERATION_C )
+} ;
+
+
+static void cwifi_WindCallBackPowerOn( char* i_pszStrParam ) { if(i_pszStrParam){} }
+
+
+//typedef struct
+//{
+//   char szFmtCmd [] ;          // formatteur commande
+//   char szFmtDecodResp [] ;    // formatteur extraction donnée
+//   char * pszData ;            // adresse chaine pour réception résultat
+//} s_CmdOperation ;
+
 
 typedef enum
 {
@@ -54,6 +127,9 @@ const char * k_pszStrCmdFormat [CWIFI_CMD_LAST-CWIFI_CMD_NONE] =
    "AT&F\r\0",
    "AT+S.PING\r\0",
 } ;
+
+
+/* ----------- */
 
 typedef enum
 {
@@ -87,9 +163,7 @@ static char l_szStrCmd [128] ;
 static e_CmdType l_eCurCmd ;
 static e_WifiState l_eWifiState ;
 
-static BOOL l_bPowerOn ;
-static BOOL l_bConsoleRdy ;
-static BOOL l_bHardwareStarted ;
+
 
 
 /*----------------------------------------------------------------------------*/
@@ -109,7 +183,7 @@ void cwifi_Init( void )
 
    l_bPowerOn = FALSE ;
    l_bConsoleRdy = FALSE ;
-   l_bHardwareStarted = FALSE ;
+   l_bHrdStarted = FALSE ;
 
    cwifi_SetReset( FALSE ) ;
 
@@ -151,7 +225,7 @@ void cwifi_TaskCyc( void )
    cwifi_ProcessRec() ;
 
    if ( ( l_eWifiState == CWIFI_STATE_OFF ) &&
-        l_bPowerOn && l_bConsoleRdy && l_bHardwareStarted )
+        l_bPowerOn && l_bConsoleRdy && l_bHrdStarted )
    {
       l_eWifiState = CWIFI_STATE_RDY ;
       cwifi_Connect() ;
@@ -312,6 +386,20 @@ static void cwifi_ProcessRec( void )
 
 static void cwifi_ProcessRecWind( BYTE const * i_abyData )
 {
+   // s_WindOperation WindOp ;
+   //
+   // BYTE byIdx ;
+   //
+   // WindOp = k_WindOperations[0] ;
+   // for ( byIdx = k_WindOperations[0] ; byIdx < ARRAY_SIZE( k_WindOperations ) ; byIdx ++ )
+   // {
+   //    if strstr
+   //
+   //    WindOp++ ;
+   // }
+
+
+
    if ( i_abyData[1] == '1' && i_abyData[2] == ':' )
    {
      if ( strstr( (char*)i_abyData, "SPWF01S" ) != 0 )
@@ -327,7 +415,7 @@ static void cwifi_ProcessRecWind( BYTE const * i_abyData )
 
    else if ( i_abyData[1] == '3' && i_abyData[2] == '2' && i_abyData[3] == ':' )
    {
-      l_bHardwareStarted =  TRUE ;
+      l_bHrdStarted =  TRUE ;
    }
    else                                /* any other WIND indication is discarded */
    {
