@@ -8,24 +8,13 @@
 /******************************************************************************/
 
 
+
 #include "Define.h"
 #include "Communic.h"
+#include "Communic/l_Communic.h"
 #include "System.h"
 #include "System/Hard.h"
 
-//#ifdef WIFI_PASSWORD
-//#include "Communic/WifiPassword.h"
-//#endif
-
-
-
-///*----------------------------------------------------------------------------*/
-///* Variables                                                                  */
-///*----------------------------------------------------------------------------*/
-//
-//static BOOL l_bPowerOn ;
-//static BOOL l_bConsoleRdy ;
-//static BOOL l_bHrdStarted ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -35,123 +24,130 @@
 #define CWIFI_RESET_DURATION     200         /* wifi module reset duration (ms) */
 #define CWIFI_PWRUP_DURATION       1         /* duration to wait after reset release (ms) */
 
-#define CWIFI_CMD_TIMEOUT       2000
+#define CWIFI_CMD_TIMEOUT       2000         /* ms */
 
-#define CWIFI_WIND_PREFIX       "+WIND"
-#define CWIFI_WIND_OK           "OK\r\n"
+#define CWIFI_WIND_PREFIX       "+WIND:"
+#define CWIFI_RESP_OK           "OK\r\n"
+#define CWIFI_RESP_ERR          "ERROR"
 
+typedef RESULT (*f_WindCallback)( char C* i_pszProcessData ) ;
 
-typedef void (*f_WindOpCallback)( char* i_pszStrParam ) ;
+typedef RESULT (*f_CmdCallback)( char C* i_pszProcessData ) ;
 
 typedef struct
 {
-   char szWindNum [6] ;
+   char szWindNum [4] ;
    BOOL * pbVar ;
    BOOL bValue ;
-   char * pszStrVal ;
-   f_WindOpCallback Callback ;
+   char * pszStrContent ;
+   WORD wContentSize ;
+   f_WindCallback fCallback ;
 } s_WindOperation ;
 
-#define LIST_WIND( Op, Opc ) \
-   Op( CONSOLE_RDY, ConsoleRdy, "0:",  TRUE, NULL ) \
-   Opc( POWER_ON,    PowerOn,    "1:",  TRUE, NULL ) \
-   Op( HRD_STARTED, HrdStarted, "32:", TRUE, NULL )
-//IP { .szWindNum= "xx:", pData = NULL, .dwValue = 0, .pszStrVal=szStrIp, .Callback = NULL},
-
-#define WIND_NULL( NameUp, NameLo, Variable, Value, String )
-
-#define WIND_ENUM( NameUp, NameLo, Variable, Value, String ) CWIFI_WIND_##NameUp,
-
-#define WIND_VAR( NameUp, NameLo, Numb, Value, String ) \
-   static BOOL l_b##NameLo ;
-
-#define WIND_CALLBACK( NameUp, NameLo, Numb, Value, String ) \
-   static void cwifi_WindCallBack##NameLo( char* i_pszStrParam ) ;
-
-#define WIND_OPERATION( NameUp, NameLo, Numb, Value, String ) \
-   { .szWindNum = Numb, .pbVar = &l_b##NameLo, .bValue = Value, .pszStrVal = String },
-
-#define WIND_OPERATION_C( NameUp, NameLo, Numb, Value, String ) \
-   { .szWindNum = Numb, .pbVar = &l_b##NameLo, .bValue = Value, \
-     .pszStrVal = String, .Callback = cwifi_WindCallBack##NameLo },
+typedef struct
+{
+   char szCmdFmt [32] ;        // formatteur commande
+   char * pszStrContent ;      // adresse chaine pour réception résultat
+   WORD wContentSize ;
+   f_CmdCallback fCallback ;
+} s_CmdOperation ;
 
 typedef enum
 {
-   CWIFI_WIND_NONE = 0,
-   LIST_WIND( WIND_ENUM, WIND_ENUM )
-   CWIFI_WIND_LAST
-} e_WindNames ;
-
-LIST_WIND( WIND_VAR, WIND_VAR )
-
-LIST_WIND( WIND_NULL, WIND_CALLBACK )
-
-static s_WindOperation const k_WindOperations [] =
-{
-   LIST_WIND( WIND_OPERATION, WIND_OPERATION_C )
-} ;
-
-
-static void cwifi_WindCallBackPowerOn( char* i_pszStrParam ) { if(i_pszStrParam){} }
-
-
-//typedef struct
-//{
-//   char szFmtCmd [] ;          // formatteur commande
-//   char szFmtDecodResp [] ;    // formatteur extraction donnée
-//   char * pszData ;            // adresse chaine pour réception résultat
-//} s_CmdOperation ;
-
-
-typedef enum
-{
-   CWIFI_CMD_NONE = 0,
-   CWIFI_CMD_FIRST = 1,
-   CWIFI_CMD_AT = CWIFI_CMD_FIRST,
-   CWIFI_CMD_CFG,
-   CWIFI_CMD_SETSSID,
-   CWIFI_CMD_CFUN,
-   CWIFI_CMD_SAVE,
-   CWIFI_CMD_FACTRESET,
-   CWIFI_CMD_PING,
-   CWIFI_CMD_LAST,
-} e_CmdType ;
-
-const char * k_pszStrCmdFormat [CWIFI_CMD_LAST-CWIFI_CMD_NONE] =
-{
-   "AT\r\0",
-   "AT+S.SCFG=%s,%s\r\0",
-   "AT+S.SSIDTXT=%s\r\0",
-   "AT+CFUN=%s\r\0",
-   "AT&W\r\0",
-   "AT&F\r\0",
-   "AT+S.PING\r\0",
-} ;
-
-
-/* ----------- */
+   CWIFI_CMDST_NONE,
+   CWIFI_CMDST_PROCESSING,
+   CWIFI_CMDST_END_OK,
+   CWIFI_CMDST_END_ERR,
+} e_CmdStatus ;
 
 typedef enum
 {
    CWIFI_STATE_OFF = 0,
    CWIFI_STATE_RDY,
-   CWIFI_STATE_SETSECKEY,
+   CWIFI_STATE_CONNECTING,
    CWIFI_STATE_CONNECTED,
 } e_WifiState ;
+
+
+/*----------------------------------------------------------------------------*/
+/* Wind table definition                                                      */
+/*----------------------------------------------------------------------------*/
+
+static BOOL l_bPowerOn ;
+static BOOL l_bConsoleRdy ;
+static BOOL l_bHrdStarted ;
+static BOOL l_bConnected ;
+static char l_szWindIpWifiUp[32] ;
+
+#define LIST_WIND( Op, Opr, Opf, Oprf ) \
+   Op(  CONSOLE_RDY, ConsoleRdy, "0:",  &l_bConsoleRdy, TRUE ) \
+   Opf( POWER_ON,    PowerOn,    "1:",  &l_bPowerOn,    TRUE ) \
+   Op(  HRD_STARTED, HrdStarted, "32:", &l_bHrdStarted, TRUE ) \
+   Opr( IP_WIFI_UP,  IpWifiUp,   "24:", &l_bConnected,  TRUE )
+
+typedef enum //vérifier décallage avec 0
+{
+   CWIFI_WIND_NONE = 0,
+   LIST_WIND( CWIFI_W_ENUM, CWIFI_W_ENUM, CWIFI_W_ENUM, CWIFI_W_ENUM )
+   CWIFI_WIND_LAST
+} e_WindId ;
+
+LIST_WIND( CWIFI_W_NULL, CWIFI_W_NULL, CWIFI_W_CALLBACK, CWIFI_W_CALLBACK )
+
+static s_WindOperation const k_WindOperations [] =
+{
+   LIST_WIND( CWIFI_W_OPER, CWIFI_W_OPER_R, CWIFI_W_OPER_F, CWIFI_W_OPER_RF )
+} ;
+
+
+/*----------------------------------------------------------------------------*/
+/* Commands/responses table definition                                        */
+/*----------------------------------------------------------------------------*/
+
+static char l_szRespPing[40] ;
+
+#define LIST_CMD( Op, Opr, Oprf )              \
+   Op(  AT,        At,        "AT\r" )              \
+   Op(  SCFG,      SCfg,      "AT+S.SCFG=%s,%s\r" ) \
+   Op(  SETSSID,   SetSsid,   "AT+S.SSIDTXT=%s\r" ) \
+   Op(  CFUN,      CFun,      "AT+CFUN=%s\r" )      \
+   Op(  SAVE,      Save,      "AT&W\r" )            \
+   Op(  FACTRESET, FactReset, "AT&F\r" )            \
+   Opr( PING,      Ping,      "AT+S.PING=%s\r")
+
+typedef enum
+{
+   CWIFI_CMD_NONE = 0,
+   LIST_CMD( CWIFI_C_ENUM, CWIFI_C_ENUM, CWIFI_C_ENUM )
+   CWIFI_CMD_LAST,
+} e_CmdId ;
+
+LIST_CMD( CWIFI_C_NULL, CWIFI_C_NULL, CWIFI_C_CALLBACK )
+
+static s_CmdOperation const k_CmdOperations [] =
+{
+   LIST_CMD( CWIFI_C_OPER, CWIFI_C_OPER_R, CWIFI_C_OPER_RF )
+} ;
+
+typedef struct
+{
+   e_CmdId eCmdId ;
+   e_CmdStatus eStatus ;
+   WORD wStrContentIdx ;
+} s_CmdCurStatus ;
 
 
 /*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
-static void cwifi_Connect( void ) ;
-static BOOL cwifi_SendAndWait( e_CmdType i_eType, char const * i_szArg1,
-                                                  char const * i_szArg2 ) ;
-static void cwifi_SendCommand( e_CmdType eType, char const * i_szArg1,
-                                                char const * i_szArg2 ) ;
+static BOOL cwifi_Connect( void ) ;
+static void cwifi_SendCommand( e_CmdId i_eCmdId, char C* i_szArg1,
+                                                 char C* i_szArg2 ) ;
 static void cwifi_ProcessRec( void ) ;
-static void cwifi_ProcessRecWind( BYTE const * i_abyData ) ;
-static void cwifi_ProcessRecResp( BYTE const * i_abyData ) ;
+static void cwifi_ProcessRecWind( char * i_pszProcessData ) ;
+static char C* cwifi_RSplit( char C* i_pszStr, char C* i_pszDelim ) ;
+static void cwifi_ProcessRecResp( char * io_pszProcessData ) ;
 static void cwifi_HrdInit( void ) ;
 
 
@@ -159,11 +155,10 @@ static void cwifi_HrdInit( void ) ;
 /* Variables                                                                  */
 /*----------------------------------------------------------------------------*/
 
-static char l_szStrCmd [128] ;
-static e_CmdType l_eCurCmd ;
 static e_WifiState l_eWifiState ;
-
-
+static s_CmdCurStatus l_CmdCurStatus ;
+static BYTE l_byCmdConnectIdx ;
+static DWORD l_dwTmpCmdTimeout ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -179,7 +174,9 @@ void cwifi_Init( void )
    uwifi_SetErrorDetection( FALSE ) ;
 
    l_eWifiState = CWIFI_STATE_OFF ;
-   l_eCurCmd = CWIFI_CMD_NONE ;
+   l_CmdCurStatus.eCmdId = CWIFI_CMD_NONE ;
+   l_CmdCurStatus.eStatus = CWIFI_CMDST_NONE ;
+   l_byCmdConnectIdx = 0 ;
 
    l_bPowerOn = FALSE ;
    l_bConsoleRdy = FALSE ;
@@ -222,20 +219,57 @@ void cwifi_SetReset( BOOL i_bReset )
 
 void cwifi_TaskCyc( void )
 {
+   BOOL bConnectDone ;
+   DWORD dwTmpPing ;
+
    cwifi_ProcessRec() ;
 
-   if ( ( l_eWifiState == CWIFI_STATE_OFF ) &&
-        l_bPowerOn && l_bConsoleRdy && l_bHrdStarted )
+   if ( l_CmdCurStatus.eStatus == CWIFI_CMDST_END_ERR )
    {
-      l_eWifiState = CWIFI_STATE_RDY ;
-      cwifi_Connect() ;
+      //flush buffer ;
+      l_eWifiState = CWIFI_STATE_CONNECTING ;
+
+      l_CmdCurStatus.eCmdId = CWIFI_CMD_NONE ;
+      l_CmdCurStatus.eStatus = CWIFI_CMDST_NONE ;
+   }
+   else if ( l_CmdCurStatus.eStatus == CWIFI_CMDST_END_OK )
+   {
+      l_CmdCurStatus.eCmdId = CWIFI_CMD_NONE ;
+      l_CmdCurStatus.eStatus = CWIFI_CMDST_NONE ;
+   }
+   else           /* NONE ou PROCESSING */
+   {
    }
 
-   if ( l_eWifiState == CWIFI_STATE_RDY )
+
+   if ( l_eWifiState == CWIFI_STATE_OFF )
    {
-      while(1) ;
+      if ( l_bPowerOn && l_bConsoleRdy && l_bHrdStarted )
+      {
+         l_eWifiState = CWIFI_STATE_CONNECTING ;
+         l_byCmdConnectIdx = 0 ;
+      }
    }
 
+   if ( l_eWifiState == CWIFI_STATE_CONNECTING )
+   {
+      bConnectDone = cwifi_Connect() ;
+
+      if ( bConnectDone && l_bConnected )
+      {
+         l_eWifiState = CWIFI_STATE_CONNECTED ;
+         tim_StartSecTmp( &dwTmpPing ) ;
+      }
+   }
+
+   if ( l_eWifiState == CWIFI_STATE_CONNECTED )
+   {
+      if ( tim_IsEndSecTmp( &dwTmpPing, 5 ) )
+      {
+         tim_StartSecTmp( &dwTmpPing ) ;
+         cwifi_SendCommand( CWIFI_CMD_PING, "192.168.1.254", "" ) ;
+      }
+   }
 }
 
 /*============================================================================*/
@@ -244,108 +278,88 @@ void cwifi_TaskCyc( void )
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 
-static void cwifi_Connect( void )
+static BOOL cwifi_Connect( void )
 {
-   BOOL bCmdOk ;
-   char szWifiSSID [32] = "default" ;
-   char szWifiPassword [32] = "1324" ;
+   BOOL bDone ;
+   char * pszWifiSSID ;
+   char * pszWifiPassword ;
 
-   bCmdOk = TRUE ;
+   bDone = FALSE ;
 
-   if ( bCmdOk )
+   if ( l_CmdCurStatus.eStatus == CWIFI_CMDST_NONE )
    {
-      bCmdOk = cwifi_SendAndWait( CWIFI_CMD_CFG, "wifi_priv_mode", "2" ) ;
-   }
-   if ( bCmdOk )
-   {
-      bCmdOk = cwifi_SendAndWait( CWIFI_CMD_CFG, "wifi_mode", "1" ) ;
-   }
-   if ( bCmdOk )
-   {
-      strcpy( szWifiPassword, g_sDataEeprom->sWifiConInfo.szWifiPassword ) ;
-      bCmdOk = cwifi_SendAndWait( CWIFI_CMD_CFG, "wifi_wpa_psk_text", szWifiPassword ) ;
-   }
-   if ( bCmdOk )
-   {
-      strcpy( szWifiSSID, g_sDataEeprom->sWifiConInfo.szWifiSSID ) ;
-      bCmdOk = cwifi_SendAndWait( CWIFI_CMD_SETSSID, szWifiSSID, "" ) ;
-   }
-   if ( bCmdOk )
-   {
-      bCmdOk = cwifi_SendAndWait( CWIFI_CMD_SAVE, "", "" ) ;
-   }
-   if ( bCmdOk )
-   {
-      bCmdOk = cwifi_SendAndWait( CWIFI_CMD_CFUN, "0", "" ) ;
-   }
-}
-
-
-/*----------------------------------------------------------------------------*/
-/*                                                                            */
-/*----------------------------------------------------------------------------*/
-
-static BOOL cwifi_SendAndWait( e_CmdType i_eType, char const * i_szArg1,
-                                                  char const * i_szArg2 )
-{
-   DWORD dwTmpTimeout ;
-   BOOL bRet ;
-
-   DWORD dwTmp ;
-   tim_StartMsTmp( &dwTmp ) ;
-   while ( ! tim_IsEndMsTmp( &dwTmp, 100 ) ) ;
-
-   cwifi_SendCommand( i_eType, i_szArg1, i_szArg2 ) ;
-
-   tim_StartMsTmp( &dwTmpTimeout ) ;
-
-   bRet = TRUE ;
-
-   while ( ! uWifi_IsSendDone() )
-   {
-      if ( tim_IsEndMsTmp( &dwTmpTimeout, CWIFI_CMD_TIMEOUT ) )
+      if ( l_byCmdConnectIdx >= 6 )
       {
-         bRet = FALSE ;
-         break ;
+         bDone = TRUE ;
       }
-   }
-   if ( bRet )
-   {
-      while( l_eCurCmd != CWIFI_CMD_NONE )
+      else
       {
-         cwifi_ProcessRec() ;
-
-         if ( tim_IsEndMsTmp( &dwTmpTimeout, CWIFI_CMD_TIMEOUT ) )
+         switch ( l_byCmdConnectIdx )
          {
-            bRet = FALSE ;
-            break ;
+            case 0 :
+               cwifi_SendCommand( CWIFI_CMD_SCFG, "wifi_priv_mode", "2" ) ;
+               break ;
+            case 1 :
+               cwifi_SendCommand( CWIFI_CMD_SCFG, "wifi_mode", "1" ) ;
+               break ;
+            case 2 :
+               pszWifiPassword = g_sDataEeprom->sWifiConInfo.szWifiPassword ;
+               cwifi_SendCommand( CWIFI_CMD_SCFG, "wifi_wpa_psk_text", pszWifiPassword ) ;
+               break ;
+            case 3 :
+               pszWifiSSID = g_sDataEeprom->sWifiConInfo.szWifiSSID ;
+               cwifi_SendCommand( CWIFI_CMD_SETSSID, pszWifiSSID, "" ) ;
+               break ;
+            case 4 :
+               cwifi_SendCommand( CWIFI_CMD_SAVE, "", "" ) ;
+               break ;
+            case 5 :
+               cwifi_SendCommand( CWIFI_CMD_CFUN, "0", "" ) ;
+               break ;
+            default :
+               ERR_FATAL() ;
          }
+         l_byCmdConnectIdx++ ;
       }
    }
-   return bRet ;
+   else
+   {
+   }
+
+   return bDone ;
 }
+
 
 
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 
-static void cwifi_SendCommand( e_CmdType eType, char C* i_szArg1, char C* i_szArg2 )
+static void cwifi_SendCommand( e_CmdId i_eCmdId, char C* i_szArg1, char C* i_szArg2 )
 {
+   BOOL bSendDone ;
    BOOL bCmdAccept ;
-   char C* szStrCmdFormat ;
+   char C* pszStrCmdFormat ;
+   char szStrCmd[128] ;
 
    ERR_FATAL_IF( l_eWifiState == CWIFI_STATE_OFF ) ;
 
-   szStrCmdFormat = k_pszStrCmdFormat[ (BYTE)(eType) - 1 ] ;
+   bSendDone = uWifi_IsSendDone() ;
+   ERR_FATAL_IF( ! bSendDone ) ;
 
-   sprintf( l_szStrCmd, szStrCmdFormat, i_szArg1, i_szArg2 ) ;
+   pszStrCmdFormat = k_CmdOperations[ (BYTE)(i_eCmdId) - 1 ].szCmdFmt ;
 
-   bCmdAccept = uwifi_Send( l_szStrCmd, strlen(l_szStrCmd) ) ;
+   sprintf( szStrCmd, pszStrCmdFormat, i_szArg1, i_szArg2 ) ;
+
+   bCmdAccept = uwifi_Send( szStrCmd, strlen(szStrCmd) ) ;
 
    ERR_FATAL_IF( ! bCmdAccept ) ;
 
-   l_eCurCmd = eType ;
+   l_CmdCurStatus.eCmdId = i_eCmdId ;
+   l_CmdCurStatus.eStatus = CWIFI_CMDST_PROCESSING ;
+   l_CmdCurStatus.wStrContentIdx = 0 ;
+
+   tim_StartMsTmp( &l_dwTmpCmdTimeout ) ;
 }
 
 
@@ -368,57 +382,21 @@ static void cwifi_ProcessRec( void )
          if ( strncmp( (char*)abyReadData, CWIFI_WIND_PREFIX, strlen(CWIFI_WIND_PREFIX) ) == 0 )
          {
             pbyProcessData = &abyReadData[sizeof(CWIFI_WIND_PREFIX)-1] ;
-            cwifi_ProcessRecWind( pbyProcessData ) ;
+            cwifi_ProcessRecWind( (char*)pbyProcessData ) ;
          }
          else
          {
-            cwifi_ProcessRecResp( abyReadData ) ;
+            pbyProcessData = abyReadData ;
+            cwifi_ProcessRecResp( (char*)pbyProcessData ) ;
          }
       }
       wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), TRUE ) ;
    }
-}
 
-
-/*----------------------------------------------------------------------------*/
-/*                                                                            */
-/*----------------------------------------------------------------------------*/
-
-static void cwifi_ProcessRecWind( BYTE const * i_abyData )
-{
-   // s_WindOperation WindOp ;
-   //
-   // BYTE byIdx ;
-   //
-   // WindOp = k_WindOperations[0] ;
-   // for ( byIdx = k_WindOperations[0] ; byIdx < ARRAY_SIZE( k_WindOperations ) ; byIdx ++ )
-   // {
-   //    if strstr
-   //
-   //    WindOp++ ;
-   // }
-
-
-
-   if ( i_abyData[1] == '1' && i_abyData[2] == ':' )
-   {
-     if ( strstr( (char*)i_abyData, "SPWF01S" ) != 0 )
-     {
-        l_bPowerOn = TRUE ;
-     }
-   }
-
-   else if ( i_abyData[1] == '0' && i_abyData[2] == ':' )
-   {
-       l_bConsoleRdy = TRUE ;
-   }
-
-   else if ( i_abyData[1] == '3' && i_abyData[2] == '2' && i_abyData[3] == ':' )
-   {
-      l_bHrdStarted =  TRUE ;
-   }
-   else                                /* any other WIND indication is discarded */
-   {
+   if ( ( l_CmdCurStatus.eStatus == CWIFI_CMDST_PROCESSING ) &&
+        ( tim_IsEndMsTmp( &l_dwTmpCmdTimeout, CWIFI_CMD_TIMEOUT ) ) )
+   {                                // force retour erreur
+      l_CmdCurStatus.eStatus = CWIFI_CMDST_END_ERR ;
    }
 }
 
@@ -427,15 +405,159 @@ static void cwifi_ProcessRecWind( BYTE const * i_abyData )
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 
-static void cwifi_ProcessRecResp( BYTE const * i_abyData )
+static void cwifi_ProcessRecWind( char * io_pszProcessData )
 {
-   if ( l_eCurCmd != CWIFI_CMD_NONE )
+   s_WindOperation C* pWindOp ;
+   BYTE byIdx ;
+   RESULT rRet ;
+   char * pszContent ;
+
+   pWindOp = &k_WindOperations[0] ;
+   for ( byIdx = 0 ; byIdx < ARRAY_SIZE( k_WindOperations ) ; byIdx ++ )
    {
-      if ( strncmp( (char*)i_abyData, CWIFI_WIND_OK, strlen(CWIFI_WIND_OK) ) == 0 )
+      if ( strncmp( io_pszProcessData, pWindOp->szWindNum, strlen(pWindOp->szWindNum) ) == 0 )
       {
-         l_eCurCmd = CWIFI_CMD_NONE ;
+         rRet = OK ;
+
+         if ( pWindOp->fCallback != NULL )
+         {
+             rRet = pWindOp->fCallback( io_pszProcessData ) ;
+         }
+         if ( rRet == OK )
+         {
+            if ( pWindOp->pbVar != NULL )
+            {
+               *( pWindOp->pbVar ) = pWindOp->bValue ;
+            }
+            if ( pWindOp->pszStrContent != NULL )
+            {
+               pszContent = (char*)cwifi_RSplit( io_pszProcessData, ":" ) ;
+               pszContent[ strlen(pszContent) - 3 ] = '\0' ;
+               strncpy( pWindOp->pszStrContent, pszContent, pWindOp->wContentSize ) ;
+            }
+         }
+         break ;
+      }
+      pWindOp++ ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+
+static RESULT cwifi_WindCallBackPowerOn( char C* i_pszProcessData )
+{
+   RESULT rRet ;
+
+   if ( strstr( i_pszProcessData, "SPWF01S" ) != NULL )
+   {
+      rRet = OK ;
+   }
+   else
+   {
+      rRet = ERR ;
+   }
+   return rRet ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+
+static char C* cwifi_RSplit( char C* i_pszStr, char C* i_pszDelim )
+{
+   char C* pszPosDelim ;
+   char C* pszDesc ;
+
+   pszPosDelim = i_pszStr ;
+   pszDesc = pszPosDelim ;
+   pszPosDelim = strstr( pszDesc, i_pszDelim ) ;
+
+   while ( pszPosDelim != NULL )
+   {
+      pszPosDelim += strlen( i_pszDelim ) ;
+      pszDesc = pszPosDelim ;
+      pszPosDelim = strstr( pszPosDelim, i_pszDelim ) ;
+   }
+
+   return pszDesc ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+
+static void cwifi_ProcessRecResp( char * io_pszProcessData )
+{
+   e_CmdStatus eStatus ;
+   s_CmdOperation C* pCmdOp ;
+   RESULT rRet ;
+   WORD wContentSize ;
+   WORD wStrContentIdx ;
+   WORD wNbRemainChar ;
+   WORD wNbCharToCopy ;
+
+   eStatus = l_CmdCurStatus.eStatus ;
+   ERR_FATAL_IF( eStatus != CWIFI_CMDST_PROCESSING ) ;
+
+   pCmdOp = &k_CmdOperations[l_CmdCurStatus.eCmdId -1] ;
+
+   if ( strncmp( io_pszProcessData, CWIFI_RESP_ERR, strlen(CWIFI_RESP_ERR) ) == 0 )
+   {
+      eStatus = CWIFI_CMDST_END_ERR ;
+   }
+   else if ( strncmp( io_pszProcessData, CWIFI_RESP_OK, strlen(CWIFI_RESP_OK) ) == 0 )
+   {
+      pCmdOp->pszStrContent[l_CmdCurStatus.wStrContentIdx] = '\0' ;
+
+      rRet = OK ;
+
+      if ( pCmdOp->fCallback != NULL )
+      {
+         rRet = pCmdOp->fCallback( pCmdOp->pszStrContent ) ;
+      }
+      if ( rRet == OK )
+      {
+         eStatus = CWIFI_CMDST_END_OK ;
+      }
+      else
+      {
+         eStatus = CWIFI_CMDST_END_ERR ;
       }
    }
+   else
+   {
+      if ( pCmdOp->pszStrContent != NULL )
+      {
+         wContentSize = pCmdOp->wContentSize - 1 ;
+         wStrContentIdx = l_CmdCurStatus.wStrContentIdx ;
+
+         if ( wContentSize > wStrContentIdx )
+         {
+            wNbRemainChar = wContentSize - wStrContentIdx ;
+            if ( wNbRemainChar <= strlen(io_pszProcessData) )
+            {
+               wNbCharToCopy = wNbRemainChar ;
+            }
+            else
+            {
+               wNbCharToCopy = strlen(io_pszProcessData) ;
+            }
+         }
+         else
+         {
+            wNbCharToCopy = 0 ;
+         }
+         memcpy( &pCmdOp->pszStrContent[wStrContentIdx], io_pszProcessData, wNbCharToCopy ) ;
+
+         l_CmdCurStatus.wStrContentIdx = wStrContentIdx + wNbCharToCopy ;
+      }
+   }
+   l_CmdCurStatus.eStatus = eStatus ;
 }
 
 
