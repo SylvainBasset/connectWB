@@ -18,7 +18,7 @@
 #define CWIFI_W_ENUM( NameUp, NameLo, Numb, Var, Value ) CWIFI_WIND_##NameUp,
 
 #define CWIFI_W_CALLBACK( NameUp, NameLo, Numb, Var, Value ) \
-   static RESULT cwifi_WindCallBack##NameLo( char C* i_pszProcData ) ;
+   static RESULT cwifi_WindCallBack##NameLo( char C* i_pszProcData, BOOL i_bPendingData ) ;
 
 #define CWIFI_W_OPER( NameUp, NameLo, Numb, Var, Value ) \
    { .szWindNum = Numb, .pbVar = Var, .bValue = Value,   \

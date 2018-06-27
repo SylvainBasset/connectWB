@@ -167,7 +167,7 @@ BOOL uWifi_IsSendDone( void )
 /* Read data received from Wifi module                                        */
 /*    - <o_pbyData> reception buffer address                                  */
 /*    - <i_dwMaxSize> maximum size to read in bytes                           */
-/*    - <i_bStopAtCrLf> limit the read to data between two CR+LF characters.  */
+/*    - <i_bGetPending> limit the read to data between two CR+LF characters.  */
 /*                      If this option is set and the condition is meet, only */
 /*                      the data placed between CR+LF characters are copied   */
 /*                      to <o_pbyData>. Any data before first CR+LF character */
@@ -179,7 +179,7 @@ BOOL uWifi_IsSendDone( void )
 /*    - actual size of read data in bytes                                     */
 /*----------------------------------------------------------------------------*/
 
-WORD uwifi_Read( BYTE * o_pbyData, WORD i_dwMaxSize, BOOL i_bStopAtCrLf )
+WORD uwifi_Read( BYTE * o_pbyData, WORD i_dwMaxSize, BOOL i_bGetPending )     // reprendre comment pour i_bGetPending
 {
    WORD wSizeRead ;
    BYTE * pbyDataBuf ;
@@ -221,7 +221,7 @@ WORD uwifi_Read( BYTE * o_pbyData, WORD i_dwMaxSize, BOOL i_bStopAtCrLf )
       *pbyDataOut = byData ;
       pbyDataOut++ ;
                                        /* if buffer overflow */
-      if ( l_wRxIdxOut == sizeof(l_byRxBuffer) )
+      if ( pbyDataBuf == &l_byRxBuffer[sizeof(l_byRxBuffer) - 1] )
       {
          pbyDataBuf = l_byRxBuffer ;   /* set data pointer to first element */
       }
@@ -231,7 +231,7 @@ WORD uwifi_Read( BYTE * o_pbyData, WORD i_dwMaxSize, BOOL i_bStopAtCrLf )
       }
                                        /* if current char is 'LF' and */
                                        /* previous one is 'CR' */
-      if ( i_bStopAtCrLf && ( byData == 0x0A ) && ( byPrevData == 0x0D ) )
+      if ( ( byData == 0x0A ) && ( byPrevData == 0x0D ) )
       {
          bCRLFFound = TRUE ;           /* set CR/LF flag */
          wIdx++ ;                      /* set pointer on next char */
@@ -239,17 +239,25 @@ WORD uwifi_Read( BYTE * o_pbyData, WORD i_dwMaxSize, BOOL i_bStopAtCrLf )
       }
       byPrevData = byData ;            /* actual data becomes previous */
    }
-                                       /* CR/LF asked but not found */
-   if ( i_bStopAtCrLf && ( ! bCRLFFound ) )
+
+   if ( i_bGetPending )                /* if pre-read data without getting it */
    {
-      wSizeRead = 0 ;                  /* discard already read characters */
-      o_pbyData[0] = '\0' ;            /* no data */
-   }
-   else
-   {                                   /* set new out-index value */
-      l_wRxIdxOut = ( l_wRxIdxOut + wIdx ) % sizeof(l_byRxBuffer) ;
       wSizeRead = wIdx ;               /* get read size */
       *pbyDataOut = '\0' ;             /* end of string */
+   }
+   else
+   {
+      if ( ! bCRLFFound )              /* CR/LF not found */
+      {
+         wSizeRead = 0 ;               /* discard already read characters */
+         o_pbyData[0] = '\0' ;         /* no data */
+      }
+      else
+      {                                /* set new out-index value */
+         l_wRxIdxOut = ( l_wRxIdxOut + wIdx ) % sizeof(l_byRxBuffer) ;
+         wSizeRead = wIdx ;            /* get read size */
+         *pbyDataOut = '\0' ;          /* end of string */
+      }
    }
                                        /* test if RX suspention is needed */
    bNeedSuspendRx = uwifi_IsNeedRxSuspend() ;
