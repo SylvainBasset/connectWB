@@ -1,0 +1,16 @@
+<html>
+<head><title>Input Demo</title></head>
+<body bgcolor="white" text="black">
+
+	<p>Input from Host:  <!--#input-->WebServer currently busy. Please try again later. </p>
+
+	<p>
+	<br/><br/>Again?<br/>
+	<form name="CGI Uart" method="GET" action="/input.cgi">
+	<input type="radio" name="input" value="on"/>Yes, one more time. Please<br/>
+	<input type="radio" name="input" value="off"/>No, thanks. Bring me to HomePage<br/>
+    <input type="submit" name="submit" value="Submit" >
+	</form>
+	</p>
+</body>
+</html>

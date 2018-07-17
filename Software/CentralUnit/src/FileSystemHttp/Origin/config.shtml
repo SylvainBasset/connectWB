@@ -1,0 +1,85 @@
+<html>
+<head><title>ST SPWF01S Configuration Settings</title></head>
+<body bgcolor="white" text="black">
+<h1>SPWF01S Configuration Settings</h1>
+
+<pre>
+<!--#devconf--># Configuration Keys:
+#  nv_manuf = STM
+#  nv_model = SPWF01SA11
+#  nv_serial = value
+#  nv_wifi_macaddr = 00:80:E1:B9:75:00
+#  etf_mode = 0
+#  blink_led = 0
+#  wind_off_low = 0x00000000
+#  wind_off_medium = 0x00000000
+#  wind_off_high = 0x00000000
+#  user_desc = *****
+#  escape_seq = at+s.
+#  localecho1 = 0
+#  console1_speed = 115200
+#  console1_hwfc = 0
+#  console1_enabled = 1
+#  console1_delimiter = 0x0000002C
+#  console1_errs = 1
+#  sleep_enabled = 0
+#  standby_enabled = 0
+#  standby_time = 10
+#  wifi_tx_msdu_lifetime = 0
+#  wifi_rx_msdu_lifetime = 0
+#  wifi_operational_mode = 0x00000011
+#  wifi_beacon_wakeup = 1
+#  wifi_beacon_interval = 100
+#  wifi_listen_interval = 0
+#  wifi_rts_threshold = 3000
+#  wifi_ssid = 41:6D:62:61:73:73:61:64:65:20:64:65:20:50:69:63:61:72:64:69:65:00:00:00:00:00:00:00:00:00:00:00
+#  wifi_ssid_len = 21
+#  wifi_txfail_thresh = 5
+#  wifi_ht_mode = 0
+#  wifi_channelnum = 7
+#  wifi_opr_rate_mask = 0x00003FCF
+#  wifi_bas_rate_mask = 0x0000000F
+#  wifi_mode = 1
+#  wifi_region = 1
+#  wifi_auth_type = 0
+#  wifi_atim_window = 0
+#  wifi_powersave = 0
+#  wifi_tx_power = 18
+#  wifi_rssi_thresh = 0
+#  wifi_rssi_hyst = 0
+#  wifi_ap_idle_timeout = 120
+#  wifi_beacon_loss_thresh = 10
+#  wifi_priv_mode = 2
+#  wifi_wep_keys[0] = *****
+#  wifi_wep_keys[1] = *****
+#  wifi_wep_keys[2] = *****
+#  wifi_wep_keys[3] = *****
+#  wifi_wep_key_lens = *****
+#  wifi_wep_default_key = *****
+#  wifi_wpa_psk_raw = *****
+#  wifi_wpa_psk_text = *****
+#  ip_use_dhcp = 1
+#  ip_use_httpd = 1
+#  ip_mtu = 1500
+#  ip_hostname = iwm-B9-75-00
+#  ip_apdomainname = captiveportal.net
+#  ip_apredirect = firstset.html
+#  ip_ipaddr = 192.168.0.50
+#  ip_netmask = 255.255.255.0
+#  ip_gw = 192.168.0.1
+#  ip_dns = 192.168.0.1
+#  ip_http_get_recv_timeout = 3000
+#  ip_wait_timeout = 12000
+#  ip_dhcp_timeout = 20
+#  ip_sockd_timeout = 250
+#  ip_dhcp_lease_time = 120
+#  ip_dns_mode = 0
+#  ip_use_cgis = 0x0000000F
+#  ip_use_ssis = 0x0000000F
+#  ip_use_decoder = 0x00000000
+
+</pre>
+
+</body>
+</html>
+

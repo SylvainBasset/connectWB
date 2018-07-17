@@ -1,0 +1,42 @@
+<html>
+<head><title>ST SPWF01S Device Status</title></head>
+<body bgcolor="white" text="black">
+<h1>SPWF01S Device Status</h1>
+
+<pre>
+<!--#devsts--># Status & Statistics:
+#  version = 160129-c5bf5ce
+#  reset_reason = 2
+#  conf_flag = 5
+#  system_uptime = 1319
+#  system_sleeptime = 0
+#  gpio_enable = 0
+#  captiveportal = 0
+#  wifi_state = 10
+#  wifi_bssid = 20:0C:C8:02:21:52
+#  wifi_aid = 2
+#  wifi_channelnum = 7
+#  wifi_sup_rate_mask = 0x003FFFCF
+#  wifi_bas_rate_mask = 0x0000000F
+#  wifi_chan_activity2 = 0x00000000
+#  wifi_max_tx_power = 18
+#  wifi_gf_mode = 0
+#  wifi_reg_country =
+#  wifi_dtim_period = 2
+#  wifi_sleeping = 0
+#  wifi_num_assoc = 0
+#  ip_ipaddr = 192.168.1.45
+#  ip_netmask = 255.255.255.0
+#  ip_gw = 192.168.1.254
+#  ip_dns = 192.168.1.254
+#  ip_sock_open = 0
+#  ip_sockd_port = 15555
+#  free_heap = 19696
+#  min_heap = 14984
+#  current_time = 9072
+
+</pre>
+
+</body>
+</html>
+

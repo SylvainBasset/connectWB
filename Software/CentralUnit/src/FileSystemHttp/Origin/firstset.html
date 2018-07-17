@@ -1,0 +1,78 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type">
+  <title>firstset</title>
+</head>
+
+<body>
+<form enctype="text/plain" method="get" action="firstset.cgi" name="configure">
+<fieldset>
+<legend><h4>SPWF01 First Config</h4></legend>
+<table>
+<tr>
+<td>Insert miniAP PassKey:</td>
+<td><input type="password" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="KEY"></td>
+</tr>
+<tr>
+<td>Insert the SSID:</td>
+<td><input type="text"     style="margin-left: 10px; color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="SSID"></td>
+</tr>
+<tr>
+<td>Insert the PSK:</td>
+<td><input type="password" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="PWD"></td>
+</tr>
+<tr>
+<td>Insert Static IP Address:</td>
+<td><input type="text" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="IP"></td>
+</tr>
+<tr>
+<td>Insert Static NetMask:</td>
+<td><input type="text" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="MASK"></td>
+</tr>
+<tr>
+<td>Insert Static GW Address:</td>
+<td><input type="text" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="GW"></td>
+</tr>
+<tr>
+<td>Insert Static DNS Address:</td>
+<td><input type="text" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="DNS"></td>
+</tr>
+<tr>
+<td>Turn on/off DNS/DHCP:</td>
+<td> <select name="Dhcp" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+  <option value="0">OFF</option>
+  <option value="1" selected>ON</option>
+  </select></td>
+</tr>
+<tr>
+<td>Choose Auth Type:</td>
+<td> <select name="IbssAuth" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+  <option value="0">Open System</option>
+  <option value="1">Shared Key</option>
+  </select></td>
+</tr>
+<tr>
+<td>Choose Auth:</td>
+<td> <select name="Auth" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+  <option value="0">Open</option>
+  <option value="1">Wep</option>
+  <option value="2">Wpa & Wpa2 Personal</option>
+  <!--<option value="3">Wpa Enterprise</option>-->
+  </select></td>
+</tr>
+<tr>
+<td>Choose Mode:</td>
+<td> <select name="Mode" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+  <option value="0">Idle</option>
+  <option value="1">Station</option>
+  <option value="2">IBSS</option>
+  <option value="3">Mini AP</option>
+  </select></td>
+</tr>
+</table>
+  <input type="submit" name="confirm" value="GO!" onclick="alert('Press OK to send, then wait a few seconds.')" style="margin-left: 20px; color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+</fieldset>
+</form>
+</body>
+</html>

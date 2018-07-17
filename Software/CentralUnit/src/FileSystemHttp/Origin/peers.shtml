@@ -1,0 +1,35 @@
+<html>
+<head><title>ST SPWF01S Peers</title></head>
+<body bgcolor="white" text="black">
+<h1>SPWF01S Peers</h1>
+
+<pre>
+<!--#peers--># Size of peer table: 1
+#  0.link_id = 0
+#  0.state = 4
+#  0.addr = 20:0C:C8:02:21:52
+#  0.last_rx = 1257
+#  0.last_tx = 1257
+#  0.rx_drops = 2
+#  0.tx_drops = 0
+#  0.rx_pkts = 1451
+#  0.tx_pkts = 48
+#  0.tx_errs = 0
+#  0.rate_mask = 0x003FFFCF
+#  0.cur_rate_idx = 3
+#  0.cur_rate_ok = 3
+#  0.cur_rate_fail = 0
+#  0.tx_consec_fail = 0
+#  0.rx_seqnum = 0x00001170
+#  0.rx_seqnum_mc = 0x0000E1B0
+#  0.rx_rssi = -75
+#  0.rx_rateidx = 11
+#  0.setprot = 3
+#  0.listen_interval = 0
+#  0.capinfo = 0x00000411
+
+</pre>
+
+</body>
+</html>
+

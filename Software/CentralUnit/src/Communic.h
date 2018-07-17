@@ -16,8 +16,13 @@
 /* CommWifi.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
+typedef void (*f_ScktFrame)( char * i_pszScktFrame ) ;
+
 void cwifi_Init( void ) ;
-void cwifi_SetReset( BOOL i_bReset ) ;
+void cwifi_RegisterScktFrameFunc( f_ScktFrame fScktFrame ) ;
+BOOL cwifi_IsConnected( void ) ;
+BOOL cwifi_IsSocketConnected( void ) ;
+RESULT cwifi_AddExtCmd( char C* i_szStrCmd ) ;
 void cwifi_TaskCyc( void ) ;
 
 

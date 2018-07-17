@@ -1,0 +1,145 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type">
+  <title>remote</title>
+</head>
+
+<body>
+<script>
+function setVar()
+{
+if(document.getElementById("cbox").checked)
+  {alert("Press OK to send, then wait a few seconds.")}
+}
+function setC()
+{
+document.getElementById("LoI").disabled=true;
+document.getElementById("IoO").disabled=false;
+}
+function setW()
+{
+document.getElementById("LoI").disabled=false;
+document.getElementById("IoO").disabled=true;
+}
+function setR()
+{
+document.getElementById("LoI").disabled=true;
+document.getElementById("IoO").disabled=true;
+}
+function setA()
+{
+document.getElementById("vlt").disabled=true;
+document.getElementById("frq").disabled=true;
+document.getElementById("dc").disabled=true;
+}
+function setD()
+{
+document.getElementById("vlt").disabled=false;
+document.getElementById("frq").disabled=true;
+document.getElementById("dc").disabled=true;
+}
+function setP()
+{
+document.getElementById("vlt").disabled=true;
+document.getElementById("frq").disabled=false;
+document.getElementById("dc").disabled=false;
+}
+</script>
+
+<fieldset>
+<legend><h4>SPWF01 Remote GPIOs</h4></legend>
+<form enctype="text/plain" method="get" action="remote.cgi" name="confiGPIOs">
+<input type="radio" name="OpName" value="CONFIG" onclick="setC()" checked/>Config<br/>
+<input type="radio" name="OpName" value="WRITE" onclick="setW()"/>Write<br/>
+<input type="radio" name="OpName" value="READ" onclick="setR()"/>Read<br/><br/>
+<table>
+<tr>
+<td>Number and Value: </td>
+<td>  <select name="Number" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+  <option value="0">0</option>
+  <option value="1">1</option>
+  <option value="2">2</option>
+  <option value="3">3</option>
+  <option value="4">4</option>
+  <option value="5">5</option>
+  <option value="6">6</option>
+  <option value="7">7</option>
+  <option value="8">8</option>
+  <option value="9">9</option>
+  <option value="10">10</option>
+  <option value="11">11</option>
+  <option value="12">12</option>
+  <option value="13">13</option>
+  <option value="14">14</option>
+  <option value="15">15</option>
+  </select></td>
+<td>  <select disabled id="LoI" name="Value" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+  <option value="0">Low</option>
+  <option value="1">High</option>
+  </select></td>
+<td>  <select id="IoO" name="Direction" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+  <option value="0">Input</option>
+  <option value="1">Output</option>
+  </select></td>
+</tr>
+</table>
+  <input type="submit" name="set" value="GO!" style="margin-left: 20px; color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+</fieldset>
+</form>
+
+<br/>
+
+<fieldset>
+<legend><h4>SPWF01 Remote Alternate Functions</h4></legend>
+<form enctype="text/plain" method="get" action="remote.cgi" name="confiAFs">
+<table>
+<tr><td><input type="radio" name="OpName" value="ADC" onclick="setA()" checked/>ADC<br/></td></tr>
+<tr><td><input type="radio" name="OpName" value="DAC" onclick="setD()"/>DAC<br/></td>
+<td><input type="text" name="voltage" id="vlt" size="4" disabled="true">mV</td></tr>
+<tr><td><input type="radio" name="OpName" value="PWM" onclick="setP()"/>PWM<br/></td>
+<td><input type="text" name="frequency" id="frq" size="8" disabled="true">Hz</td>
+<td><input type="text" name="dcycle" id="dc" size="2" value="50" disabled="true">%</td></tr>
+</table>
+  <br/>
+  <input type="submit" name="AFset" value="GO!" style="margin-left: 20px; color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+</fieldset>
+</form>
+
+<br/>
+
+<fieldset>
+<legend><h4>SPWF01 Remote WakeUp</h4></legend>
+<form enctype="text/plain" method="get" action="remote.cgi" name="configPMs">
+<input type="radio" name="OpName" value="WAKE" checked/>Wake<br/>
+<input type="radio" name="OpName" value="SLEEP"/>Sleep<br/><br/>
+<input type="submit" name="change" value="GO!" style="margin-left: 20px; color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+</fieldset>
+</form>
+
+<br/>
+
+<fieldset>
+<legend><h4>SPWF01 Variable Config</h4></legend>
+<form enctype="text/plain" method="get" action="remote.cgi" name="variables">
+<table>
+<tr>
+<td>Insert PassKey:</td>
+<td><input type="password" style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="KEY"></td>
+</tr>
+<tr>
+<td>Insert variable name:</td>
+<td><input type="text"     style="margin-left: 10px; color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="VAR"></td>
+</tr>
+<tr>
+<td>Insert variable value:</td>
+<td><input type="text"     style="margin-left: 10px;  color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;" name="VAL"></td>
+</tr>
+</table>
+  <input type="submit" name="SCFG" value="GO!" onclick="setVar()" style="margin-left: 20px; color: #000000; font-family: Verdana; font-weight: bold; font-size: 12px; background-color: #cccccc;">
+  <br/><br/>
+  <input type="checkbox" name="box" id="cbox"> Save and Reboot
+</fieldset>
+</form>
+</body>
+</html>
