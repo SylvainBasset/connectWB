@@ -110,6 +110,7 @@ int main( void )
    clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur système
 
    cwifi_Init() ;
+   sfrm_Init() ;
 
    main_LedInit() ;                    /* Configure system LED */
    main_LedOn() ;                      /* Turn on system LED */
