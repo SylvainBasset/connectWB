@@ -22,8 +22,8 @@
 #define CWIFI_RESET_DURATION     200         /* wifi module reset duration (ms) */
 #define CWIFI_PWRUP_DURATION       1         /* duration to wait after reset release (ms) */
 
-#define CWIFI_CMD_TIMEOUT       2000         /* ms */
-#define CWIFI_DATAMODE_TIMEOUT  1000         /* ms */
+#define CWIFI_CMD_TIMEOUT      10000         /* ms */
+#define CWIFI_DATAMODE_TIMEOUT   800         /* ms */
 
 #define CWIFI_WIND_PREFIX       "+WIND:"
 #define CWIFI_RESP_OK           "OK\r\n"
@@ -118,7 +118,6 @@ static s_WindDesc const k_aWindDesc [] =
 static char l_szRespPing [40] ;      //SBA temp
 static char l_szRespFsl [256] ;      //SBA temp
 static char l_szRespGCfg [40] ;      //SBA temp
-static char l_szRespGCfg [40] ;      //SBA temp
 
 #define LIST_CMD( Op, Opr, Opf )                          \
    Op(  AT,        At,        "AT\r",              TRUE )  \
@@ -153,6 +152,7 @@ typedef struct
    e_CmdId eCmdId ;
    e_CmdStatus eStatus ;
    WORD wStrContentIdx ;
+   DWORD dwTmpCmdTimeout ;
 } s_CmdCurStatus ;
 
 typedef struct
@@ -176,6 +176,7 @@ typedef struct
 
 typedef struct
 {
+   BOOL bSuspend ;
    BYTE byIdxIn ;
    BYTE byIdxOut ;
    s_DataItem aDataItems [4] ;
@@ -210,11 +211,8 @@ static void cwifi_SetReset( BOOL i_bReset ) ;
 
 static e_WifiState l_eWifiState ;
 static s_CmdCurStatus l_CmdCurStatus ;
-static BYTE l_byCmdConnectIdx ;
-static DWORD l_dwTmpCmdTimeout ;
 static DWORD l_dwTmpDataMode ;
 static DWORD l_dwTmpIsAlive ;
-static BOOL l_bSocketOpen ;
 
 static f_ScktGetFrame l_fScktGetFrame ;
 static f_ScktGetResExt l_fScktGetResExt ;
@@ -239,12 +237,10 @@ void cwifi_Init( void )
    l_eWifiState = CWIFI_STATE_OFF ;
    l_CmdCurStatus.eCmdId = CWIFI_CMD_NONE ;
    l_CmdCurStatus.eStatus = CWIFI_CMDST_NONE ;
-   l_byCmdConnectIdx = 0 ;
 
    l_bPowerOn = FALSE ;
    l_bConsoleRdy = FALSE ;
    l_bHrdStarted = FALSE ;
-   l_bSocketOpen = FALSE ;
 
    cwifi_SetReset( FALSE ) ;
 
@@ -285,29 +281,17 @@ BOOL cwifi_IsSocketConnected( void )
 
 /*----------------------------------------------------------------------------*/
 
-RESULT cwifi_AddExtCmd( char C* i_szStrCmd )
+void cwifi_AddExtCmd( char C* i_szStrCmd )
 {
-   RESULT rRet ;
-
-   rRet = cwifi_AddCmdFifo( CWIFI_CMD_EXT, i_szStrCmd ) ;
-
-   return rRet ;
+   cwifi_AddCmdFifo( CWIFI_CMD_EXT, i_szStrCmd ) ;
 }
 
 
 /*----------------------------------------------------------------------------*/
-
-RESULT cwifi_AddExtData( char C* i_szStrCmd )
+void cwifi_AddExtData( char C* i_szStrCmd )
 {
-   RESULT rRet ;
-
-   rRet = cwifi_FmtAddCmdFifo( CWIFI_CMD_CMDTODATA, "", "" ) ;
-   rRet = cwifi_AddDataFifo( i_szStrCmd ) ;
-
-
-   return rRet ;
+   cwifi_AddDataFifo( i_szStrCmd ) ;
 }
-
 
 
 /*----------------------------------------------------------------------------*/
@@ -344,7 +328,6 @@ void cwifi_TaskCyc( void )
       if ( tim_IsEndMsTmp( &l_dwTmpDataMode, CWIFI_DATAMODE_TIMEOUT ) )
       {
          cwifi_AddDataFifo( "at+s." ) ;
-         l_dwTmpDataMode = 0 ;
       }
    }
 
@@ -354,6 +337,11 @@ void cwifi_TaskCyc( void )
    }
    else
    {
+      if ( ( l_CmdFifo.byIdxIn == l_CmdFifo.byIdxOut ) &&
+           ( l_DataFifo.byIdxIn != l_DataFifo.byIdxOut ) )
+      {
+         cwifi_FmtAddCmdFifo( CWIFI_CMD_CMDTODATA, "", "" ) ;
+      }
       cwifi_ExecSendCmd() ;
    }
 }
@@ -395,7 +383,6 @@ static void cwifi_ConnectFSM( void )
          if ( rRet == OK )
          {
             l_eWifiState = CWIFI_STATE_CONNECTING ;
-            l_byCmdConnectIdx = 0 ;
          }
          break ;
 
@@ -508,7 +495,7 @@ static void cwifi_ExecSendCmd( void )
       if ( bIsResult )
       {
          l_CmdCurStatus.eStatus = CWIFI_CMDST_PROCESSING ;
-         tim_StartMsTmp( &l_dwTmpCmdTimeout ) ;
+         tim_StartMsTmp( &l_CmdCurStatus.dwTmpCmdTimeout ) ;
       }
       else
       {
@@ -562,14 +549,22 @@ static void cwifi_ExecSendData( void )
    BYTE byIdxOut ;
    s_DataItem * pDataItem ;
    BOOL bUartAccept ;
+   char * szStrData ;
 
    byIdxOut = l_DataFifo.byIdxOut ;
 
-   if ( ( l_eWifiState != CWIFI_STATE_OFF ) &&
-        ( byIdxOut != l_DataFifo.byIdxIn ) &&
-        uWifi_IsSendDone() )
+   if ( ( l_eWifiState != CWIFI_STATE_OFF ) && ( byIdxOut != l_DataFifo.byIdxIn ) &&
+         ( ! l_DataFifo.bSuspend ) && uWifi_IsSendDone() )
    {
       pDataItem = &l_DataFifo.aDataItems[byIdxOut] ;
+
+      szStrData = pDataItem->szStrData ;
+
+      if ( ( szStrData[0] == 'a' ) && ( szStrData[1] == 't' ) &&
+           ( szStrData[2] == '+' ) && ( szStrData[3] == 's' ) && ( szStrData[4] == '.' ) )
+      {
+         l_DataFifo.bSuspend = TRUE ;
+      }
 
       bUartAccept = uwifi_Send( pDataItem->szStrData, strlen(pDataItem->szStrData) ) ;
       ERR_FATAL_IF( ! bUartAccept ) ;
@@ -635,9 +630,14 @@ static void cwifi_ProcessRec( void )
    }
 
    if ( ( l_CmdCurStatus.eStatus == CWIFI_CMDST_PROCESSING ) &&
-        ( tim_IsEndMsTmp( &l_dwTmpCmdTimeout, CWIFI_CMD_TIMEOUT ) ) )
+        ( tim_IsEndMsTmp( &l_CmdCurStatus.dwTmpCmdTimeout, CWIFI_CMD_TIMEOUT ) ) )
    {                                // force retour erreur
       l_CmdCurStatus.eStatus = CWIFI_CMDST_END_ERR ;
+
+      if ( ( l_CmdCurStatus.eCmdId == CWIFI_CMD_EXT ) && ( l_fScktGetResExt != NULL ) )
+      {
+         (*l_fScktGetResExt)( "ERROR: Timeout\r\n", TRUE ) ;
+      }
    }
 }
 
@@ -735,6 +735,7 @@ static RESULT cwifi_WindCallBackCmdMode( char C* i_pszProcessData, BOOL i_bPendi
 {
    if ( ! i_bPendingData )
    {
+      l_DataFifo.bSuspend = FALSE ;
       l_dwTmpDataMode = 0 ;
    }
 
@@ -783,7 +784,6 @@ static void cwifi_ProcessRecResp( char * io_pszProcessData )
 {
    e_CmdStatus eStatus ;
    s_CmdDesc C* pCmdDesc ;
-   RESULT rRet ;
    WORD wContentSize ;
    WORD wStrContentIdx ;
    WORD wNbRemainChar ;
@@ -803,20 +803,7 @@ static void cwifi_ProcessRecResp( char * io_pszProcessData )
       {
          pCmdDesc->pszStrContent[l_CmdCurStatus.wStrContentIdx] = '\0' ;
 
-         rRet = OK ;
-
-         if ( pCmdDesc->fCallback != NULL )
-         {
-            rRet = pCmdDesc->fCallback( pCmdDesc->pszStrContent ) ;
-         }
-         if ( rRet == OK )
-         {
-            eStatus = CWIFI_CMDST_END_OK ;
-         }
-         else
-         {
-            eStatus = CWIFI_CMDST_END_ERR ;
-         }
+         eStatus = CWIFI_CMDST_END_OK ;
       }
       else
       {
@@ -848,6 +835,11 @@ static void cwifi_ProcessRecResp( char * io_pszProcessData )
          }
       }
       l_CmdCurStatus.eStatus = eStatus ;
+
+      if ( pCmdDesc->fCallback != NULL )
+      {
+         pCmdDesc->fCallback( io_pszProcessData ) ;
+      }
    }
 }
 
@@ -856,9 +848,14 @@ static void cwifi_ProcessRecResp( char * io_pszProcessData )
 
 static RESULT cwifi_CmdCallBackExt( char C* i_pszProcData )
 {
+   BOOL bLastCall ;
+
+   bLastCall = ( ( l_CmdCurStatus.eStatus == CWIFI_CMDST_END_OK ) ||
+                 ( l_CmdCurStatus.eStatus == CWIFI_CMDST_END_ERR ) ) ;
+
    if ( l_fScktGetResExt != NULL )
    {
-      (*l_fScktGetResExt)(i_pszProcData) ;
+      (*l_fScktGetResExt)(i_pszProcData, bLastCall) ;
    }
 
    return OK ;

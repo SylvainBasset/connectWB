@@ -51,19 +51,19 @@
    static RESULT cwifi_CmdCallBack##NameLo( char C* i_pszProcData ) ;
 
 #define CWIFI_C_OPER( NameUp, NameLo, CmdFmt, IsResult )  \
-   { .szCmdFmt = CmdFmt, .pszStrContent = NULL, \
+   { .szCmdFmt = CmdFmt, .bIsResult = IsResult, .pszStrContent = NULL, \
      .wContentSize=0, .fCallback = NULL },
 
 #define CWIFI_C_OPER_R( NameUp, NameLo, CmdFmt, IsResult )            \
-   { .szCmdFmt = CmdFmt, .pszStrContent = l_szResp##NameLo, \
+   { .szCmdFmt = CmdFmt, .bIsResult = IsResult, .pszStrContent = l_szResp##NameLo, \
      .wContentSize=sizeof(l_szResp##NameLo), .fCallback = NULL },
 
 #define CWIFI_C_OPER_F( NameUp, NameLo, CmdFmt, IsResult ) \
-   { .szCmdFmt = CmdFmt, .pszStrContent = NULL,  \
+   { .szCmdFmt = CmdFmt, .bIsResult = IsResult, .pszStrContent = NULL,  \
      .wContentSize=0, .fCallback = cwifi_CmdCallBack##NameLo },
 //
 /*
 #define CWIFI_C_OPER_RF( NameUp, NameLo, CmdFmt, IsResult )           \
-   { .szCmdFmt = CmdFmt, .pszStrContent = l_szResp##NameLo, \
+   { .szCmdFmt = CmdFmt, .bIsResult = IsResult, .pszStrContent = l_szResp##NameLo, \
      .wContentSize=sizeof(l_szResp##NameLo), .fCallback = cwifi_CmdCallBack##NameLo },
 */

@@ -24,15 +24,15 @@ void sfrm_Init( void ) ;
 /*----------------------------------------------------------------------------*/
 
 typedef void (*f_ScktGetFrame)( char C* i_pszFrame ) ;
-typedef void (*f_ScktGetResExt)( char C* i_pszResExt ) ;
+typedef void (*f_ScktGetResExt)( char C* i_pszResExt, BOOL i_bLastCall ) ;
 
 void cwifi_Init( void ) ;
 void cwifi_RegisterScktFunc( f_ScktGetFrame fScktGetFrame,
                              f_ScktGetResExt fScktGetResExt ) ;
 BOOL cwifi_IsConnected( void ) ;
 BOOL cwifi_IsSocketConnected( void ) ;
-RESULT cwifi_AddExtCmd( char C* i_szStrCmd ) ;
-RESULT cwifi_AddExtData( char C* i_szStrCmd ) ;
+void cwifi_AddExtCmd( char C* i_szStrCmd ) ;
+void cwifi_AddExtData( char C* i_szStrCmd ) ;
 void cwifi_TaskCyc( void ) ;
 
 
