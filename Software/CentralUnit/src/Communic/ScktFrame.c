@@ -10,15 +10,17 @@
 
 #include "Define.h"
 #include "Communic.h"
+#include "System.h"
 
 typedef enum
 {
    SFRM_ID_NULL = 0,
    SFRM_ID_FIRST = 1,
-   SFRM_ID_BRIGEWIFI = SFRM_ID_FIRST,
-   SFRM_ID_SETSSID,
-   SFRM_ID_SETPWD,
-   SFRM_ID_BRIGERAPI,
+   SFRM_ID_WIFI_BRIGE = SFRM_ID_FIRST,
+   SFRM_ID_WIFI_SETSSID,
+   SFRM_ID_WIFI_SETPWD,
+   SFRM_ID_WIFI_EXITMAINT,
+   SFRM_ID_RAPI_BRIGE,
    SFRM_ID_LAST
 } e_sfrmFrameId ;
 
@@ -32,17 +34,19 @@ typedef struct
 
 static s_FrameDesc const k_aFrameDesc [] =
 {
-   { .eFrameId = SFRM_ID_BRIGEWIFI, .FrmStr = "$01:", .FrmRes = "$81:", .bExtCmd = TRUE },
-   { .eFrameId = SFRM_ID_SETSSID,   .FrmStr = "$02:", .FrmRes = "$82:", .bExtCmd = TRUE },
-   { .eFrameId = SFRM_ID_SETPWD,    .FrmStr = "$03:", .FrmRes = "$83:", .bExtCmd = TRUE },
-   { .eFrameId = SFRM_ID_BRIGERAPI, .FrmStr = "$10:", .FrmRes = "$90:", .bExtCmd = FALSE },
+   { .eFrameId = SFRM_ID_WIFI_BRIGE,     .FrmStr = "$01:", .FrmRes = "$81:", .bExtCmd = TRUE },
+   { .eFrameId = SFRM_ID_WIFI_SETSSID,   .FrmStr = "$02:", .FrmRes = "$82:", .bExtCmd = FALSE },
+   { .eFrameId = SFRM_ID_WIFI_SETPWD,    .FrmStr = "$03:", .FrmRes = "$83:", .bExtCmd = FALSE },
+   { .eFrameId = SFRM_ID_WIFI_EXITMAINT, .FrmStr = "$04:", .FrmRes = "$84:", .bExtCmd = FALSE },
+   { .eFrameId = SFRM_ID_RAPI_BRIGE,     .FrmStr = "$10:", .FrmRes = "$90:", .bExtCmd = FALSE },
 } ;
 
 
 /*----------------------------------------------------------------------------*/
 
-static void sfrm_TreatFrame( char C* i_szStrFrm ) ;
-static void sfrm_TreatResExt( char C* i_szStrFrm, BOOL i_bLastCall ) ;
+static RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
+static void sfrm_ProcessFrame( char * i_szStrFrm ) ;
+static void sfrm_ProcessResExt( char C* i_szStrFrm, BOOL i_bLastCall ) ;
 static void sfrm_SendRes( char C* i_szRes ) ;
 
 
@@ -55,7 +59,7 @@ static e_sfrmFrameId l_eFrmId ;
 
 void sfrm_Init( void )
 {
-   cwifi_RegisterScktFunc( &sfrm_TreatFrame, &sfrm_TreatResExt ) ;
+   cwifi_RegisterScktFunc( &sfrm_ProcessFrame, &sfrm_ProcessResExt ) ;
    l_eFrmId = SFRM_ID_NULL ;
 }
 
@@ -63,11 +67,12 @@ void sfrm_Init( void )
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-static void sfrm_TreatFrame( char C* i_szStrFrm )
+static void sfrm_ProcessFrame( char * i_szStrFrm )
 {
    BYTE byIdx ;
    s_FrameDesc C* pFrmDesc ;
-   char C* pszArg ;
+   char * pszArg ;
+   char * pszChar ;
 
    pFrmDesc = &k_aFrameDesc[0] ;
    pszArg = NULL ;
@@ -80,6 +85,16 @@ static void sfrm_TreatFrame( char C* i_szStrFrm )
          {
             l_eFrmId = pFrmDesc->eFrameId ;
             pszArg = i_szStrFrm + sizeof(pFrmDesc->FrmStr) ;
+
+            if ( ! pFrmDesc->bExtCmd )
+            {
+               pszChar = pszArg + strlen(pszArg) - 2 ;
+               if ( ( ( *pszChar == '\n' ) || ( *pszChar == '\r' ) ) &&
+                    ( ( *( pszChar + 1 ) == '\n' ) || ( *( pszChar + 1 ) == '\r' ) ) )
+               {
+                  *pszChar = 0 ;
+               }
+            }
             break ;
          }
          pFrmDesc++ ;
@@ -87,18 +102,45 @@ static void sfrm_TreatFrame( char C* i_szStrFrm )
 
       switch ( l_eFrmId )
       {
-         case SFRM_ID_BRIGEWIFI :
+         case SFRM_ID_WIFI_BRIGE :
             cwifi_AddExtCmd( pszArg ) ;
             break ;
-         case SFRM_ID_SETSSID :
-            cwifi_AddExtCmd( "AT\r\n" ) ;
+
+         case SFRM_ID_WIFI_SETSSID :
+            if ( sfrm_WriteWifiId( TRUE, pszArg ) == OK )
+            {
+               sfrm_SendRes( "OK\r\n" ) ;
+            }
+            else
+            {
+               sfrm_SendRes( "ERROR : Too large\r\n" ) ;
+            }
             break ;
-         case SFRM_ID_SETPWD :
-            cwifi_AddExtCmd( "AT\r\n" ) ;
+
+         case SFRM_ID_WIFI_SETPWD :
+            if ( sfrm_WriteWifiId( FALSE, pszArg ) == OK )
+            {
+               sfrm_SendRes( "OK\r\n" ) ;
+            }
+            else
+            {
+               sfrm_SendRes( "ERROR : Too large\r\n" ) ;
+            }
             break ;
-         case SFRM_ID_BRIGERAPI :
+
+         case SFRM_ID_WIFI_EXITMAINT :
+            cwifi_SetMaintMode( FALSE ) ;
+            if ( cwifi_Restart() != OK )
+            {
+               sfrm_SendRes( "ERROR : Transfert pending\r\n" ) ;
+            }
+            break ;
+
+         case SFRM_ID_RAPI_BRIGE :
             //op
             sfrm_SendRes( "cocolastico\n" ) ;
+            break ;
+
          default :
             break ;
       }
@@ -115,8 +157,67 @@ static void sfrm_TreatFrame( char C* i_szStrFrm )
 }
 
 
+
 /*----------------------------------------------------------------------------*/
-static void sfrm_TreatResExt( char C* i_szStrFrm, BOOL i_bLastCall )
+static RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
+{
+   DWORD dwEepAddr ;
+   BYTE byEepSize ;
+   BYTE byParamSize ;
+   DWORD dwEepVal ;
+   BYTE byShift ;
+   char C* pszChar ;
+   RESULT rRet ;
+
+   if ( i_bIsSsid )
+   {
+      dwEepAddr = (DWORD)&g_sDataEeprom->sWifiConInfo.szWifiSSID ;
+      byEepSize = sizeof(g_sDataEeprom->sWifiConInfo.szWifiSSID) ;
+   }
+   else
+   {
+      dwEepAddr = (DWORD)&g_sDataEeprom->sWifiConInfo.szWifiPassword ;
+      byEepSize = sizeof(g_sDataEeprom->sWifiConInfo.szWifiPassword) ;
+   }
+
+   byParamSize = strlen( i_szParam ) + 1 ;
+
+   if ( byParamSize <= byEepSize )
+   {
+      dwEepVal = 0 ;
+      byShift = 0 ;
+      pszChar = i_szParam ;
+      while( byParamSize != 0 )
+      {
+         dwEepVal |= ( *pszChar << byShift ) ;
+         byShift += 8 ;
+         pszChar++ ;
+         byParamSize-- ;
+         if ( byShift == 32 )
+         {
+            eep_write( dwEepAddr, dwEepVal ) ;
+            byShift = 0 ;
+            dwEepVal = 0 ;
+            dwEepAddr += 4 ;
+         }
+      }
+      if ( byShift != 0 )
+      {
+         eep_write( dwEepAddr, dwEepVal ) ;
+      }
+      rRet = OK ;
+   }
+   else
+   {
+      rRet = ERR ;
+   }
+   return rRet ;
+}
+
+
+
+/*----------------------------------------------------------------------------*/
+static void sfrm_ProcessResExt( char C* i_szStrFrm, BOOL i_bLastCall )
 {
    if ( l_eFrmId != SFRM_ID_NULL )
    {

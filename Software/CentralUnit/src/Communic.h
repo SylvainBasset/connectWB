@@ -23,12 +23,14 @@ void sfrm_Init( void ) ;
 /* CommWifi.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
-typedef void (*f_ScktGetFrame)( char C* i_pszFrame ) ;
+typedef void (*f_ScktGetFrame)( char * i_pszFrame ) ;
 typedef void (*f_ScktGetResExt)( char C* i_pszResExt, BOOL i_bLastCall ) ;
 
 void cwifi_Init( void ) ;
 void cwifi_RegisterScktFunc( f_ScktGetFrame fScktGetFrame,
                              f_ScktGetResExt fScktGetResExt ) ;
+RESULT cwifi_Restart( void ) ;
+void cwifi_SetMaintMode( BOOL i_bMaintmode ) ;
 BOOL cwifi_IsConnected( void ) ;
 BOOL cwifi_IsSocketConnected( void ) ;
 void cwifi_AddExtCmd( char C* i_szStrCmd ) ;

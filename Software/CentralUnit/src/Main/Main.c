@@ -74,6 +74,9 @@ static void main_LedInit( void ) ;
 static void main_LedOn( void ) ;
 
 
+static BOOL l_bBpState ;
+
+
 /*----------------------------------------------------------------------------*/
 /* Main program                                                               */
 /*----------------------------------------------------------------------------*/
@@ -115,10 +118,35 @@ int main( void )
    main_LedInit() ;                    /* Configure system LED */
    main_LedOn() ;                      /* Turn on system LED */
 
+   GPIO_InitTypeDef sGpioInit ;
+   sGpioInit.Pin = USER_BP ;
+   sGpioInit.Mode = GPIO_MODE_INPUT ;
+   sGpioInit.Pull = GPIO_NOPULL ;
+   sGpioInit.Speed = GPIO_SPEED_FAST ;
+   sGpioInit.Alternate = USER_BP_AF ;
+   HAL_GPIO_Init( WIFI_RESET_GPIO_PORT, &sGpioInit ) ;
+
    byTaskPerCnt = 0 ;
 
    while ( TRUE )                      /* Infinite loop */
    {
+      if ( HAL_GPIO_ReadPin( USER_BP_GPIO_PORT, USER_BP) == GPIO_PIN_RESET )
+      {
+         if ( l_bBpState == FALSE )
+         {
+            l_bBpState = TRUE ;
+            cwifi_SetMaintMode( TRUE ) ;
+            cwifi_Restart() ;
+         }
+      }
+      else
+      {
+         if ( l_bBpState == TRUE )
+         {
+            l_bBpState = FALSE ;
+         }
+      }
+
       TASK_CALL( clk, CLK ) ;
       TASK_CALL( cwifi, CWIFI ) ;
 

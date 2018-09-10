@@ -55,6 +55,11 @@
 #define WIFI_WAKEUP_AF                 0
 #define WIFI_WAKEUP_GPIO_CLK_ENABLE()  __GPIOC_CLK_ENABLE()
 
+#define USER_BP                        GPIO_PIN_13
+#define USER_BP_GPIO_PORT              GPIOC
+#define USER_BP_AF                     0
+#define USER_BP_GPIO_CLK_ENABLE()      __GPIOC_CLK_ENABLE()
+
 
 /*----------------------------------------------------------------------------*/
 /* IRQs Priorities                                                            */

@@ -29,6 +29,9 @@
 #define CWIFI_RESP_OK           "OK\r\n"
 #define CWIFI_RESP_ERR          "ERROR"
 
+#define CWIFI_MAINT_SSID         "ConnectWB_Maint"
+#define CWIFI_MAINT_PWD          "75320000\0"
+
 typedef RESULT (*f_WindCallback)( char C* i_pszProcessData, BOOL i_bPendingData ) ;
 
 typedef RESULT (*f_CmdCallback)( char C* i_pszProcessData ) ;
@@ -116,8 +119,7 @@ static s_WindDesc const k_aWindDesc [] =
 /*----------------------------------------------------------------------------*/
 
 static char l_szRespPing [40] ;      //SBA temp
-static char l_szRespFsl [256] ;      //SBA temp
-static char l_szRespGCfg [40] ;      //SBA temp
+static char l_szRespGCfg [128] ;      //SBA temp
 
 #define LIST_CMD( Op, Opr, Opf )                          \
    Op(  AT,        At,        "AT\r",              TRUE )  \
@@ -130,7 +132,7 @@ static char l_szRespGCfg [40] ;      //SBA temp
    Opr( PING,      Ping,      "AT+S.PING=%s\r",    TRUE )  \
    Op(  SOCKD,     Sockd,     "AT+S.SOCKD=%s\r",   TRUE )  \
    Op(  CMDTODATA, CmdToData, "AT+S.\r",           FALSE ) \
-   Opr( FSL,       Fsl,       "AT+S.FSL\r",        TRUE )  \
+   Op(  FSL,       Fsl,       "AT+S.FSL\r",        TRUE )  \
    Opf( EXT,       Ext,       "",                  TRUE ) \
 
 typedef enum
@@ -165,7 +167,7 @@ typedef struct
 {
    BYTE byIdxIn ;
    BYTE byIdxOut ;
-   s_CmdItem aCmdItems [8] ;
+   s_CmdItem aCmdItems [10] ;
 } s_CmdFifo ;
 
 
@@ -202,7 +204,7 @@ static void cwifi_ProcessRecWind( char * i_pszProcessData, BOOL i_bPendingData  
 static char C* cwifi_RSplit( char C* i_pszStr, char C* i_pszDelim ) ;
 static void cwifi_ProcessRecResp( char * io_pszProcessData ) ;
 static void cwifi_HrdInit( void ) ;
-static void cwifi_SetReset( BOOL i_bReset ) ;
+static void cwifi_ModuleReset( void ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -213,6 +215,7 @@ static e_WifiState l_eWifiState ;
 static s_CmdCurStatus l_CmdCurStatus ;
 static DWORD l_dwTmpDataMode ;
 static DWORD l_dwTmpIsAlive ;
+static BOOL l_bMaintMode ;
 
 static f_ScktGetFrame l_fScktGetFrame ;
 static f_ScktGetResExt l_fScktGetResExt ;
@@ -229,22 +232,9 @@ static s_DataFifo l_DataFifo ;
 void cwifi_Init( void )
 {
    cwifi_HrdInit() ;
+   cwifi_ModuleReset() ;
 
-   cwifi_SetReset( TRUE ) ;
-   uwifi_Init() ;
-   uwifi_SetErrorDetection( FALSE ) ;
-
-   l_eWifiState = CWIFI_STATE_OFF ;
-   l_CmdCurStatus.eCmdId = CWIFI_CMD_NONE ;
-   l_CmdCurStatus.eStatus = CWIFI_CMDST_NONE ;
-
-   l_bPowerOn = FALSE ;
-   l_bConsoleRdy = FALSE ;
-   l_bHrdStarted = FALSE ;
-
-   cwifi_SetReset( FALSE ) ;
-
-   uwifi_SetErrorDetection( TRUE ) ;
+   l_bMaintMode = FALSE ;
 }
 
 
@@ -257,6 +247,34 @@ void cwifi_RegisterScktFunc( f_ScktGetFrame fScktGetFrame,
    l_fScktGetResExt = fScktGetResExt ;
 }
 
+
+/*----------------------------------------------------------------------------*/
+
+RESULT cwifi_Restart( void )
+{
+   RESULT rRet ;
+
+   if ( ( l_CmdFifo.byIdxIn == l_CmdFifo.byIdxOut ) &&
+        ( l_DataFifo.byIdxIn == l_DataFifo.byIdxOut ) )
+   {
+      cwifi_ModuleReset() ;
+      rRet = OK ;
+   }
+   else
+   {
+      rRet = ERR ;
+   }
+
+   return rRet ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+void cwifi_SetMaintMode( BOOL i_bMaintmode )
+{
+   l_bMaintMode = i_bMaintmode ;
+}
 
 
 /*----------------------------------------------------------------------------*/
@@ -369,13 +387,23 @@ static void cwifi_ConnectFSM( void )
 
       case CWIFI_STATE_IDLE :
          rRet = OK ;
-         rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_priv_mode", "2" ) ;
-         rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_mode", "1" ) ;
+         if ( ! l_bMaintMode )
+         {
+            rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_priv_mode", "2" ) ;
+            rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_mode", "1" ) ;
 
-         pszWifiPassword = g_sDataEeprom->sWifiConInfo.szWifiPassword ;
-         rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_wpa_psk_text", pszWifiPassword ) ;
-         pszWifiSSID = g_sDataEeprom->sWifiConInfo.szWifiSSID ;
-         rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SETSSID, pszWifiSSID, "" ) ;
+            pszWifiPassword = g_sDataEeprom->sWifiConInfo.szWifiPassword ;
+            rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_wpa_psk_text", pszWifiPassword ) ;
+            pszWifiSSID = g_sDataEeprom->sWifiConInfo.szWifiSSID ;
+            rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SETSSID, pszWifiSSID, "" ) ;
+         }
+         else
+         {
+            // set ip
+            rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SETSSID, CWIFI_MAINT_SSID, "" ) ;
+            rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_priv_mode", "0" ) ;
+            rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_mode", "3" ) ;
+         }
 
          rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SAVE, "", "" ) ;
          rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_CFUN, "0", "" ) ;
@@ -908,26 +936,42 @@ static void cwifi_HrdInit( void )
 }
 
 
+
 /*----------------------------------------------------------------------------*/
 /* Wifi module reset                                                          */
 /*----------------------------------------------------------------------------*/
 
-static void cwifi_SetReset( BOOL i_bReset )
+static void cwifi_ModuleReset( void )
 {
    DWORD dwTmp ;
+                                       /* set reset pin to 0 */
+   HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_RESET ) ;
+   tim_StartMsTmp( &dwTmp ) ;
+   while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_RESET_DURATION ) ) ;
 
-   if ( i_bReset )
-   {                                      /* set reset pin to 0 */
-      HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_RESET ) ;
+   uwifi_Init() ;
+   uwifi_SetErrorDetection( FALSE ) ;
 
-      tim_StartMsTmp( &dwTmp ) ;
-      while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_RESET_DURATION ) ) ;
-   }
-   else
-   {                                      /* set reset pin to 1 */
-      HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
+   l_eWifiState = CWIFI_STATE_OFF ;
+   l_CmdCurStatus.eCmdId = CWIFI_CMD_NONE ;
+   l_CmdCurStatus.eStatus = CWIFI_CMDST_NONE ;
 
-      tim_StartMsTmp( &dwTmp ) ;          /* set power-up tempo */
-      while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_PWRUP_DURATION ) ) ;
-   }
+   l_bPowerOn = FALSE ;
+   l_bConsoleRdy = FALSE ;
+   l_bHrdStarted = FALSE ;
+   l_bWifiUp = FALSE ;
+   l_bSocketConnected = FALSE ;
+   l_bDataMode = FALSE ;
+
+   memset( l_szWindWifiUpIp, 0, sizeof(l_szWindWifiUpIp) ) ;
+   memset( l_szWindSocketConIp, 0, sizeof(l_szWindSocketConIp) ) ;
+
+   l_dwTmpDataMode = 0 ;
+   l_dwTmpIsAlive = 0 ;
+
+   HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
+   tim_StartMsTmp( &dwTmp ) ;          /* set power-up tempo */
+   while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_PWRUP_DURATION ) ) ;
+
+   uwifi_SetErrorDetection( TRUE ) ;
 }
