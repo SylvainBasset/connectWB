@@ -18,4 +18,6 @@
 
 #define TASKCALL_PER_MS  10            /* tasks call period, ms */
 
+char C* main_GetName( void ) ;
+
 #endif /* __MAIN_H */

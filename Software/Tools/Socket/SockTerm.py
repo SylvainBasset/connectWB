@@ -1,10 +1,14 @@
 # -*- coding: Cp1252 -*-
 
+
 import sys
+import re
+import subprocess
 import socket
 import msvcrt
 
 DEFAULT_PORT = 15555
+DEVICE_NAME = "ConnectWB"
 
 
 class cSocketWB :
@@ -15,16 +19,45 @@ class cSocketWB :
 
    #---------------------------------------------------------------------------#
    def SearchDevice( self ):
-      raise ValueError( "ConnectWB devices not found" )
+
+      print "Scanning for device ..."
+
+      deviceIp = None
+      ArpRet = subprocess.check_output(["arp", "-a"])
+      IpList = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", ArpRet )[1:]
+
+      for Ip in IpList :
+         print Ip,
+         sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+         sckt.settimeout(0.5)
+         try :
+            sckt.connect( ( Ip, DEFAULT_PORT ) )
+            sckt.settimeout(5)
+            sckt.send( "$05:\r\n" )
+            DeviceName = sckt.recv( 1024 ).strip()
+            if DeviceName == "$85:%s"%DEVICE_NAME:
+               deviceIp = Ip
+               self.socket = sckt
+               self.socket.setblocking(0)
+            break
+         except Exception as e:
+            print e
+            del sckt
+
+      if not deviceIp:
+         raise ValueError( "ConnectWB devices not found" )
+      else :
+         print ""
+         print "device found at %s"%deviceIp
+
+      return deviceIp
+
 
    #---------------------------------------------------------------------------#
-   def Connect( self, HostIp=None, Port=None ):
-      if not HostIp:
-         HostIp = self.SearchDevice()   # Search for device in network
-      if not Port :
-         Port = DEFAULT_PORT
-
+   def Connect( self, HostIp, Port ):
       self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      print HostIp
+      print Port
       self.socket.connect((HostIp, Port))
       self.socket.setblocking(0)
 
@@ -46,17 +79,24 @@ def GetCommand() :
 #---------------------------------------------------------------------------#
 if __name__ == "__main__":
 
-   if len(sys.argv) < 2:
-      print "socket.py <IpAdress>"
-      sys.exit(0)
+   HostIp = None
 
-   #//print socket.gethostbyname_ex(socket.gethostname())
-   #//print ([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2]])
+   if len(sys.argv) > 1 :
+      HostIp = sys.argv[1]
+      #if HostIp is not xxx.xxx.xxx.xxx:
+      #   print "socket.py <IpAdress>"
+      #   sys.exit(0)
 
-   HostIp = sys.argv[1]
    SockWB = cSocketWB()
-   SockWB.Connect( HostIp )
+   if not HostIp :
+      HostIp = SockWB.SearchDevice()
+   else :
+      SockWB.Connect( HostIp )
+
+   print "----------------"
    print "Socket connected"
+   print "----------------"
+   print ""
 
    LastSend = ""
 
@@ -88,5 +128,5 @@ if __name__ == "__main__":
          pass
 
 
-#//   print "Close"
-#//   sock.close()
+   print "Close"
+   SockWB.socket.close()

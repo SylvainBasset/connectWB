@@ -21,6 +21,7 @@
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
+#define DEVICE_NAME     "ConnectWB"
 
 #define TIMSYSLED_FREQ_DIV    1000llu  /* set counter incr frequency to 1 ms */
 #define TIMSYSLED_PERIOD      500llu   /* set period to 500 ms*/
@@ -66,6 +67,7 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
 const s_Time k_TimeStart = { .byHours = 06, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
 const s_Time k_TimeEnd = { .byHours = 07, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
 
+
 /*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
@@ -74,8 +76,21 @@ static void main_LedInit( void ) ;
 static void main_LedOn( void ) ;
 
 
+/*----------------------------------------------------------------------------*/
+/* variables                                                                  */
+/*----------------------------------------------------------------------------*/
+
 static BOOL l_bBpState ;
 
+
+/*----------------------------------------------------------------------------*/
+/* Get decive name                                                            */
+/*----------------------------------------------------------------------------*/
+
+char C* main_GetName( void )
+{
+   return DEVICE_NAME ;
+}
 
 /*----------------------------------------------------------------------------*/
 /* Main program                                                               */

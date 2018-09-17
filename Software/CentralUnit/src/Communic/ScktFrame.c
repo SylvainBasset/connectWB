@@ -11,6 +11,7 @@
 #include "Define.h"
 #include "Communic.h"
 #include "System.h"
+#include "Main.h"
 
 typedef enum
 {
@@ -20,6 +21,7 @@ typedef enum
    SFRM_ID_WIFI_SETSSID,
    SFRM_ID_WIFI_SETPWD,
    SFRM_ID_WIFI_EXITMAINT,
+   SFRM_ID_WIFI_GETDEVICE,
    SFRM_ID_RAPI_BRIGE,
    SFRM_ID_LAST
 } e_sfrmFrameId ;
@@ -38,14 +40,16 @@ static s_FrameDesc const k_aFrameDesc [] =
    { .eFrameId = SFRM_ID_WIFI_SETSSID,   .FrmStr = "$02:", .FrmRes = "$82:", .bExtCmd = FALSE },
    { .eFrameId = SFRM_ID_WIFI_SETPWD,    .FrmStr = "$03:", .FrmRes = "$83:", .bExtCmd = FALSE },
    { .eFrameId = SFRM_ID_WIFI_EXITMAINT, .FrmStr = "$04:", .FrmRes = "$84:", .bExtCmd = FALSE },
+   { .eFrameId = SFRM_ID_WIFI_GETDEVICE, .FrmStr = "$05:", .FrmRes = "$85:", .bExtCmd = FALSE },
    { .eFrameId = SFRM_ID_RAPI_BRIGE,     .FrmStr = "$10:", .FrmRes = "$90:", .bExtCmd = FALSE },
 } ;
 
 
 /*----------------------------------------------------------------------------*/
 
-static RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 static void sfrm_ProcessFrame( char * i_szStrFrm ) ;
+static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg ) ;
+static RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 static void sfrm_ProcessResExt( char C* i_szStrFrm, BOOL i_bLastCall ) ;
 static void sfrm_SendRes( char C* i_szRes ) ;
 
@@ -99,51 +103,7 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
          }
          pFrmDesc++ ;
       }
-
-      switch ( l_eFrmId )
-      {
-         case SFRM_ID_WIFI_BRIGE :
-            cwifi_AddExtCmd( pszArg ) ;
-            break ;
-
-         case SFRM_ID_WIFI_SETSSID :
-            if ( sfrm_WriteWifiId( TRUE, pszArg ) == OK )
-            {
-               sfrm_SendRes( "OK\r\n" ) ;
-            }
-            else
-            {
-               sfrm_SendRes( "ERROR : Too large\r\n" ) ;
-            }
-            break ;
-
-         case SFRM_ID_WIFI_SETPWD :
-            if ( sfrm_WriteWifiId( FALSE, pszArg ) == OK )
-            {
-               sfrm_SendRes( "OK\r\n" ) ;
-            }
-            else
-            {
-               sfrm_SendRes( "ERROR : Too large\r\n" ) ;
-            }
-            break ;
-
-         case SFRM_ID_WIFI_EXITMAINT :
-            cwifi_SetMaintMode( FALSE ) ;
-            if ( cwifi_Restart() != OK )
-            {
-               sfrm_SendRes( "ERROR : Transfert pending\r\n" ) ;
-            }
-            break ;
-
-         case SFRM_ID_RAPI_BRIGE :
-            //op
-            sfrm_SendRes( "cocolastico\n" ) ;
-            break ;
-
-         default :
-            break ;
-      }
+      sfrm_ExecCmd( l_eFrmId, pszArg ) ;
 
       if ( pFrmDesc->bExtCmd )
       {
@@ -156,6 +116,62 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
    }
 }
 
+
+/*----------------------------------------------------------------------------*/
+static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
+{
+   char C* pszName ;
+
+   switch ( i_eFrmId )
+   {
+      case SFRM_ID_WIFI_BRIGE :
+         cwifi_AddExtCmd( i_pszArg ) ;
+         break ;
+
+      case SFRM_ID_WIFI_SETSSID :
+         if ( sfrm_WriteWifiId( TRUE, i_pszArg ) == OK )
+         {
+            sfrm_SendRes( "OK\r\n" ) ;
+         }
+         else
+         {
+            sfrm_SendRes( "ERROR : Too large\r\n" ) ;
+         }
+         break ;
+
+      case SFRM_ID_WIFI_SETPWD :
+         if ( sfrm_WriteWifiId( FALSE, i_pszArg ) == OK )
+         {
+            sfrm_SendRes( "OK\r\n" ) ;
+         }
+         else
+         {
+            sfrm_SendRes( "ERROR : Too large\r\n" ) ;
+         }
+         break ;
+
+      case SFRM_ID_WIFI_EXITMAINT :
+         cwifi_SetMaintMode( FALSE ) ;
+         if ( cwifi_Restart() != OK )
+         {
+            sfrm_SendRes( "ERROR : Transfert pending\r\n" ) ;
+         }
+         break ;
+
+      case SFRM_ID_WIFI_GETDEVICE :
+         pszName = main_GetName() ;
+         sfrm_SendRes( "ConnectWB\r\n" ) ;
+         break ;
+
+      case SFRM_ID_RAPI_BRIGE :
+         //op
+         sfrm_SendRes( "cocolastico\r\n" ) ;
+         break ;
+
+      default :
+         break ;
+   }
+}
 
 
 /*----------------------------------------------------------------------------*/
@@ -213,7 +229,6 @@ static RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
    }
    return rRet ;
 }
-
 
 
 /*----------------------------------------------------------------------------*/

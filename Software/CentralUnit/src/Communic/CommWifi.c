@@ -355,10 +355,18 @@ void cwifi_TaskCyc( void )
    }
    else
    {
-      if ( ( l_CmdFifo.byIdxIn == l_CmdFifo.byIdxOut ) &&
-           ( l_DataFifo.byIdxIn != l_DataFifo.byIdxOut ) )
+      if ( l_bSocketConnected )
       {
-         cwifi_FmtAddCmdFifo( CWIFI_CMD_CMDTODATA, "", "" ) ;
+         if ( ( l_CmdFifo.byIdxIn == l_CmdFifo.byIdxOut ) &&
+              ( l_DataFifo.byIdxIn != l_DataFifo.byIdxOut ) )
+         {
+            cwifi_FmtAddCmdFifo( CWIFI_CMD_CMDTODATA, "", "" ) ;
+         }
+      }
+      else
+      {
+         l_DataFifo.byIdxIn = 0 ;
+         l_DataFifo.byIdxOut = 0 ;
       }
       cwifi_ExecSendCmd() ;
    }
