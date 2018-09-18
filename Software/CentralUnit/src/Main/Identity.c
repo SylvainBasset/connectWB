@@ -1,30 +1,40 @@
 /******************************************************************************/
 /*                                                                            */
-/*                                   Main.h                                   */
+/*                                 Identity.c                                 */
 /*                                                                            */
 /******************************************************************************/
-/* Created on:    8 mars 2018   Sylvain BASSET        Version 0.1             */
+/* Created on:   18 sept 2018   Sylvain BASSET        Version 0.1             */
 /* Modifications:                                                             */
 /******************************************************************************/
 
 
-#ifndef __MAIN_H                       /* to prevent recursive inclusion */
-#define __MAIN_H
+#include "Define.h"
+#include "Main.h"
 
 
 /*----------------------------------------------------------------------------*/
-/* Main.c                                                                     */
+/* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define TASKCALL_PER_MS  10            /* tasks call period, ms */
+#define ID_NAME            "WallyBox"
+#define ID_VERSION         "0.1"
 
 
 /*----------------------------------------------------------------------------*/
-/* Identity.c                                                                 */
+/* Get decive name                                                            */
 /*----------------------------------------------------------------------------*/
 
-char C* id_GetName( void ) ;
-char C* id_GetVersion( void ) ;
+char C* id_GetName( void )
+{
+   return ID_NAME ;
+}
 
 
-#endif /* __MAIN_H */
+/*----------------------------------------------------------------------------*/
+/* Get decive name                                                            */
+/*----------------------------------------------------------------------------*/
+
+char C* id_GetVersion( void )
+{
+   return ID_VERSION ;
+}

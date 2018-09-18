@@ -159,8 +159,8 @@ static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
          break ;
 
       case SFRM_ID_WIFI_GETDEVICE :
-         pszName = main_GetName() ;
-         sfrm_SendRes( "ConnectWB\r\n" ) ;
+         pszName = id_GetName() ;
+         sfrm_SendRes( pszName ) ;
          break ;
 
       case SFRM_ID_RAPI_BRIGE :

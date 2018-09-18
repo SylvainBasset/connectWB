@@ -21,8 +21,6 @@
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define DEVICE_NAME     "ConnectWB"
-
 #define TIMSYSLED_FREQ_DIV    1000llu  /* set counter incr frequency to 1 ms */
 #define TIMSYSLED_PERIOD      500llu   /* set period to 500 ms*/
 
@@ -82,15 +80,6 @@ static void main_LedOn( void ) ;
 
 static BOOL l_bBpState ;
 
-
-/*----------------------------------------------------------------------------*/
-/* Get decive name                                                            */
-/*----------------------------------------------------------------------------*/
-
-char C* main_GetName( void )
-{
-   return DEVICE_NAME ;
-}
 
 /*----------------------------------------------------------------------------*/
 /* Main program                                                               */
