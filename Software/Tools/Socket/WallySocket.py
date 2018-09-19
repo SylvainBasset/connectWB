@@ -8,7 +8,9 @@
 import re
 import subprocess
 import socket
-
+import netifaces
+from pprint import pprint
+import msvcrt
 
 DEFAULT_PORT = 15555
 DEVICE_NAME = "WallyBox"
@@ -31,6 +33,10 @@ class cSocketWB :
       self.socket.connect((HostIp, Port))
       self.socket.setblocking(0)
 
+      print "----------------"
+      print "Socket connected"
+      print "----------------"
+      print ""
 
    #---------------------------------------------------------------------------#
    def SearchAndConnect( self ):
@@ -38,9 +44,18 @@ class cSocketWB :
       print "Scanning for device ..."
 
       deviceIp = None
-      subprocess.call( "ping -n 1 192.168.1.255", stdout=subprocess.PIPE )
-      ArpRet = subprocess.check_output( ["arp", "-a"] )
-      IpList = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", ArpRet )[1:]
+
+      IsMiniAp = self.IsWallyBoxMiniAp()
+      if IsMiniAp :
+         IpList = [self.GetGatewayIp()]
+         print IpList
+      else:
+         #try:
+         #   f = open( "LastIp.dat", "r")
+
+         subprocess.call( "ping -n 1 192.168.1.255", stdout=subprocess.PIPE )
+         ArpRet = subprocess.check_output( ["arp", "-a"] )
+         IpList = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", ArpRet )[1:]
 
       for Ip in IpList :
          print Ip,
@@ -69,8 +84,26 @@ class cSocketWB :
          print ""
          print "device found at %s"%deviceIp
 
+      print "----------------"
+      print "Socket connected"
+      print "----------------"
+      print ""
       return deviceIp
 
+   #---------------------------------------------------------------------------#
+   def IsWallyBoxMiniAp( self ) :
+
+      NetshRet = subprocess.check_output( ["netsh", "wlan", "show", "interface"] )
+      if re.search("SSID.*:.*WallyBox_Maint", NetshRet ) :
+         return True
+      else:
+         return False
+
+   #---------------------------------------------------------------------------#
+   def GetGatewayIp( self ) :
+      gateway = netifaces.gateways()['default']
+      gatewayIp = gateway[gateway.keys()[0]][0]
+      return gatewayIp
 
    #---------------------------------------------------------------------------#
    def Close( self ):

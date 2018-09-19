@@ -34,11 +34,6 @@ if __name__ == "__main__" :
    else :
       SockWB.Connect( HostIp )
 
-   print "----------------"
-   print "Socket connected"
-   print "----------------"
-   print ""
-
    LastSend = ""
 
    while True:
@@ -58,6 +53,7 @@ if __name__ == "__main__" :
 
          if StrToSend != "":
             LastSend = StrToSend
+            print StrToSend
             SockWB.Send( StrToSend + "\r\n" )
       try:
          buf = SockWB.Receive()

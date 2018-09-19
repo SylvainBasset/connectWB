@@ -15,11 +15,6 @@ if __name__ == "__main__" :
    SockWB = cSocketWB()
    SockWB.SearchAndConnect()
 
-   print "----------------"
-   print "Socket connected"
-   print "----------------"
-   print ""
-
    ssid = raw_input('SSID=')
    pwd = getpass.getpass("enter pwd=")
 
