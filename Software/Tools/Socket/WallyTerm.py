@@ -20,19 +20,19 @@ def GetCommand() :
 #---------------------------------------------------------------------------#
 if __name__ == "__main__" :
 
-   HostIp = None
+   DeviceIp = None
 
    if len(sys.argv) > 1 :
-      HostIp = sys.argv[1]
-      #if HostIp is not xxx.xxx.xxx.xxx:
+      DeviceIp = sys.argv[1]
+      #if DeviceIp is not xxx.xxx.xxx.xxx:
       #   print "socket.py <IpAdress>"
       #   sys.exit(0)
 
    SockWB = cSocketWB()
-   if not HostIp :
-      HostIp = SockWB.SearchAndConnect()
+   if not DeviceIp :
+      DeviceIp = SockWB.SearchAndConnect()
    else :
-      SockWB.Connect( HostIp )
+      SockWB.Connect( DeviceIp )
 
    LastSend = ""
 

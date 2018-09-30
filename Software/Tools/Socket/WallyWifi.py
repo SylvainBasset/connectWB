@@ -4,9 +4,17 @@
 # Version : 0.1
 #------------------------------------------------------------------------------#
 
-import time
+
 import getpass
 from WallySocket import cSocketWB
+
+
+#---------------------------------------------------------------------------#
+def SendAndCheck( SockWB, StrCmd ):
+   SockWB.Send( StrCmd )
+   Rec = SockWB.Receive( 3 ).lower()
+   if "err" in Rec:
+      raise ValueError( "Wifi setting error" )
 
 
 #---------------------------------------------------------------------------#
@@ -20,11 +28,8 @@ if __name__ == "__main__" :
 
    print ssid
 
-   SockWB.Send( "$02:%s"%ssid )
-   time.sleep(3)
-   SockWB.Send( "$03:%s"%pwd )
-   time.sleep(3)
-   SockWB.Send( "$04:" )
-   time.sleep(3)
+   SendAndCheck( SockWB, "$02:%s"%ssid )
+   SendAndCheck( SockWB, "$03:%s"%pwd )
+   SendAndCheck( SockWB, "$04:" )                  # ask for restart,
 
    SockWB.Close()
