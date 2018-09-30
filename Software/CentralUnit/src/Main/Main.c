@@ -140,7 +140,7 @@ int main( void )
          {
             l_bBpState = TRUE ;
             cwifi_SetMaintMode( TRUE ) ;
-            cwifi_Restart() ;
+            cwifi_AskForRestart() ;
          }
       }
       else

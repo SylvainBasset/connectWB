@@ -152,10 +152,8 @@ static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
 
       case SFRM_ID_WIFI_EXITMAINT :
          cwifi_SetMaintMode( FALSE ) ;
-         if ( cwifi_Restart() != OK )
-         {
-            sfrm_SendRes( "ERROR : Transfert pending\r\n" ) ;
-         }
+         sfrm_SendRes( "OK\r\n") ;
+         cwifi_AskForRestart() ;
          break ;
 
       case SFRM_ID_WIFI_GETDEVICE :
