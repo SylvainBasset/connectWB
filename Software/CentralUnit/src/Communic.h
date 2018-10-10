@@ -52,4 +52,13 @@ BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize ) ;
 BOOL uWifi_IsSendDone( void ) ;
 void uwifi_SetErrorDetection( BOOL i_bEnable ) ;
 BYTE uwifi_GetError( BOOL i_bReset ) ;
+
+
+/*----------------------------------------------------------------------------*/
+/* CommOEvse.c                                                                 */
+/*----------------------------------------------------------------------------*/
+
+void coevse_Init( void ) ;
+void coevse_TaskCyc( void ) ;
+
 #endif /* __COMMUNIC_H */

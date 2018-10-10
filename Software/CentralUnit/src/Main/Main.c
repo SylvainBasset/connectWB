@@ -53,7 +53,10 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
 #define CLK_TASK_ORDER    0
 
 #define CWIFI_TASK_PER    1
-#define CWIFI_TASK_ORDER  0
+#define CWIFI_TASK_ORDER  1
+
+#define COEVSE_TASK_PER    1
+#define COEVSE_TASK_ORDER  2
 
 #define TASK_CALL( prefixlow, prefixup )                                         \
    if ( ( byTaskPerCnt % prefixup##_TASK_PER ) == prefixup##_TASK_ORDER )    \
@@ -70,6 +73,7 @@ const s_Time k_TimeEnd = { .byHours = 07, .byMinutes = 00, .bySeconds = 00 } ;  
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
+static void main_SetInitDate( void ) ;
 static void main_LedInit( void ) ;
 static void main_LedOn( void ) ;
 
@@ -88,8 +92,6 @@ static BOOL l_bBpState ;
 int main( void )
 {
    DWORD dwTaskTmp ;
-
-   s_DateTime sSetDT ;
    BYTE byTaskPerCnt ;
 
 
@@ -107,20 +109,18 @@ int main( void )
 
    clk_Init() ;
    cal_Init() ;
-
-   sSetDT.byYear = 01 ;
-   sSetDT.byMonth = 01 ;
-   sSetDT.byDays = 01 ;
-   sSetDT.byHours = 00 ;
-   sSetDT.byMinutes = 00 ;
-   sSetDT.bySeconds = 00 ;
-   clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur système
+   main_SetInitDate() ;
 
    cwifi_Init() ;
    sfrm_Init() ;
+   coevse_Init() ;
+
+
 
    main_LedInit() ;                    /* Configure system LED */
    main_LedOn() ;                      /* Turn on system LED */
+
+
 
    GPIO_InitTypeDef sGpioInit ;
    sGpioInit.Pin = USER_BP ;
@@ -153,6 +153,7 @@ int main( void )
 
       TASK_CALL( clk, CLK ) ;
       TASK_CALL( cwifi, CWIFI ) ;
+      TASK_CALL( coevse, COEVSE ) ;
 
       tim_StartMsTmp( &dwTaskTmp ) ;
       while ( ! tim_IsEndMsTmp( &dwTaskTmp, 10 ) ) ;
@@ -198,6 +199,21 @@ static void main_LedInit( void )
    HAL_NVIC_EnableIRQ( TIMSYSLED_IRQn ) ;
                                        /* start timer and enble IT */
    HAL_TIM_Base_Start_IT( &sTimSysLed ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+static void main_SetInitDate( void )
+{
+   s_DateTime sSetDT ;
+
+   sSetDT.byYear = 01 ;
+   sSetDT.byMonth = 01 ;
+   sSetDT.byDays = 01 ;
+   sSetDT.byHours = 00 ;
+   sSetDT.byMinutes = 00 ;
+   sSetDT.bySeconds = 00 ;
+   clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur système
 }
 
 

@@ -45,6 +45,18 @@
 #define WIFI_CTS_AF                    GPIO_AF4_USART1
 #define WIFI_CTS_GPIO_CLK_ENABLE()     __GPIOA_CLK_ENABLE()
 
+                                       /* TX pin for OpenEVSE UART communication */
+#define OESVE_TX_PIN                   GPIO_PIN_10
+#define OESVE_TX_GPIO_PORT             GPIOB
+#define OESVE_TX_AF                    GPIO_AF4_LPUART1
+#define OESVE_TX_GPIO_CLK_ENABLE()     __GPIOB_CLK_ENABLE()
+
+                                       /* RX pin for OpenEVSE UART communication */
+#define OESVE_RX_PIN                   GPIO_PIN_11
+#define OESVE_RX_GPIO_PORT             GPIOB
+#define OESVE_RX_AF                    GPIO_AF4_LPUART1
+#define OESVE_RX_GPIO_CLK_ENABLE()     __GPIOB_CLK_ENABLE()
+
 #define WIFI_RESET_PIN                 GPIO_PIN_12
 #define WIFI_RESET_GPIO_PORT           GPIOC
 #define WIFI_RESET_AF                  0
@@ -68,7 +80,7 @@
 #define TIMCALIB_IRQPri    0           /* calibration timer IRQ priority */
 #define UWIFI_DMA_IRQPri   1           /* Wifi DMA UART */
 #define UWIFI_IRQPri       2           /* Wifi UART */
-#define TIMSYSLED_IRQPri   3           /* system Led timer IRQ priority */
+#define UOEVSE_IRQPri      3           /* OpenEVSE UART */
 
 
 /*----------------------------------------------------------------------------*/
@@ -112,6 +124,21 @@
 
 
 /*----------------------------------------------------------------------------*/
+/* definitions for openEvse USART                                             */
+/*----------------------------------------------------------------------------*/
+
+#define UOEVSE                     LPUART1
+#define UOEVSE_CLK_ENABLE()        __LPUART1_CLK_ENABLE()
+#define UOEVSE_CLK_DISABLE()       __LPUART1_CLK_DISABLE()
+
+#define UOEVSE_FORCE_RESET()       __LPUART1_FORCE_RESET()
+#define UOEVSE_RELEASE_RESET()     __LPUART1_RELEASE_RESET()
+
+#define UOEVSE_IRQn                LPUART1_IRQn
+#define UOEVSE_IRQHandler          LPUART1_IRQHandler
+
+
+/*----------------------------------------------------------------------------*/
 /* definitions for DMAs                                                       */
 /*----------------------------------------------------------------------------*/
 
@@ -142,5 +169,18 @@
 
 #define UWIFI_DMA_IRQn             DMA1_Channel2_3_IRQn
 #define UWIFI_DMA_IRQHandler       DMA1_Channel2_3_IRQHandler
+
+
+#define UOEVSE_DMA                  DMA1
+#define UOEVSE_DMA_CSELR            DMA1_CSELR
+#define UOEVSE_DMA_CLK_ENABLE()     __HAL_RCC_DMA1_CLK_ENABLE()
+
+#define UOEVSE_DMA_TX               DMA1_Channel2
+#define UOEVSE_DMA_TX_CHANNEL       2
+#define UOEVSE_DMA_TX_REQ           DMA_REQUEST_5
+#define UOEVSE_DMA_TX_CSELR( Value ) \
+                                    DMA_MAKE_CSELR( Value, UOEVSE_DMA_TX_CHANNEL )
+#define UOEVSE_DMA_TX_ISRIFCR( Value ) \
+                                    DMA_MAKE_ISRIFCR( Value, UOEVSE_DMA_TX_CHANNEL )
 
 #endif /* __HARD_H */

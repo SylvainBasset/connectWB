@@ -125,7 +125,7 @@ BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize )
    {
       l_bTxPending = TRUE ;         /* Start of TX transfer */
 
-      UWIFI->ICR |= USART_ICR_TCCF ; /* clear UART transmission complete flasg */
+      UWIFI->ICR |= USART_ICR_TCCF ; /* clear UART transmission complete flag */
                                     /* set the size of transfer */
       UWIFI_DMA_TX->CNDTR = i_dwSize ;
                                     /* set periferal address (USART TDR register) */
@@ -420,7 +420,7 @@ static void uwifi_HrdInit( void )
                                        /* activate DMA and RTS/CTS management */
    UWIFI->CR3 |= ( USART_CR3_DMAR | USART_CR3_DMAT | USART_CR3_RTSE | USART_CR3_CTSE ) ;
                                        /* set baudrate */
-   UWIFI->BRR = (uint16_t)( UART_DIV_SAMPLING16( APB1_CLK, UWIFI_BAUDRATE ) ) ;
+   UWIFI->BRR = (uint16_t)( UART_DIV_SAMPLING16( APB1_CLK, UWIFI_BAUDRATE ) ) ; //SBA: APB2
 
    UWIFI->CR1 |= USART_CR1_UE ;        /* enable USART */
 
