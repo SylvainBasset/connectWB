@@ -570,7 +570,7 @@ static RESULT cwifi_AddDataFifo( char C* i_szStrData )
    }
 
    pDataItem = &l_DataFifo.aDataItems[byCurIdxIn] ;
-   strncpy( pDataItem->szStrData, i_szStrData, sizeof(pDataItem->szStrData) ) ;
+   strncpy( pDataItem->szStrData, i_szStrData, sizeof(pDataItem->szStrData) ) ; //SBA on recopie trop
    l_DataFifo.byIdxIn = byNextIdxIn ;
 
    return rRet ;

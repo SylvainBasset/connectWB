@@ -53,10 +53,10 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
 #define CLK_TASK_ORDER    0
 
 #define CWIFI_TASK_PER    1
-#define CWIFI_TASK_ORDER  1
+#define CWIFI_TASK_ORDER  0
 
 #define COEVSE_TASK_PER    1
-#define COEVSE_TASK_ORDER  2
+#define COEVSE_TASK_ORDER  0
 
 #define TASK_CALL( prefixlow, prefixup )                                         \
    if ( ( byTaskPerCnt % prefixup##_TASK_PER ) == prefixup##_TASK_ORDER )    \
@@ -114,8 +114,8 @@ int main( void )
    cwifi_Init() ;
    sfrm_Init() ;
    coevse_Init() ;
-
-
+   coevse_SetEnable( TRUE ) ;
+   coevse_SetEnable( TRUE ) ;
 
    main_LedInit() ;                    /* Configure system LED */
    main_LedOn() ;                      /* Turn on system LED */

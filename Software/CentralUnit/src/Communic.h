@@ -59,6 +59,10 @@ BYTE uwifi_GetError( BOOL i_bReset ) ;
 /*----------------------------------------------------------------------------*/
 
 void coevse_Init( void ) ;
+
+void coevse_SetEnable( BOOL i_bEnable ) ;
+void coevse_SetCurrentCap( WORD i_wCurrent ) ;
+
 void coevse_TaskCyc( void ) ;
 
 #endif /* __COMMUNIC_H */

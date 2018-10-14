@@ -67,3 +67,23 @@
    { .szCmdFmt = CmdFmt, .bIsResult = IsResult, .pszStrContent = l_szResp##NameLo, \
      .wContentSize=sizeof(l_szResp##NameLo), .fCallback = cwifi_CmdCallBack##NameLo },
 */
+
+
+/*----------------------------------------------------------------------------*/
+/* CommOEvse.c                                                                 */
+/*----------------------------------------------------------------------------*/
+
+#define COEVSE_CMD_NULL( NameUp, NameLo, StrCmd )
+
+#define COEVSE_CMD_ENUM( NameUp, NameLo, StrCmd ) COEVSE_CMD_##NameUp,
+
+#define COEVSE_CMD_CALLBACK( NameUp, NameLo, StrCmd ) \
+   static RESULT coevse_Cmdresult##NameLo( char C* i_pszDataRes ) ;
+
+#define COEVSE_CMD_DESC( NameUp, NameLo, StrCmd ) \
+   { .eCmdId = COEVSE_CMD_##NameUp, .szFmtCmd = StrCmd, \
+     .fResultCallback = NULL },
+
+#define COEVSE_CMD_DESC_G( NameUp, NameLo, StrCmd ) \
+   { .eCmdId = COEVSE_CMD_##NameUp, .szFmtCmd = StrCmd, \
+     .fResultCallback = coevse_Cmdresult##NameLo },

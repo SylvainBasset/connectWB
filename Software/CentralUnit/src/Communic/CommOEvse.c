@@ -10,6 +10,7 @@
 
 #include "Define.h"
 #include "Communic.h"
+#include "Communic/l_Communic.h"
 #include "System.h"
 #include "System/Hard.h"
 
@@ -26,38 +27,60 @@
 #define COEVSE_ENABLE_DMA_TX()      ( UOEVSE_DMA_TX->CCR |= DMA_CCR_EN )
 
 
-typedef void (*f_CmdResult)( char C* i_pszResExt, BOOL i_bLastCall ) ;
-
-#define COEVSE_CMD_ENUM( NameUp, NameLo, StrCmd, Func ) COEVSE_CMD_##NameUp,
-
-#define COEVSE_CMD_DESC( NameUp, NameLo, StrCmd, Func ) \
-   { .eCmdId = COEVSE_CMD_##NameUp, .szStrCmd = StrCmd, .byStrSize = sizeof(StrCmd), \
-     .fCmdResult = Func },
+typedef RESULT (*f_ResultCallback)( char C* i_pszDataRes ) ;
 
 
-#define LIST_CMD( Op ) \
-   Op(  ENABLE,  enable,  "$FE\r", NULL ) \
-   Op(  DISABLE, disable, "$FD\r", NULL )
+#define LIST_CMD( Op, Opg ) \
+   Op(   ENABLE,        Enable,        "$FE\r"    ) \
+   Op(   DISABLE,       Disable,       "$FD\r"    ) \
+   Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d\r" ) \
+   Opg(  ISEVCONNECT,   IsEvConnect,   "$G0\r"    ) \
+   Opg(  GETCURRENTCAP, GetCurrentCap, "$GC\r"    ) \
+   Opg(  GETCHARGPARAM, GetChargParam, "$GG\r"    ) \
+   Opg(  GETFAULT,      GetFault,      "$GF\r"    )
 
 typedef enum
 {
    COEVSE_CMD_NONE = 0,
-   LIST_CMD( COEVSE_CMD_ENUM )
+   LIST_CMD( COEVSE_CMD_ENUM, COEVSE_CMD_ENUM )
    COEVSE_CMD_LAST,
 } e_CmdId ;
+
+LIST_CMD( COEVSE_CMD_NULL, COEVSE_CMD_CALLBACK )
 
 typedef struct
 {
    e_CmdId eCmdId ;
-   char szStrCmd [32] ;
-   BYTE byStrSize ;
-   f_CmdResult fCmdResult ;
+   char szFmtCmd [32] ;
+   f_ResultCallback fResultCallback ;
 } s_CmdDesc ;
 
 static s_CmdDesc const k_aCmdDesc [] =
 {
-   LIST_CMD( COEVSE_CMD_DESC )
+   LIST_CMD( COEVSE_CMD_DESC, COEVSE_CMD_DESC_G )
 } ;
+
+typedef struct
+{
+   e_CmdId eCmdId ;
+   WORD wParam [6] ;
+   BYTE byNbParam ;
+} s_CmdFifoData ;
+
+typedef struct
+{
+   BYTE byIdxIn ;
+   BYTE byIdxOut ;
+   s_CmdFifoData aCmdData [8] ;
+} s_CmdFifo ;
+
+
+typedef struct
+{
+   BYTE abyDataRes [32+1] ;
+   BYTE byResIdx ;
+   BOOL bResDone ;
+} s_Result ;
 
 // ajout FIFO pour insertion CMD
 // toutes les sec, ajout x commandes dans FIFO
@@ -67,19 +90,23 @@ static s_CmdDesc const k_aCmdDesc [] =
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
-static void coevse_SendCmd( e_CmdId i_eCmdId ) ;
+static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbParam ) ;
+static void coevse_SendCmdFifo( void ) ;
+static void coevse_AnalyseRes( void ) ;
+
+
 static void coevse_HrdInit( void ) ;
+static void coevse_HrdSendCmd( char * psStrCmd, BYTE i_bySize ) ;
 
 
 /*----------------------------------------------------------------------------*/
-/* Prototypes                                                                 */
+/* variable                                                                 */
 /*----------------------------------------------------------------------------*/
 
 static e_CmdId l_eCmd ;
-
-static BYTE l_abyResponse[32] ;
-static BYTE l_byResIdx ;
-static BOOL l_bResDone ;
+static s_CmdFifo l_CmdFifo ;
+static s_Result l_Result ;
+static BYTE l_byNbRetry ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -89,8 +116,36 @@ static BOOL l_bResDone ;
 void coevse_Init( void )
 {
    coevse_HrdInit() ;
+}
 
-   coevse_SendCmd( COEVSE_CMD_ENABLE ) ;
+
+/*----------------------------------------------------------------------------*/
+/* Set current capacity                                                       */
+/*----------------------------------------------------------------------------*/
+
+void coevse_SetEnable( BOOL i_bEnable )
+{
+   if ( i_bEnable )
+   {
+      coevse_AddCmdFifo( COEVSE_CMD_ENABLE, NULL, 0 ) ;
+   }
+   else
+   {
+      coevse_AddCmdFifo( COEVSE_CMD_DISABLE, NULL, 0 ) ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Set current capacity                                                       */
+/*----------------------------------------------------------------------------*/
+
+void coevse_SetCurrentCap( WORD i_wCurrent )
+{
+   WORD awParam [1] ;
+
+   awParam[0] = i_wCurrent ;
+   coevse_AddCmdFifo( COEVSE_CMD_SETCURRENTCAP, awParam, 1 ) ;
 }
 
 
@@ -100,10 +155,147 @@ void coevse_Init( void )
 
 void coevse_TaskCyc( void )
 {
+   coevse_SendCmdFifo( ) ;
 
-   if ( l_bResDone )
+   if ( l_Result.bResDone )
    {
+      coevse_AnalyseRes() ;
+   }
+}
+
+
+/*============================================================================*/
+
+/*----------------------------------------------------------------------------*/
+/* periodic task                                                              */
+/*----------------------------------------------------------------------------*/
+
+static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbParam )
+{
+   BYTE byCurIdxIn ;
+   BYTE byNextIdxIn ;
+   s_CmdFifoData * pCmdData ;
+   BYTE byIdx ;
+
+   byCurIdxIn = l_CmdFifo.byIdxIn ;
+
+   byNextIdxIn = NEXTIDX( byCurIdxIn, l_CmdFifo.aCmdData ) ;
+   l_CmdFifo.byIdxIn = byNextIdxIn ;
+
+   if ( byNextIdxIn == l_CmdFifo.byIdxOut )
+   {                                   // last element is lost
+      //l_CmdFifo.byIdxOut = NEXTIDX( l_CmdFifo.byIdxOut, l_CmdFifo.aDataItems ) ;
+      ERR_FATAL() ;
+   }
+
+   pCmdData = &l_CmdFifo.aCmdData[byCurIdxIn] ;
+   pCmdData->eCmdId = i_eCmdId ;
+   pCmdData->byNbParam = i_byNbParam ;
+   for ( byIdx = 0 ; byIdx < i_byNbParam ; byIdx++ )
+   {
+      pCmdData->wParam[byIdx] = i_awParams[byIdx] ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void coevse_SendCmdFifo( void )
+{
+   BYTE byIdxOut ;
+   s_CmdFifoData * pFifoData ;
+   e_CmdId eCmd ;
+   WORD * awPar ;
+   BYTE byCmdIdx ;
+   char C* pszFmtCmd ;
+   char sStrCmd [64] ;
+   BYTE bySize ;
+
+   if ( ( l_CmdFifo.byIdxIn != l_CmdFifo.byIdxOut ) &&
+        ( l_eCmd == COEVSE_CMD_NONE ) )
+   {
+      byIdxOut = NEXTIDX( l_CmdFifo.byIdxOut, l_CmdFifo.aCmdData ) ;
+
+      pFifoData = &l_CmdFifo.aCmdData[byIdxOut] ;
+
+      eCmd = pFifoData->eCmdId ;
+      l_eCmd = eCmd ;
+
+      awPar = &pFifoData->wParam[0] ;
+
+      byCmdIdx = eCmd - ( COEVSE_CMD_NONE + 1 ) ;
+      pszFmtCmd = k_aCmdDesc[byCmdIdx].szFmtCmd ;
+
+      snprintf( sStrCmd, sizeof(sStrCmd), pszFmtCmd,
+                awPar[0], awPar[1], awPar[2], awPar[3], awPar[4], awPar[5] ) ;
+
+      bySize = strlen( sStrCmd ) ;
+
+      if ( bySize < sizeof(sStrCmd) )
+      {
+         coevse_HrdSendCmd( sStrCmd, bySize ) ;
+      }
+      else
+      {
+         ERR_FATAL() ;
+      }
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void coevse_AnalyseRes( void )
+{
+   RESULT rRes ;
+   char * szDataRes ;
+   BYTE byCmdIdx ;
+   f_ResultCallback pFunc ;
+
+   rRes = OK ;
+
+   if ( rRes == OK )
+   {
+      if ( l_eCmd == COEVSE_CMD_NONE )
+      {
+         rRes = ERR ;
+      }
+   }
+
+   if ( rRes == OK )
+   {
+      //test CRC
+      szDataRes = (char*) l_Result.abyDataRes ;
+      szDataRes[l_Result.byResIdx-4] = '\0' ;
+
+      if ( ( szDataRes[0] != '$' ) || ( szDataRes[1] != 'O' ) ||
+           ( szDataRes[2] != 'K' ) )
+      {
+         rRes = ERR ;
+      }
+   }
+
+   if ( rRes == OK )
+   {
+      byCmdIdx = l_eCmd - ( COEVSE_CMD_NONE + 1 ) ;
+      pFunc = k_aCmdDesc[byCmdIdx].fResultCallback ;
+
+      if ( pFunc != NULL )
+      {
+         (*pFunc)( &szDataRes[3] ) ;
+      }
+
+      l_CmdFifo.byIdxOut = NEXTIDX( l_CmdFifo.byIdxOut, l_CmdFifo.aCmdData ) ;
       l_eCmd = COEVSE_CMD_NONE ;
+      l_byNbRetry = 0 ;
+   }
+   else
+   {
+      if ( l_byNbRetry == 5 )
+      {
+         ERR_FATAL() ;
+      }
+      l_byNbRetry++ ;
    }
 }
 
@@ -112,52 +304,41 @@ void coevse_TaskCyc( void )
 
 /*----------------------------------------------------------------------------*/
 
-static void coevse_SendCmd( e_CmdId i_eCmdId )
+static RESULT coevse_CmdresultIsEvConnect( char C* i_pszDataRes )
 {
-   BYTE byCmdIdx ;
-   char C* pszStrcmd ;
-   BYTE bySize ;
-
-   l_byResIdx = 0 ;
-   memset( l_abyResponse, 0, sizeof(l_abyResponse) ) ;
-
-   byCmdIdx = i_eCmdId - COEVSE_CMD_NONE ;
-   pszStrcmd = k_aCmdDesc[byCmdIdx].szStrCmd ;
-   bySize = k_aCmdDesc[byCmdIdx].byStrSize ;
-
-   UOEVSE_DMA_TX->CNDTR = bySize ;
-                                    /* set memory address (transmit buffer) */
-   UOEVSE_DMA_TX->CMAR = (DWORD)pszStrcmd ;
-
-   COEVSE_ENABLE_DMA_TX() ;
-
-   l_eCmd = i_eCmdId ;
+   REFPARM( i_pszDataRes )
+   return OK ;
 }
 
 
 /*----------------------------------------------------------------------------*/
-/* Open EVSE USART interrupt                                                  */
-/*----------------------------------------------------------------------------*/
 
-void UOEVSE_IRQHandler( void )
+static RESULT coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
 {
-   BYTE byData ;
-
-   //UOEVSE->ICR |= USART_ISR_TC ;
-
-   byData = UOEVSE->RDR ;
-
-   UOEVSE->ICR |= USART_ICR_ORECF ;
-
-   l_abyResponse[l_byResIdx] = byData ;
-   l_byResIdx++ ;
-
-   if ( byData == '\r' )
-   {
-      l_bResDone = TRUE ;
-   }
+   REFPARM( i_pszDataRes )
+   return OK ;
 }
 
+
+/*----------------------------------------------------------------------------*/
+
+static RESULT coevse_CmdresultGetChargParam( char C* i_pszDataRes )
+{
+   REFPARM( i_pszDataRes )
+   return OK ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static RESULT coevse_CmdresultGetFault( char C* i_pszDataRes )
+{
+   REFPARM( i_pszDataRes )
+   return OK ;
+}
+
+
+/*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
 /* Hardware initialization                                                    */
@@ -218,4 +399,49 @@ static void coevse_HrdInit( void )
                                        /* set TX request source */
    UOEVSE_DMA_CSELR->CSELR &= ~UOEVSE_DMA_TX_CSELR( DMA_CSELR_C1S_Msk ) ;
    UOEVSE_DMA_CSELR->CSELR |= UOEVSE_DMA_TX_CSELR( UOEVSE_DMA_TX_REQ ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void coevse_HrdSendCmd( char * psStrCmd, BYTE i_bySize )
+{
+   l_Result.byResIdx = 0 ;
+   memset( l_Result.abyDataRes, 0, sizeof(l_Result.abyDataRes) ) ;
+
+   UOEVSE_DMA_TX->CNDTR = i_bySize ;
+                                    /* set memory address (transmit buffer) */
+   UOEVSE_DMA_TX->CMAR = (DWORD)psStrCmd ;
+
+   COEVSE_ENABLE_DMA_TX() ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Open EVSE USART interrupt                                                  */
+/*----------------------------------------------------------------------------*/
+
+void UOEVSE_IRQHandler( void )
+{
+   BYTE byData ;
+   BYTE byResIdx ;
+
+   byData = UOEVSE->RDR ;
+
+   UOEVSE->ICR |= USART_ICR_ORECF ;
+
+   byResIdx = l_Result.byResIdx ;
+
+   if ( byResIdx > sizeof(l_Result.abyDataRes) - 1 )
+   {
+      ERR_FATAL() ;
+   }
+
+   l_Result.abyDataRes[byResIdx] = byData ;
+   l_Result.byResIdx = byResIdx + 1 ;
+
+   if ( byData == '\r' )
+   {
+      l_Result.bResDone = TRUE ;
+   }
 }
