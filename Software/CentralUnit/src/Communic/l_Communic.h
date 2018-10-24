@@ -73,17 +73,17 @@
 /* CommOEvse.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
-#define COEVSE_CMD_NULL( NameUp, NameLo, StrCmd )
+#define COEVSE_CMD_NULL( NameUp, NameLo, StrCmd, StrCk )
 
-#define COEVSE_CMD_ENUM( NameUp, NameLo, StrCmd ) COEVSE_CMD_##NameUp,
+#define COEVSE_CMD_ENUM( NameUp, NameLo, StrCmd, StrCk ) COEVSE_CMD_##NameUp,
 
-#define COEVSE_CMD_CALLBACK( NameUp, NameLo, StrCmd ) \
-   static RESULT coevse_Cmdresult##NameLo( char C* i_pszDataRes ) ;
+#define COEVSE_CMD_CALLBACK( NameUp, NameLo, StrCmd, StrCk ) \
+   static void coevse_Cmdresult##NameLo( char C* i_pszDataRes ) ;
 
-#define COEVSE_CMD_DESC( NameUp, NameLo, StrCmd ) \
-   { .eCmdId = COEVSE_CMD_##NameUp, .szFmtCmd = StrCmd, \
-     .fResultCallback = NULL },
+#define COEVSE_CMD_DESC( NameUp, NameLo, StrCmd, StrCk ) \
+   { .eCmdId = COEVSE_CMD_##NameUp, .szFmtCmd = (StrCmd), \
+     .szChecksum = (StrCk), .fResultCallback = NULL },
 
-#define COEVSE_CMD_DESC_G( NameUp, NameLo, StrCmd ) \
-   { .eCmdId = COEVSE_CMD_##NameUp, .szFmtCmd = StrCmd, \
-     .fResultCallback = coevse_Cmdresult##NameLo },
+#define COEVSE_CMD_DESC_G( NameUp, NameLo, StrCmd, StrCk ) \
+   { .eCmdId = COEVSE_CMD_##NameUp, .szFmtCmd = (StrCmd), \
+     .szChecksum = (StrCk), .fResultCallback = coevse_Cmdresult##NameLo },

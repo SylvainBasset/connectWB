@@ -115,7 +115,7 @@ int main( void )
    sfrm_Init() ;
    coevse_Init() ;
    coevse_SetEnable( TRUE ) ;
-   coevse_SetEnable( TRUE ) ;
+   coevse_SetEnable( FALSE ) ;
 
    main_LedInit() ;                    /* Configure system LED */
    main_LedOn() ;                      /* Turn on system LED */

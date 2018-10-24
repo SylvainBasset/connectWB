@@ -124,7 +124,7 @@ BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize )
    if ( ! l_bTxPending )            /* no TX transfer is pending */
    {
       l_bTxPending = TRUE ;         /* Start of TX transfer */
-
+                                    //SBA: vérifier utilité
       UWIFI->ICR |= USART_ICR_TCCF ; /* clear UART transmission complete flag */
                                     /* set the size of transfer */
       UWIFI_DMA_TX->CNDTR = i_dwSize ;

@@ -175,8 +175,8 @@
 #define UOEVSE_DMA_CSELR            DMA1_CSELR
 #define UOEVSE_DMA_CLK_ENABLE()     __HAL_RCC_DMA1_CLK_ENABLE()
 
-#define UOEVSE_DMA_TX               DMA1_Channel2
-#define UOEVSE_DMA_TX_CHANNEL       2
+#define UOEVSE_DMA_TX               DMA1_Channel7
+#define UOEVSE_DMA_TX_CHANNEL       7
 #define UOEVSE_DMA_TX_REQ           DMA_REQUEST_5
 #define UOEVSE_DMA_TX_CSELR( Value ) \
                                     DMA_MAKE_CSELR( Value, UOEVSE_DMA_TX_CHANNEL )

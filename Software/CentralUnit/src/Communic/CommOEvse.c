@@ -19,25 +19,29 @@
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define COEVSE_BAUDRATE     115200llu   /* baudrate (bits per second) value  */
+#define COEVSE_BAUDRATE     115200llu  /* baudrate (bits per second) value  */
 
+#define COEVSE_TIMEOUT           100   /* communication timeout, ms */
+
+#define COEVSE_GETSTATE_PER     1000
                                        /* disable/suspend transmit channel DMA */
 #define COEVSE_DISABLE_DMA_TX()     ( UOEVSE_DMA_TX->CCR &= ~DMA_CCR_EN )
                                        /* enable transmit channel DMA */
 #define COEVSE_ENABLE_DMA_TX()      ( UOEVSE_DMA_TX->CCR |= DMA_CCR_EN )
 
 
-typedef RESULT (*f_ResultCallback)( char C* i_pszDataRes ) ;
+typedef void (*f_ResultCallback)( char C* i_pszDataRes ) ;
 
-
+//SBA: mettre les checksum dans le tableau
 #define LIST_CMD( Op, Opg ) \
-   Op(   ENABLE,        Enable,        "$FE\r"    ) \
-   Op(   DISABLE,       Disable,       "$FD\r"    ) \
-   Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d\r" ) \
-   Opg(  ISEVCONNECT,   IsEvConnect,   "$G0\r"    ) \
-   Opg(  GETCURRENTCAP, GetCurrentCap, "$GC\r"    ) \
-   Opg(  GETCHARGPARAM, GetChargParam, "$GG\r"    ) \
-   Opg(  GETFAULT,      GetFault,      "$GF\r"    )
+   Op(   ENABLE,        Enable,        "$FE",    NULL ) \
+   Op(   DISABLE,       Disable,       "$FD",    NULL ) \
+   Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d", NULL ) \
+   Opg(  ISEVCONNECT,   IsEvConnect,   "$G0",    NULL ) \
+   Opg(  GETCURRENTCAP, GetCurrentCap, "$GC",    NULL ) \
+   Opg(  GETFAULT,      GetFault,      "$GF",    NULL ) \
+   Opg(  GETCHARGPARAM, GetChargParam, "$GG",    NULL ) \
+   Opg(  GETENERGYCNT,  GetEneryCnt,   "$GU",    NULL )
 
 typedef enum
 {
@@ -51,8 +55,10 @@ LIST_CMD( COEVSE_CMD_NULL, COEVSE_CMD_CALLBACK )
 typedef struct
 {
    e_CmdId eCmdId ;
-   char szFmtCmd [32] ;
    f_ResultCallback fResultCallback ;
+   char C* szFmtCmd ;
+   char C* szChecksum ;
+
 } s_CmdDesc ;
 
 static s_CmdDesc const k_aCmdDesc [] =
@@ -80,7 +86,22 @@ typedef struct
    BYTE abyDataRes [32+1] ;
    BYTE byResIdx ;
    BOOL bResDone ;
-} s_Result ;
+} s_CoevseResult ;
+
+typedef struct
+{
+   BOOL bEvConnect ;
+   DWORD dwCurrentCapMin ;
+   DWORD dwCurrentCapMax ;
+   DWORD dwChargeVoltage ;
+   DWORD dwChargeCurrent ;
+   DWORD dwCurWh ;
+   DWORD dwAccWh ;
+
+   DWORD dwErrGfiTripCnt ;
+   DWORD dwNoGndTripCnt ;
+   DWORD dwStuckRelayTripCnt ;
+} s_CoevseStatus ;
 
 // ajout FIFO pour insertion CMD
 // toutes les sec, ajout x commandes dans FIFO
@@ -91,9 +112,13 @@ typedef struct
 /*----------------------------------------------------------------------------*/
 
 static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbParam ) ;
-static void coevse_SendCmdFifo( void ) ;
+static BOOL coevse_SendCmdFifo( void ) ;
 static void coevse_AnalyseRes( void ) ;
-
+static void coevse_CmdErr( void ) ;
+static void coevse_GetChecksum( char C* i_szData,
+                                char * o_sChecksum, BYTE i_byCkSize ) ;
+static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue ) ;
+static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue ) ;
 
 static void coevse_HrdInit( void ) ;
 static void coevse_HrdSendCmd( char * psStrCmd, BYTE i_bySize ) ;
@@ -105,8 +130,14 @@ static void coevse_HrdSendCmd( char * psStrCmd, BYTE i_bySize ) ;
 
 static e_CmdId l_eCmd ;
 static s_CmdFifo l_CmdFifo ;
-static s_Result l_Result ;
+
 static BYTE l_byNbRetry ;
+static DWORD l_dwCmdTimeout ;
+
+static s_CoevseResult l_Result ;
+static DWORD l_dwGetStateTmp ;
+
+static s_CoevseStatus l_Status ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -116,6 +147,14 @@ static BYTE l_byNbRetry ;
 void coevse_Init( void )
 {
    coevse_HrdInit() ;
+
+   coevse_AddCmdFifo( COEVSE_CMD_ISEVCONNECT, NULL, 0 ) ;
+   coevse_AddCmdFifo( COEVSE_CMD_GETCURRENTCAP, NULL, 0 ) ;
+   coevse_AddCmdFifo( COEVSE_CMD_GETCHARGPARAM, NULL, 0 ) ;
+   coevse_AddCmdFifo( COEVSE_CMD_GETFAULT, NULL, 0 ) ;
+   coevse_AddCmdFifo( COEVSE_CMD_GETENERGYCNT, NULL, 0 ) ;
+
+   tim_StartMsTmp( &l_dwGetStateTmp ) ;
 }
 
 
@@ -155,11 +194,35 @@ void coevse_SetCurrentCap( WORD i_wCurrent )
 
 void coevse_TaskCyc( void )
 {
-   coevse_SendCmdFifo( ) ;
+   BOOL bSent ;
 
-   if ( l_Result.bResDone )
+   bSent = coevse_SendCmdFifo() ;
+   if ( bSent )
    {
+      tim_StartMsTmp( &l_dwCmdTimeout ) ;
+   }
+
+   if ( ( l_eCmd != COEVSE_CMD_NONE ) && ( l_Result.bResDone ) )
+   {
+      HAL_NVIC_DisableIRQ( UOEVSE_IRQn ) ;
       coevse_AnalyseRes() ;
+      HAL_NVIC_EnableIRQ( UOEVSE_IRQn ) ;
+
+      if ( tim_IsEndMsTmp( &l_dwCmdTimeout, COEVSE_TIMEOUT ) )
+      {
+         coevse_CmdErr() ;
+      }
+   }
+
+   if ( tim_IsEndMsTmp( &l_dwGetStateTmp, COEVSE_GETSTATE_PER ) )
+   {
+      tim_StartMsTmp( &l_dwGetStateTmp ) ;
+
+      coevse_AddCmdFifo( COEVSE_CMD_ISEVCONNECT, NULL, 0 ) ;
+      coevse_AddCmdFifo( COEVSE_CMD_GETCURRENTCAP, NULL, 0 ) ;
+      coevse_AddCmdFifo( COEVSE_CMD_GETCHARGPARAM, NULL, 0 ) ;
+      coevse_AddCmdFifo( COEVSE_CMD_GETFAULT, NULL, 0 ) ;
+      coevse_AddCmdFifo( COEVSE_CMD_GETENERGYCNT, NULL, 0 ) ;
    }
 }
 
@@ -200,7 +263,7 @@ static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbP
 
 /*----------------------------------------------------------------------------*/
 
-static void coevse_SendCmdFifo( void )
+static BOOL coevse_SendCmdFifo( void )
 {
    BYTE byIdxOut ;
    s_CmdFifoData * pFifoData ;
@@ -208,15 +271,22 @@ static void coevse_SendCmdFifo( void )
    WORD * awPar ;
    BYTE byCmdIdx ;
    char C* pszFmtCmd ;
-   char sStrCmd [64] ;
+   char szStrCmd [64] ;
+   char * pszStrCmd ;
    BYTE bySize ;
+   BOOL bRet ;
+   char szChecksum [3] ;
+   s_CmdDesc C* pCmdDesc ;
+   BYTE byStrSize ;
+   BYTE byNbFmt ;
 
    if ( ( l_CmdFifo.byIdxIn != l_CmdFifo.byIdxOut ) &&
         ( l_eCmd == COEVSE_CMD_NONE ) )
    {
-      byIdxOut = NEXTIDX( l_CmdFifo.byIdxOut, l_CmdFifo.aCmdData ) ;
+      byIdxOut = l_CmdFifo.byIdxOut ;
 
       pFifoData = &l_CmdFifo.aCmdData[byIdxOut] ;
+      byIdxOut = NEXTIDX( byIdxOut, l_CmdFifo.aCmdData ) ;
 
       eCmd = pFifoData->eCmdId ;
       l_eCmd = eCmd ;
@@ -224,22 +294,52 @@ static void coevse_SendCmdFifo( void )
       awPar = &pFifoData->wParam[0] ;
 
       byCmdIdx = eCmd - ( COEVSE_CMD_NONE + 1 ) ;
-      pszFmtCmd = k_aCmdDesc[byCmdIdx].szFmtCmd ;
 
-      snprintf( sStrCmd, sizeof(sStrCmd), pszFmtCmd,
-                awPar[0], awPar[1], awPar[2], awPar[3], awPar[4], awPar[5] ) ;
+      pCmdDesc = &k_aCmdDesc[byCmdIdx] ;
+      pszFmtCmd = pCmdDesc->szFmtCmd ;
 
-      bySize = strlen( sStrCmd ) ;
+      byStrSize = sizeof(szStrCmd) ;
+      byNbFmt = snprintf( szStrCmd, byStrSize, pszFmtCmd,
+                           awPar[0], awPar[1], awPar[2], awPar[3], awPar[4], awPar[5] ) ;
+      pszStrCmd = &szStrCmd[byNbFmt] ;
+      byStrSize -= byNbFmt ;
 
-      if ( bySize < sizeof(sStrCmd) )
+      if ( pCmdDesc->szChecksum == NULL  && byStrSize > 4 )
       {
-         coevse_HrdSendCmd( sStrCmd, bySize ) ;
+         coevse_GetChecksum( szStrCmd, szChecksum, sizeof(szChecksum) ) ;
+         *pszStrCmd = '^' ;
+         pszStrCmd++ ;
+         *pszStrCmd = szChecksum[0] ;
+         pszStrCmd++ ;
+         *pszStrCmd = szChecksum[1] ;
+         pszStrCmd++ ;
+         *pszStrCmd = '\r' ;
+         pszStrCmd++ ;
+         *pszStrCmd = '\0' ;
+      }
+      else
+      {
+         strncpy( pszStrCmd, pCmdDesc->szChecksum, byStrSize ) ;
+      }
+
+      bySize = strlen( szStrCmd ) ;
+
+      if ( bySize < sizeof(szStrCmd) )
+      {
+         coevse_HrdSendCmd( szStrCmd, bySize ) ;
       }
       else
       {
          ERR_FATAL() ;
       }
+      bRet = TRUE ;
    }
+   else
+  {
+      bRet = FALSE ;
+  }
+
+  return bRet ;
 }
 
 
@@ -248,15 +348,23 @@ static void coevse_SendCmdFifo( void )
 static void coevse_AnalyseRes( void )
 {
    RESULT rRes ;
-   char * szDataRes ;
+   char * szResult ;
+   BYTE byResSize ;
    BYTE byCmdIdx ;
    f_ResultCallback pFunc ;
+   char szChecksum [3] ;
 
    rRes = OK ;
 
    if ( rRes == OK )
    {
-      if ( l_eCmd == COEVSE_CMD_NONE )
+      szResult = (char*) l_Result.abyDataRes ;
+      byResSize = l_Result.byResIdx ;
+
+      coevse_GetChecksum( szResult, szChecksum, sizeof(szChecksum) ) ;
+
+      if ( ( szResult[ ( byResSize - 3 ) ] != szChecksum[0] ) ||
+           ( szResult[ ( byResSize - 2 ) ] != szChecksum[1] ) )
       {
          rRes = ERR ;
       }
@@ -264,12 +372,10 @@ static void coevse_AnalyseRes( void )
 
    if ( rRes == OK )
    {
-      //test CRC
-      szDataRes = (char*) l_Result.abyDataRes ;
-      szDataRes[l_Result.byResIdx-4] = '\0' ;
+      szResult[l_Result.byResIdx-4] = '\0' ;
 
-      if ( ( szDataRes[0] != '$' ) || ( szDataRes[1] != 'O' ) ||
-           ( szDataRes[2] != 'K' ) )
+      if ( ( szResult[0] != '$' ) || ( szResult[1] != 'O' ) ||
+           ( szResult[2] != 'K' ) )
       {
          rRes = ERR ;
       }
@@ -282,21 +388,63 @@ static void coevse_AnalyseRes( void )
 
       if ( pFunc != NULL )
       {
-         (*pFunc)( &szDataRes[3] ) ;
+         (*pFunc)( &szResult[3] ) ;
       }
 
       l_CmdFifo.byIdxOut = NEXTIDX( l_CmdFifo.byIdxOut, l_CmdFifo.aCmdData ) ;
-      l_eCmd = COEVSE_CMD_NONE ;
       l_byNbRetry = 0 ;
+      l_Result.byResIdx = 0 ;
+      l_Result.bResDone = 0 ;
+      memset( l_Result.abyDataRes, 0, sizeof(l_Result.abyDataRes) ) ;
+      l_eCmd = COEVSE_CMD_NONE ;
    }
    else
    {
-      if ( l_byNbRetry == 5 )
-      {
-         ERR_FATAL() ;
-      }
-      l_byNbRetry++ ;
+      coevse_CmdErr() ;
    }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void coevse_CmdErr( void )
+{
+   if ( l_byNbRetry == 4 )
+   {
+      ERR_FATAL() ;
+   }
+   l_byNbRetry++ ;
+
+   l_Result.byResIdx = 0 ;
+   l_Result.bResDone = 0 ;
+   memset( l_Result.abyDataRes, 0, sizeof(l_Result.abyDataRes) ) ;
+   l_eCmd = COEVSE_CMD_NONE ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void coevse_GetChecksum( char C* i_szData,
+                                char * o_sChecksum, BYTE i_byCkSize )
+{
+   BYTE byXor ;
+   char C* pszData ;
+
+   if ( ( o_sChecksum == NULL ) || ( i_byCkSize < 3 ) )
+   {
+      ERR_FATAL() ;
+   }
+
+   pszData = i_szData ;
+   byXor = 0 ;
+
+   while( ( *pszData != '^' ) && ( *pszData != 0 ) )
+   {
+      byXor ^= (BYTE)*pszData ;
+      pszData++ ;
+   }
+
+   snprintf( o_sChecksum, i_byCkSize, "%02X", byXor ) ;
 }
 
 
@@ -304,37 +452,233 @@ static void coevse_AnalyseRes( void )
 
 /*----------------------------------------------------------------------------*/
 
-static RESULT coevse_CmdresultIsEvConnect( char C* i_pszDataRes )
+static void coevse_CmdresultIsEvConnect( char C* i_pszDataRes )
 {
-   REFPARM( i_pszDataRes )
-   return OK ;
+   if ( i_pszDataRes[1] == '1' )
+   {
+      l_Status.bEvConnect = TRUE ;
+   }
+   else
+   {
+      l_Status.bEvConnect = FALSE ;
+   }
 }
 
 
 /*----------------------------------------------------------------------------*/
 
-static RESULT coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
+static void coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
 {
-   REFPARM( i_pszDataRes )
-   return OK ;
+   SDWORD sdwValue ;
+   CHAR C* pszStr ;
+   CHAR C* pszNext ;
+
+   pszStr = i_pszDataRes ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwCurrentCapMin = sdwValue ;
+   }
+
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwCurrentCapMax = sdwValue ;
+   }
 }
 
 
 /*----------------------------------------------------------------------------*/
 
-static RESULT coevse_CmdresultGetChargParam( char C* i_pszDataRes )
+static void coevse_CmdresultGetChargParam( char C* i_pszDataRes )
 {
-   REFPARM( i_pszDataRes )
-   return OK ;
+   SDWORD sdwValue ;
+   CHAR C* pszStr ;
+   CHAR C* pszNext ;
+
+   pszStr = i_pszDataRes ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwChargeVoltage = sdwValue ;
+   }
+
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwChargeCurrent = sdwValue ;
+   }
 }
 
 
 /*----------------------------------------------------------------------------*/
 
-static RESULT coevse_CmdresultGetFault( char C* i_pszDataRes )
+static void coevse_CmdresultGetFault( char C* i_pszDataRes )
 {
-   REFPARM( i_pszDataRes )
-   return OK ;
+   DWORD dwValue ;
+   CHAR C* pszStr ;
+   CHAR C* pszNext ;
+
+   pszStr = i_pszDataRes ;
+   pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwErrGfiTripCnt = dwValue ;
+   }
+
+   pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwNoGndTripCnt = dwValue ;
+   }
+
+   pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwStuckRelayTripCnt = dwValue ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
+{
+   SDWORD sdwValue ;
+   CHAR C* pszStr ;
+   CHAR C* pszNext ;
+
+   pszStr = i_pszDataRes ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwCurWh = sdwValue ;
+   }
+
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.dwAccWh = sdwValue ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue )
+{
+   BOOL bEndOfString ;
+   BOOL bNeg ;
+   DWORD dwValue ;
+   char C* pszStr ;
+   char C* pszEnd ;
+
+   bEndOfString = FALSE ;
+   bNeg = FALSE ;
+   dwValue = 0 ;
+   pszStr = i_pszStr ;
+   pszEnd = i_pszStr ;
+
+   while( ! ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) )
+   {
+      if ( ( *pszStr == '\0' ) || ( *pszStr == '^' ) )
+      {
+         bEndOfString = TRUE ;
+         break ;
+      }
+      if ( *pszStr == '-' )
+      {
+         bNeg ^= TRUE ;
+      }
+      pszStr++ ;
+   }
+
+   if ( ! bEndOfString )
+   {
+      while( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
+      {
+         dwValue *= 10 ;
+         dwValue += ( *pszStr - '0' ) ;
+         pszStr++ ;
+      }
+      pszEnd = pszStr ;
+   }
+
+   if ( o_psdwValue != NULL )
+   {
+      if ( bNeg )
+      {
+         *o_psdwValue = -(SDWORD)dwValue ;
+      }
+      else
+      {
+         *o_psdwValue = (SDWORD)dwValue ;
+      }
+   }
+
+   return pszEnd ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue )
+{
+   BOOL bEndOfString ;
+   DWORD dwValue ;
+   char C* pszStr ;
+   char C* pszEnd ;
+
+   bEndOfString = FALSE ;
+   dwValue = 0 ;
+   pszStr = i_pszStr ;
+   pszEnd = i_pszStr ;
+
+   while( ! ( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) ||
+              ( ( *pszStr >= 'A' ) && ( *pszStr <= 'F' ) ) ) )
+   {
+      if ( ( *pszStr == '\0' ) || ( *pszStr == '^' ) )
+      {
+         bEndOfString = TRUE ;
+         break ;
+      }
+      pszStr++ ;
+   }
+
+   if ( ! bEndOfString )
+   {
+   while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) ||
+          ( ( *pszStr >= 'A' ) && ( *pszStr <= 'F' ) ) )
+      {
+         dwValue *= 16 ;
+         if ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
+         {
+            dwValue += ( *pszStr - '0' ) ;
+         }
+         else
+         {
+            dwValue += ( *pszStr - 'A' ) + 10 ;
+         }
+         pszStr++ ;
+      }
+      pszEnd = pszStr ;
+   }
+
+   if ( o_pdwValue != NULL )
+   {
+      *o_pdwValue = dwValue ;
+   }
+
+   return pszEnd ;
 }
 
 
@@ -381,7 +725,7 @@ static void coevse_HrdInit( void )
    UOEVSE->RDR ;                       /* read input register to avoid unwanted data */
 
                                        /* activate emission and reception */
-   UOEVSE->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_RXNEIE | USART_CR1_UE ;
+   UOEVSE->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE ;
    UOEVSE->ICR |= 0xFFFFFFFF ;         /* reset interrupt */
 
                                        /* set USART interrupt priority level */
@@ -394,7 +738,7 @@ static void coevse_HrdInit( void )
                                        /* set direction mem-to-perif, memory increment, */
                                        /* enable transfer complete and error interrupt */
    UOEVSE_DMA_TX->CCR = DMA_CCR_DIR | DMA_CCR_MINC ;
-                                    /* set periferal address (USART TDR register) */
+                                       /* set periferal address (USART TDR register) */
    UOEVSE_DMA_TX->CPAR = (DWORD)&(UOEVSE->TDR) ;
                                        /* set TX request source */
    UOEVSE_DMA_CSELR->CSELR &= ~UOEVSE_DMA_TX_CSELR( DMA_CSELR_C1S_Msk ) ;
@@ -409,9 +753,15 @@ static void coevse_HrdSendCmd( char * psStrCmd, BYTE i_bySize )
    l_Result.byResIdx = 0 ;
    memset( l_Result.abyDataRes, 0, sizeof(l_Result.abyDataRes) ) ;
 
+   COEVSE_DISABLE_DMA_TX() ;            /* stop previous DMA transfer */
+
    UOEVSE_DMA_TX->CNDTR = i_bySize ;
-                                    /* set memory address (transmit buffer) */
+                                       /* set periferal address (USART TDR register) */
+   UOEVSE_DMA_TX->CPAR = (DWORD)&(UOEVSE->TDR) ;
+                                       /* set memory address (transmit buffer) */
    UOEVSE_DMA_TX->CMAR = (DWORD)psStrCmd ;
+
+   UOEVSE->CR1 |= USART_CR1_RXNEIE ;   /* enable UART interrupt */
 
    COEVSE_ENABLE_DMA_TX() ;
 }
@@ -428,7 +778,7 @@ void UOEVSE_IRQHandler( void )
 
    byData = UOEVSE->RDR ;
 
-   UOEVSE->ICR |= USART_ICR_ORECF ;
+   //UOEVSE->ICR |= USART_ICR_ORECF ;
 
    byResIdx = l_Result.byResIdx ;
 
@@ -443,5 +793,6 @@ void UOEVSE_IRQHandler( void )
    if ( byData == '\r' )
    {
       l_Result.bResDone = TRUE ;
+      UOEVSE->CR1 &= ~USART_CR1_RXNEIE ;   /* disable UART interrupt */
    }
 }
