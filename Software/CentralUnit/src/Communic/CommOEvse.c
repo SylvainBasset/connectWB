@@ -34,14 +34,14 @@ typedef void (*f_ResultCallback)( char C* i_pszDataRes ) ;
 
 //SBA: mettre les checksum dans le tableau
 #define LIST_CMD( Op, Opg ) \
-   Op(   ENABLE,        Enable,        "$FE",    NULL ) \
-   Op(   DISABLE,       Disable,       "$FD",    NULL ) \
-   Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d", NULL ) \
-   Opg(  ISEVCONNECT,   IsEvConnect,   "$G0",    NULL ) \
-   Opg(  GETCURRENTCAP, GetCurrentCap, "$GC",    NULL ) \
-   Opg(  GETFAULT,      GetFault,      "$GF",    NULL ) \
-   Opg(  GETCHARGPARAM, GetChargParam, "$GG",    NULL ) \
-   Opg(  GETENERGYCNT,  GetEneryCnt,   "$GU",    NULL )
+   Op(   ENABLE,        Enable,        "$FE",    "^27\r" ) \
+   Op(   DISABLE,       Disable,       "$FD",    "^26\r" ) \
+   Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d", NULL )    \
+   Opg(  ISEVCONNECT,   IsEvConnect,   "$G0",    "^53\r" ) \
+   Opg(  GETCURRENTCAP, GetCurrentCap, "$GC",    "^20\r" ) \
+   Opg(  GETFAULT,      GetFault,      "$GF",    "^25\r" ) \
+   Opg(  GETCHARGPARAM, GetChargParam, "$GG",    "^24\r" ) \
+   Opg(  GETENERGYCNT,  GetEneryCnt,   "$GU",    "^36\r" )
 
 typedef enum
 {
@@ -91,12 +91,12 @@ typedef struct
 typedef struct
 {
    BOOL bEvConnect ;
-   DWORD dwCurrentCapMin ;
-   DWORD dwCurrentCapMax ;
-   DWORD dwChargeVoltage ;
-   DWORD dwChargeCurrent ;
-   DWORD dwCurWh ;
-   DWORD dwAccWh ;
+   SDWORD sdwCurrentCapMin ;
+   SDWORD sdwCurrentCapMax ;
+   SDWORD sdwChargeVoltage ;
+   SDWORD sdwChargeCurrent ;
+   SDWORD sdwCurWh ;
+   SDWORD sdwAccWh ;
 
    DWORD dwErrGfiTripCnt ;
    DWORD dwNoGndTripCnt ;
@@ -150,8 +150,8 @@ void coevse_Init( void )
 
    coevse_AddCmdFifo( COEVSE_CMD_ISEVCONNECT, NULL, 0 ) ;
    coevse_AddCmdFifo( COEVSE_CMD_GETCURRENTCAP, NULL, 0 ) ;
-   coevse_AddCmdFifo( COEVSE_CMD_GETCHARGPARAM, NULL, 0 ) ;
    coevse_AddCmdFifo( COEVSE_CMD_GETFAULT, NULL, 0 ) ;
+   coevse_AddCmdFifo( COEVSE_CMD_GETCHARGPARAM, NULL, 0 ) ;
    coevse_AddCmdFifo( COEVSE_CMD_GETENERGYCNT, NULL, 0 ) ;
 
    tim_StartMsTmp( &l_dwGetStateTmp ) ;
@@ -220,8 +220,8 @@ void coevse_TaskCyc( void )
 
       coevse_AddCmdFifo( COEVSE_CMD_ISEVCONNECT, NULL, 0 ) ;
       coevse_AddCmdFifo( COEVSE_CMD_GETCURRENTCAP, NULL, 0 ) ;
-      coevse_AddCmdFifo( COEVSE_CMD_GETCHARGPARAM, NULL, 0 ) ;
       coevse_AddCmdFifo( COEVSE_CMD_GETFAULT, NULL, 0 ) ;
+      coevse_AddCmdFifo( COEVSE_CMD_GETCHARGPARAM, NULL, 0 ) ;
       coevse_AddCmdFifo( COEVSE_CMD_GETENERGYCNT, NULL, 0 ) ;
    }
 }
@@ -478,14 +478,14 @@ static void coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.dwCurrentCapMin = sdwValue ;
+      l_Status.sdwCurrentCapMin = sdwValue ;
    }
 
    pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.dwCurrentCapMax = sdwValue ;
+      l_Status.sdwCurrentCapMax = sdwValue ;
    }
 }
 
@@ -503,14 +503,14 @@ static void coevse_CmdresultGetChargParam( char C* i_pszDataRes )
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.dwChargeVoltage = sdwValue ;
+      l_Status.sdwChargeVoltage = sdwValue ;
    }
 
    pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.dwChargeCurrent = sdwValue ;
+      l_Status.sdwChargeCurrent = sdwValue ;
    }
 }
 
@@ -560,14 +560,14 @@ static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.dwCurWh = sdwValue ;
+      l_Status.sdwCurWh = sdwValue ;
    }
 
    pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.dwAccWh = sdwValue ;
+      l_Status.sdwAccWh = sdwValue ;
    }
 }
 
