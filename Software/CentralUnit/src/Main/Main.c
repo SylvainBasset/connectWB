@@ -47,7 +47,7 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
    .Speed = GPIO_SPEED_FAST,
 } ;
 
-#define TASK_PER_LOOP   100                        //SBA: doit être multiple de toutes les periodes
+#define TASK_PER_LOOP   100                        //SBA: doit ï¿½tre multiple de toutes les periodes
 
 #define CLK_TASK_PER    100
 #define CLK_TASK_ORDER    0
@@ -106,16 +106,16 @@ int main( void )
 
 
    HAL_Init() ;                        /* STM32L0xx HAL library initialization */
-
    clk_Init() ;
+
    cal_Init() ;
    main_SetInitDate() ;
 
    cwifi_Init() ;
    sfrm_Init() ;
    coevse_Init() ;
-   coevse_SetEnable( TRUE ) ;
-   coevse_SetEnable( FALSE ) ;
+   //coevse_SetEnable( TRUE ) ;
+   //coevse_SetEnable( FALSE ) ;
 
    main_LedInit() ;                    /* Configure system LED */
    main_LedOn() ;                      /* Turn on system LED */
@@ -213,7 +213,7 @@ static void main_SetInitDate( void )
    sSetDT.byHours = 00 ;
    sSetDT.byMinutes = 00 ;
    sSetDT.bySeconds = 00 ;
-   clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur système
+   clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur systï¿½me
 }
 
 

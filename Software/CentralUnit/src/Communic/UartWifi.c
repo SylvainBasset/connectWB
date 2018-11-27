@@ -19,29 +19,29 @@ Module description:
 //TBD
    - uilisation de l'USART 1
    - Gestion hard flow RTS/CTS
-   - Gestion détection erreur de bruit, de débordement, et d'erreur de trames (a détailler)
-   - Détection d'erreur activable/désactivable
-   - DMA utilisé en emission et en récpetion
+   - Gestion dÃ©tection erreur de bruit, de dÃ©bordement, et d'erreur de trames (a dÃ©tailler)
+   - DÃ©tection d'erreur activable/dÃ©sactivable
+   - DMA utilisÃ© en emission et en rÃ©cpetion
    - En emission:
-      . configuration du channel DMA sur le buffer à mettre
+      . configuration du channel DMA sur le buffer Ã  mettre
       . indication transfert en cours et si nouvelle demande alors la
         fonction Send() renvoie FALSE
       . interruption en fin de transfert pour autoriser nouvelle transmission
-      . détection erreurs DMA
-   - En réception:
+      . dÃ©tection erreurs DMA
+   - En rÃ©ception:
       . configuration du channel DMA sur le buffer de lecture "l_byRxBuffer" en
         mode circulaire
-      . pointeur l_wRxIdxIn pour écriture dans buffer et l_wRxIdxOut pour lecture
+      . pointeur l_wRxIdxIn pour Ã©criture dans buffer et l_wRxIdxOut pour lecture
         dans buffer
       . interruption DMA sur fin demi-transfert et fin transfert. Si pas assez
-        de place libre pour demi transfert suivant alors on suspend la réception
-        (arrêt DMA et donc mise à 1 de RTS)
-      . Fonction Read() pour lecture n octets. Si on est en réception suspendue
-        et que la lecture permet de libérer assez de place, alors la réception
-        est a nouveau autorisée.
-      . Il aurait été aussi possible d'activer l'inerruption DMA à chaque transfert
-        d'octet (permettant une gestion plus fine du buffer de réception). Mais
-        cette méthode d'interruption demi/fin transfert permet de réduire le
+        de place libre pour demi transfert suivant alors on suspend la rÃ©ception
+        (arrÃªt DMA et donc mise Ã  1 de RTS)
+      . Fonction Read() pour lecture n octets. Si on est en rÃ©ception suspendue
+        et que la lecture permet de libÃ©rer assez de place, alors la rÃ©ception
+        est a nouveau autorisÃ©e.
+      . Il aurait Ã©tÃ© aussi possible d'activer l'inerruption DMA Ã  chaque transfert
+        d'octet (permettant une gestion plus fine du buffer de rÃ©ception). Mais
+        cette mÃ©thode d'interruption demi/fin transfert permet de rÃ©duire le
         taux d'occupation CPU, (au prix d'une consommation de RAM un peu plus
         importante)
 */
@@ -124,7 +124,7 @@ BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize )
    if ( ! l_bTxPending )            /* no TX transfer is pending */
    {
       l_bTxPending = TRUE ;         /* Start of TX transfer */
-                                    //SBA: vérifier utilité
+                                    //SBA: vï¿½rifier utilitï¿½
       UWIFI->ICR |= USART_ICR_TCCF ; /* clear UART transmission complete flag */
                                     /* set the size of transfer */
       UWIFI_DMA_TX->CNDTR = i_dwSize ;
