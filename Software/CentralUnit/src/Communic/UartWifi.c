@@ -383,31 +383,27 @@ static void uwifi_HrdInit( void )
    GPIO_InitTypeDef sGpioInit ;
 
       /* configure TX pin as alternate, no push/pull, high freq */
-   WIFI_TX_GPIO_CLK_ENABLE() ;         /* start TX gpio clock */
    sGpioInit.Pin = WIFI_TX_PIN ;
    sGpioInit.Mode = GPIO_MODE_AF_PP ;
    sGpioInit.Pull = GPIO_NOPULL ;
    sGpioInit.Speed = GPIO_SPEED_FREQ_HIGH ;
    sGpioInit.Alternate = WIFI_TX_AF ;
-   HAL_GPIO_Init( WIFI_TX_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( WIFI_TX_GPIO, &sGpioInit ) ;
 
       /* configure RX pin as alternate, no push/pull, high freq */
-   WIFI_RX_GPIO_CLK_ENABLE() ;         /* start RX gpio clock */
    sGpioInit.Pin = WIFI_RX_PIN ;
    sGpioInit.Alternate = WIFI_RX_AF ;
-   HAL_GPIO_Init( WIFI_RX_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( WIFI_RX_GPIO, &sGpioInit ) ;
 
       /* configure RTS pin as alternate, no push/pull, high freq */
-   WIFI_RTS_GPIO_CLK_ENABLE() ;        /* start RTS gpio clock */
    sGpioInit.Pin = WIFI_RTS_PIN ;
    sGpioInit.Alternate = WIFI_RTS_AF ;
-   HAL_GPIO_Init( WIFI_RTS_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( WIFI_RTS_GPIO, &sGpioInit ) ;
 
       /* configure CTS pin as alternate, no push/pull, high freq */
-   WIFI_CTS_GPIO_CLK_ENABLE() ;        /* start CTS gpio clock */
    sGpioInit.Pin = WIFI_CTS_PIN ;
    sGpioInit.Alternate = WIFI_CTS_AF ;
-   HAL_GPIO_Init( WIFI_CTS_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( WIFI_CTS_GPIO, &sGpioInit ) ;
 
    /* -------- USART -------- */
 

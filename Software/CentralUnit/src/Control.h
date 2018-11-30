@@ -22,4 +22,12 @@ void cal_SetDayVals( BYTE i_byWeekday,
 BOOL cal_IsChargeEnable( void ) ;
 
 
+/*----------------------------------------------------------------------------*/
+/* ChargeState.c                                                              */
+/*----------------------------------------------------------------------------*/
+
+void cstate_Init( void ) ;
+void cstate_TaskCyc( void ) ;
+
+
 #endif /* __CONTROL_H */

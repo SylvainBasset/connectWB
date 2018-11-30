@@ -33,6 +33,8 @@ void cwifi_AskForRestart( void ) ;
 void cwifi_SetMaintMode( BOOL i_bMaintmode ) ;
 BOOL cwifi_IsConnected( void ) ;
 BOOL cwifi_IsSocketConnected( void ) ;
+BOOL cwifi_IsMaintMode( void ) ;
+
 void cwifi_AddExtCmd( char C* i_szStrCmd ) ;
 void cwifi_AddExtData( char C* i_szStrCmd ) ;
 void cwifi_TaskCyc( void ) ;
@@ -58,10 +60,29 @@ BYTE uwifi_GetError( BOOL i_bReset ) ;
 /* CommOEvse.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
+typedef struct
+{
+   BOOL bEvConnect ;
+   SDWORD sdwCurrentCapMin ;
+   SDWORD sdwCurrentCapMax ;
+   SDWORD sdwChargeVoltage ;
+   SDWORD sdwChargeCurrent ;
+   SDWORD sdwCurWh ;
+   SDWORD sdwAccWh ;
+
+   DWORD dwErrGfiTripCnt ;
+   DWORD dwNoGndTripCnt ;
+   DWORD dwStuckRelayTripCnt ;
+} s_coevseStatus ;
+
 void coevse_Init( void ) ;
 
 void coevse_SetEnable( BOOL i_bEnable ) ;
 void coevse_SetCurrentCap( WORD i_wCurrent ) ;
+
+BOOL coevse_IsPlugged( void ) ;
+BOOL coevse_IsCharging( void ) ;
+s_coevseStatus coevse_GetStatus( void ) ;
 
 void coevse_TaskCyc( void ) ;
 

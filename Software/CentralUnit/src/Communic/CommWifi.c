@@ -50,7 +50,7 @@ typedef struct
 {
    char szCmdFmt [32] ;        // formatteur commande
    BOOL bIsResult ;
-   char * pszStrContent ;      // adresse chaine pour réception résultat
+   char * pszStrContent ;      // adresse chaine pour rï¿½ception rï¿½sultat
    WORD wContentSize ;
    f_CmdCallback fCallback ;
 } s_CmdDesc ;
@@ -100,7 +100,7 @@ static char l_szWindSocketConIp[16] ;
    Op(  SOCKETDIS,   SocketDis,   "62:", &l_bSocketConnected, FALSE ) \
    Opf( SOCKETDATA,  SocketData,  "64:", NULL,                0 )
 
-typedef enum //vérifier décallage avec 0
+typedef enum //vï¿½rifier dï¿½callage avec 0
 {
    CWIFI_WIND_NONE = 0,
    LIST_WIND( CWIFI_W_ENUM, CWIFI_W_ENUM, CWIFI_W_ENUM )
@@ -286,6 +286,14 @@ BOOL cwifi_IsConnected( void )
 BOOL cwifi_IsSocketConnected( void )
 {
    return l_bSocketConnected ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+BOOL cwifi_IsMaintMode( void )
+{
+   return l_bMaintMode ;
 }
 
 
@@ -609,7 +617,7 @@ static void cwifi_ExecSendData( void )
       byIdxOut = NEXTIDX( byIdxOut, l_DataFifo.aDataItems )  ;
       l_DataFifo.byIdxOut = byIdxOut ;
 
-      tim_StartMsTmp( &l_dwTmpDataMode ) ; // redémarrage tempo
+      tim_StartMsTmp( &l_dwTmpDataMode ) ; // redï¿½marrage tempo
    }
 }
 
@@ -630,7 +638,7 @@ static void cwifi_ProcessRec( void )
    wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), FALSE ) ;
 
    if ( wNbReadVal == 0 )
-   {                                   /* lecture temporaire données avant CR/LF final */
+   {                                   /* lecture temporaire donnï¿½es avant CR/LF final */
       wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), TRUE ) ;
       bPendingData = TRUE ;
    }
@@ -653,7 +661,7 @@ static void cwifi_ProcessRec( void )
                {
                   pbyProcessData = &abyReadData[0] ;
                   (*l_fScktGetFrame)((char*)pbyProcessData) ;
-                  tim_StartMsTmp( &l_dwTmpDataMode ) ; // redémarrage tempo
+                  tim_StartMsTmp( &l_dwTmpDataMode ) ; // redï¿½marrage tempo
                }
             }
             else
@@ -769,7 +777,7 @@ static RESULT cwifi_WindCallBackDataMode( char C* i_pszProcessData, BOOL i_bPend
 {
    if ( ! i_bPendingData )
    {
-      tim_StartMsTmp( &l_dwTmpDataMode ) ;  // redémarrage tempo
+      tim_StartMsTmp( &l_dwTmpDataMode ) ;  // redï¿½marrage tempo
    }
 
    return OK ;
@@ -965,17 +973,15 @@ static void cwifi_HrdInit( void )
 {
    GPIO_InitTypeDef sGpioInit ;
 
-   WIFI_RESET_GPIO_CLK_ENABLE() ;          /* enable the GPIO_LED Clock */
-
                                           /* set reset pin to 1 */
-   HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
+   HAL_GPIO_WritePin( WIFI_RESET_GPIO, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
 
    sGpioInit.Pin = WIFI_RESET_PIN ;
    sGpioInit.Mode = GPIO_MODE_OUTPUT_PP ;
    sGpioInit.Pull = GPIO_PULLUP ;
    sGpioInit.Speed = GPIO_SPEED_FAST ;
    sGpioInit.Alternate = WIFI_RESET_AF ;
-   HAL_GPIO_Init( WIFI_RESET_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( WIFI_RESET_GPIO, &sGpioInit ) ;
 }
 
 
@@ -988,14 +994,14 @@ static void cwifi_HrdModuleReset( void )
 {
    DWORD dwTmp ;
                                        /* set reset pin to 0 */
-   HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_RESET ) ;
+   HAL_GPIO_WritePin( WIFI_RESET_GPIO, WIFI_RESET_PIN, GPIO_PIN_RESET ) ;
    tim_StartMsTmp( &dwTmp ) ;
    while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_RESET_DURATION ) ) ;
 
    uwifi_Init() ;
    uwifi_SetErrorDetection( FALSE ) ;
 
-   HAL_GPIO_WritePin( WIFI_RESET_GPIO_PORT, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
+   HAL_GPIO_WritePin( WIFI_RESET_GPIO, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
    tim_StartMsTmp( &dwTmp ) ;          /* set power-up tempo */
    while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_PWRUP_DURATION ) ) ;
 

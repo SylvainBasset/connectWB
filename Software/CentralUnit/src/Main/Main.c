@@ -52,6 +52,9 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
 #define CLK_TASK_PER    100
 #define CLK_TASK_ORDER    0
 
+#define CSTATE_TASK_PER    1
+#define CSTATE_TASK_ORDER  0
+
 #define CWIFI_TASK_PER    1
 #define CWIFI_TASK_ORDER  0
 
@@ -65,8 +68,8 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
    }
 
 
-const s_Time k_TimeStart = { .byHours = 06, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
-const s_Time k_TimeEnd = { .byHours = 07, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
+//const s_Time k_TimeStart = { .byHours = 06, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
+//const s_Time k_TimeEnd = { .byHours = 07, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
 
 
 /*----------------------------------------------------------------------------*/
@@ -108,9 +111,12 @@ int main( void )
    HAL_Init() ;                        /* STM32L0xx HAL library initialization */
    clk_Init() ;
 
+   GPIO_CLK_ENABLE() ;
+
    cal_Init() ;
    main_SetInitDate() ;
 
+   cstate_Init() ;
    cwifi_Init() ;
    sfrm_Init() ;
    coevse_Init() ;
@@ -128,13 +134,13 @@ int main( void )
    sGpioInit.Pull = GPIO_NOPULL ;
    sGpioInit.Speed = GPIO_SPEED_FAST ;
    sGpioInit.Alternate = USER_BP_AF ;
-   HAL_GPIO_Init( WIFI_RESET_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( WIFI_RESET_GPIO, &sGpioInit ) ;
 
    byTaskPerCnt = 0 ;
 
    while ( TRUE )                      /* Infinite loop */
    {
-      if ( HAL_GPIO_ReadPin( USER_BP_GPIO_PORT, USER_BP) == GPIO_PIN_RESET )
+      if ( HAL_GPIO_ReadPin( USER_BP_GPIO, USER_BP) == GPIO_PIN_RESET )
       {
          if ( l_bBpState == FALSE )
          {
@@ -152,6 +158,7 @@ int main( void )
       }
 
       TASK_CALL( clk, CLK ) ;
+      TASK_CALL( cstate, CSTATE ) ;
       TASK_CALL( cwifi, CWIFI ) ;
       TASK_CALL( coevse, COEVSE ) ;
 
@@ -178,11 +185,10 @@ static void main_LedInit( void )
       /* handle <hTimSysLed> as global variable, because it is   */
       /* not reused after timer initialization.                  */
 
-   SYSLED_GPIO_CLK_ENABLE() ;          /* enable the GPIO_LED Clock */
                                        /* configure SYSLED_PIN pin as output push-pull */
 
    memcpy( &sGpioInit, &k_sSysLedGpioInit, sizeof(sGpioInit) ) ;
-   HAL_GPIO_Init( SYSLED_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( SYSLED_GPIO, &sGpioInit ) ;
 
 
    TIMSYSLED_CLK_ENABLE() ;            /* enable clock for system led timer */
@@ -224,7 +230,7 @@ static void main_SetInitDate( void )
 static void main_LedOn( void )
 {
                                        /* activate system LED pin */
-   HAL_GPIO_WritePin( SYSLED_GPIO_PORT, SYSLED_PIN, GPIO_PIN_SET ) ;
+   HAL_GPIO_WritePin( SYSLED_GPIO, SYSLED_PIN, GPIO_PIN_SET ) ;
 }
 
 
@@ -235,7 +241,7 @@ static void main_LedOn( void )
 void TIMSYSLED_IRQHandler( void )
 {
                                        /* toggle system LED pin */
-   HAL_GPIO_TogglePin( SYSLED_GPIO_PORT, SYSLED_PIN ) ;
+   HAL_GPIO_TogglePin( SYSLED_GPIO, SYSLED_PIN ) ;
 
    TIMSYSLED->SR = ~TIM_IT_UPDATE ;    /* IRQ acknowledgment */
 }

@@ -24,19 +24,18 @@ void err_FatalError( void )
 {
    GPIO_InitTypeDef sGpioInit ;
 
-   SYSLED_GPIO_CLK_ENABLE() ;          /* Enable the GPIO_LED Clock */
                                        /* Configure SYSLED_PIN pin as output push-pull */
    sGpioInit.Pin = SYSLED_PIN ;
    sGpioInit.Mode = GPIO_MODE_OUTPUT_PP ;
    sGpioInit.Pull = GPIO_PULLUP ;
    sGpioInit.Speed = GPIO_SPEED_FAST ;
-   HAL_GPIO_Init( SYSLED_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( SYSLED_GPIO, &sGpioInit ) ;
                                        /* system Led on */
-   HAL_GPIO_WritePin( SYSLED_GPIO_PORT, SYSLED_PIN, GPIO_PIN_SET ) ;
+   HAL_GPIO_WritePin( SYSLED_GPIO, SYSLED_PIN, GPIO_PIN_SET ) ;
 
    while( TRUE )                       /* infinite loop */
    {
-      HAL_GPIO_TogglePin( SYSLED_GPIO_PORT, SYSLED_PIN ) ;
+      HAL_GPIO_TogglePin( SYSLED_GPIO, SYSLED_PIN ) ;
       HAL_Delay( 50 ) ;                /* 50 ms delay */
    }
 }

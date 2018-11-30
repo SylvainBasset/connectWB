@@ -18,59 +18,96 @@
 /* IOs pins definitions                                                       */
 /*----------------------------------------------------------------------------*/
 
+#define GPIO_CLK_ENABLE()              __GPIOA_CLK_ENABLE() ;  \
+                                       __GPIOB_CLK_ENABLE() ;  \
+                                       __GPIOC_CLK_ENABLE()
+
+#define CSTATE_LEDWIFI_RED_PIN         GPIO_PIN_0
+#define CSTATE_LEDWIFI_RED_GPIO        GPIOA
+#define CSTATE_LEDWIFI_RED_AF          0
+
+#define CSTATE_LEDWIFI_BLUE_PIN        GPIO_PIN_1
+#define CSTATE_LEDWIFI_BLUE_GPIO       GPIOA
+#define CSTATE_LEDWIFI_BLUE_AF         0
+
+#define CSTATE_LEDWIFI_GREEN_PIN       GPIO_PIN_4
+#define CSTATE_LEDWIFI_GREEN_GPIO      GPIOA
+#define CSTATE_LEDWIFI_GREEN_AF        0
+
                                        /* User Led from nucleo board (LD2) */
 #define SYSLED_PIN                     GPIO_PIN_5
-#define SYSLED_GPIO_PORT               GPIOA
+#define SYSLED_GPIO                    GPIOA
 #define SYSLED_AF                      0
-#define SYSLED_GPIO_CLK_ENABLE()       __GPIOA_CLK_ENABLE()
-#define SYSLED_GPIO_CLK_DISABLE()      __GPIOA_CLK_DISABLE()
 
 #define WIFI_TX_PIN                    GPIO_PIN_9
-#define WIFI_TX_GPIO_PORT              GPIOA
+#define WIFI_TX_GPIO                   GPIOA
 #define WIFI_TX_AF                     GPIO_AF4_USART1
-#define WIFI_TX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE()
 
 #define WIFI_RX_PIN                    GPIO_PIN_10
-#define WIFI_RX_GPIO_PORT              GPIOA
+#define WIFI_RX_GPIO                   GPIOA
 #define WIFI_RX_AF                     GPIO_AF4_USART1
-#define WIFI_RX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE()
 
 #define WIFI_RTS_PIN                   GPIO_PIN_12
-#define WIFI_RTS_GPIO_PORT             GPIOA
+#define WIFI_RTS_GPIO                  GPIOA
 #define WIFI_RTS_AF                    GPIO_AF4_USART1
-#define WIFI_RTS_GPIO_CLK_ENABLE()     __GPIOA_CLK_ENABLE()
 
 #define WIFI_CTS_PIN                   GPIO_PIN_11
-#define WIFI_CTS_GPIO_PORT             GPIOA
+#define WIFI_CTS_GPIO                  GPIOA
 #define WIFI_CTS_AF                    GPIO_AF4_USART1
-#define WIFI_CTS_GPIO_CLK_ENABLE()     __GPIOA_CLK_ENABLE()
 
+
+   /*---------------------- */
+
+#define CSTATE_LEDWIFI_COMMON_PIN      GPIO_PIN_0
+#define CSTATE_LEDWIFI_COMMON_GPIO     GPIOB
+#define CSTATE_LEDWIFI_COMMON_AF       0
                                        /* TX pin for OpenEVSE UART communication */
 #define OESVE_TX_PIN                   GPIO_PIN_10
-#define OESVE_TX_GPIO_PORT             GPIOB
+#define OESVE_TX_GPIO                  GPIOB
 #define OESVE_TX_AF                    GPIO_AF4_LPUART1
-#define OESVE_TX_GPIO_CLK_ENABLE()     __GPIOB_CLK_ENABLE()
-
                                        /* RX pin for OpenEVSE UART communication */
 #define OESVE_RX_PIN                   GPIO_PIN_11
-#define OESVE_RX_GPIO_PORT             GPIOB
+#define OESVE_RX_GPIO                  GPIOB
 #define OESVE_RX_AF                    GPIO_AF4_LPUART1
-#define OESVE_RX_GPIO_CLK_ENABLE()     __GPIOB_CLK_ENABLE()
 
-#define WIFI_RESET_PIN                 GPIO_PIN_12
-#define WIFI_RESET_GPIO_PORT           GPIOC
-#define WIFI_RESET_AF                  0
-#define WIFI_RESET_GPIO_CLK_ENABLE()  __GPIOC_CLK_ENABLE()
+   /*---------------------- */
+
+#define CSTATE_BUTTON_P1_PIN           GPIO_PIN_1
+#define CSTATE_BUTTON_P1_GPIO          GPIOC
+#define CSTATE_BUTTON_P1_AF            0
+
+#define CSTATE_BUTTON_P2_PIN           GPIO_PIN_2
+#define CSTATE_BUTTON_P2_GPIO          GPIOC
+#define CSTATE_BUTTON_P2_AF            0
+
+#define CSTATE_LEDCH_GREEN_PIN         GPIO_PIN_5
+#define CSTATE_LEDCH_GREEN_GPIO        GPIOC
+#define CSTATE_LEDCH_GREEN_AF          0
+
+#define CSTATE_LEDCH_BLUE_PIN          GPIO_PIN_6
+#define CSTATE_LEDCH_BLUE_GPIO         GPIOC
+#define CSTATE_LEDCH_BLUE_AF           0
+
+#define CSTATE_LEDCH_RED_PIN           GPIO_PIN_8
+#define CSTATE_LEDCH_RED_GPIO          GPIOC
+#define CSTATE_LEDCH_RED_AF            0
+
+#define CSTATE_LEDCH_COMMON_PIN        GPIO_PIN_9
+#define CSTATE_LEDCH_COMMON_GPIO       GPIOC
+#define CSTATE_LEDCH_COMMON_AF         0
+
 
 #define WIFI_WAKEUP_PIN                GPIO_PIN_8
-#define WIFI_WAKEUP_GPIO_PORT          GPIOC
+#define WIFI_WAKEUP_GPIO               GPIOC
 #define WIFI_WAKEUP_AF                 0
-#define WIFI_WAKEUP_GPIO_CLK_ENABLE()  __GPIOC_CLK_ENABLE()
+
+#define WIFI_RESET_PIN                 GPIO_PIN_12
+#define WIFI_RESET_GPIO                GPIOC
+#define WIFI_RESET_AF                  0
 
 #define USER_BP                        GPIO_PIN_13
-#define USER_BP_GPIO_PORT              GPIOC
+#define USER_BP_GPIO                   GPIOC
 #define USER_BP_AF                     0
-#define USER_BP_GPIO_CLK_ENABLE()      __GPIOC_CLK_ENABLE()
 
 
 /*----------------------------------------------------------------------------*/

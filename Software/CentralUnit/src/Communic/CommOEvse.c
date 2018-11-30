@@ -92,26 +92,8 @@ typedef struct
    BYTE byResIdx ;
    BOOL bError ;
    BOOL bWaitResponse ;
-} s_CoevseResult ;
+} s_coevseResult ;
 
-typedef struct
-{
-   BOOL bEvConnect ;
-   SDWORD sdwCurrentCapMin ;
-   SDWORD sdwCurrentCapMax ;
-   SDWORD sdwChargeVoltage ;
-   SDWORD sdwChargeCurrent ;
-   SDWORD sdwCurWh ;
-   SDWORD sdwAccWh ;
-
-   DWORD dwErrGfiTripCnt ;
-   DWORD dwNoGndTripCnt ;
-   DWORD dwStuckRelayTripCnt ;
-} s_CoevseStatus ;
-
-// ajout FIFO pour insertion CMD
-// toutes les sec, ajout x commandes dans FIFO
-// si demande enable/disable ajout commande dans FIFO
 
 /*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
@@ -148,11 +130,11 @@ static DWORD l_dwCmdTimeout ;
 static BOOL l_bHardStarted ;
 static DWORD l_dwTmpStart ;
 
-static s_CoevseResult l_Result ;
-static s_CoevseResult l_Async ;
+static s_coevseResult l_Result ;
+static s_coevseResult l_Async ;
 
 static DWORD l_dwGetStateTmp ;
-static s_CoevseStatus l_Status ;
+static s_coevseStatus l_Status ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -197,6 +179,47 @@ void coevse_SetCurrentCap( WORD i_wCurrent )
 
    awParam[0] = i_wCurrent ;
    coevse_AddCmdFifo( COEVSE_CMD_SETCURRENTCAP, awParam, 1 ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Get if EV is plugged                                                       */
+/*----------------------------------------------------------------------------*/
+
+BOOL coevse_IsPlugged( void )
+{
+   return l_Status.bEvConnect ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Get if EV charging                                                        */
+/*----------------------------------------------------------------------------*/
+
+BOOL coevse_IsCharging( void )
+{
+   BOOL bRet ;
+
+   if ( l_Status.sdwChargeCurrent > 0 )
+   {
+      bRet = TRUE ;
+   }
+   else
+   {
+      bRet = FALSE ;
+   }
+
+   return bRet ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Get OpenEVSE status                                                        */
+/*----------------------------------------------------------------------------*/
+
+s_coevseStatus coevse_GetStatus( void )
+{
+   return l_Status ;
 }
 
 
@@ -747,22 +770,20 @@ static void coevse_HrdInit( void )
    GPIO_InitTypeDef sGpioInit ;
 
       /* configure TX pin as alternate, no push/pull, high freq */
-   OESVE_TX_GPIO_CLK_ENABLE() ;         /* start TX gpio clock */
    sGpioInit.Pin = OESVE_TX_PIN ;
    sGpioInit.Mode = GPIO_MODE_AF_PP ;
    sGpioInit.Pull = GPIO_NOPULL ;
    sGpioInit.Speed = GPIO_SPEED_FREQ_HIGH ;
    sGpioInit.Alternate = OESVE_TX_AF ;
-   HAL_GPIO_Init( OESVE_TX_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( OESVE_TX_GPIO, &sGpioInit ) ;
 
       /* configure RX pin as alternate, no push/pull, high freq */
-   OESVE_RX_GPIO_CLK_ENABLE() ;         /* start RX gpio clock */
    sGpioInit.Pin = OESVE_RX_PIN ;
    sGpioInit.Mode = GPIO_MODE_AF_PP ;
    sGpioInit.Pull = GPIO_NOPULL ;
    sGpioInit.Speed = GPIO_SPEED_FREQ_HIGH ;
    sGpioInit.Alternate = OESVE_RX_AF ;
-   HAL_GPIO_Init( OESVE_RX_GPIO_PORT, &sGpioInit ) ;
+   HAL_GPIO_Init( OESVE_RX_GPIO, &sGpioInit ) ;
 
 
    /* -------- USART -------- */
