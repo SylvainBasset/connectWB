@@ -1,4 +1,4 @@
-# -*- coding: Cp1252 -*-
+# -*- coding: Utf-8 -*-
 #------------------------------------------------------------------------------#
 # WallyWeb : Search and open WallyBox webpage
 # Version : 0.1
@@ -15,5 +15,5 @@ if __name__ == "__main__" :
    Ip = SockWB.SearchAndConnect()
    SockWB.Close()
 
-   StrCall = "start http://%s"%Ip
+   StrCall = "sensible-browser http://%s"%Ip
    os.system( StrCall )

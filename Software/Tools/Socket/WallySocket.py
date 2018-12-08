@@ -1,4 +1,4 @@
-# -*- coding: Cp1252 -*-
+# -*- coding: Utf-8 -*-
 #------------------------------------------------------------------------------#
 # WallySocket : Socket class for WallyBox communication
 # Version : 0.1
@@ -9,8 +9,8 @@ import os
 import re
 import subprocess
 import socket
-import netifaces
-import msvcrt
+#//import netifaces
+#//import msvcrt
 
 DEFAULT_PORT = 15555
 DEVICE_NAME = "WallyBox"
@@ -51,13 +51,13 @@ class cSocketWB :
       IsMiniAp = self.IsWallyBoxMiniAp()
       if IsMiniAp :
          IpList = [self.GetGatewayIp()]
-         print IpList
-      else:
-         HostIp = socket.gethostbyname(socket.gethostname())
-         BroadCastIp = HostIp.rsplit( ".", 1 )[0] + ".255"
 
-         subprocess.call( "ping -n 1 %s"%BroadCastIp, stdout=subprocess.PIPE )
-         ArpRet = subprocess.check_output( ["arp", "-a"] )
+      else:
+         HostIp = self.GetGatewayIp()
+         BroadCastIp = HostIp.rsplit( ".", 1 )[0] + ".*"
+
+         print "Scanning for devices"
+         ArpRet = subprocess.check_output( ["nmap", "-sP", BroadCastIp] )
          IpList = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", ArpRet )[1:]
 
          LastIp = self.GetLastIp()
@@ -67,6 +67,7 @@ class cSocketWB :
 
       for Ip in IpList :
          print Ip,
+
          sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          sckt.settimeout(0.5)
          try :
@@ -134,16 +135,18 @@ class cSocketWB :
 
    #---------------------------------------------------------------------------#
    def IsWallyBoxMiniAp( self ) :
-      NetshRet = subprocess.check_output( ["netsh", "wlan", "show", "interface"] )
-      if re.search("SSID.*:.*WallyBox_Maint", NetshRet ) :
+
+      iwconfigRet = subprocess.check_output( ["iwconfig"] )
+      if re.search("ESSID.*:.*WallyBox_Maint", iwconfigRet ) :
          return True
       else:
          return False
 
    #---------------------------------------------------------------------------#
    def GetGatewayIp( self ) :
-      gateway = netifaces.gateways()['default']
-      gatewayIp = gateway[gateway.keys()[0]][0]
+      ipRet = subprocess.check_output( ["ip","r"] )
+      match = re.search("^default.* (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})", ipRet )
+      gatewayIp = match.groups()[0]
       return gatewayIp
 
    #---------------------------------------------------------------------------#

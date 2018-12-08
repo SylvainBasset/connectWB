@@ -61,6 +61,11 @@
 #define CSTATE_LEDWIFI_COMMON_PIN      GPIO_PIN_0
 #define CSTATE_LEDWIFI_COMMON_GPIO     GPIOB
 #define CSTATE_LEDWIFI_COMMON_AF       0
+
+#define CSTATE_LEDCH_RED_PIN           GPIO_PIN_8
+#define CSTATE_LEDCH_RED_GPIO          GPIOB
+#define CSTATE_LEDCH_RED_AF            0
+
                                        /* TX pin for OpenEVSE UART communication */
 #define OESVE_TX_PIN                   GPIO_PIN_10
 #define OESVE_TX_GPIO                  GPIOB
@@ -88,18 +93,13 @@
 #define CSTATE_LEDCH_BLUE_GPIO         GPIOC
 #define CSTATE_LEDCH_BLUE_AF           0
 
-#define CSTATE_LEDCH_RED_PIN           GPIO_PIN_8
-#define CSTATE_LEDCH_RED_GPIO          GPIOC
-#define CSTATE_LEDCH_RED_AF            0
+#define WIFI_WAKEUP_PIN                GPIO_PIN_8
+#define WIFI_WAKEUP_GPIO               GPIOC
+#define WIFI_WAKEUP_AF                 0
 
 #define CSTATE_LEDCH_COMMON_PIN        GPIO_PIN_9
 #define CSTATE_LEDCH_COMMON_GPIO       GPIOC
 #define CSTATE_LEDCH_COMMON_AF         0
-
-
-#define WIFI_WAKEUP_PIN                GPIO_PIN_8
-#define WIFI_WAKEUP_GPIO               GPIOC
-#define WIFI_WAKEUP_AF                 0
 
 #define WIFI_RESET_PIN                 GPIO_PIN_12
 #define WIFI_RESET_GPIO                GPIOC
