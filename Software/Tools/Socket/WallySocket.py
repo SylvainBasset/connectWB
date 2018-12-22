@@ -44,7 +44,7 @@ class cSocketWB :
    #---------------------------------------------------------------------------#
    def SearchAndConnect( self ):
 
-      print "Scanning for device ..."
+      print "Scanning for devices"
 
       DeviceIp = None
 
@@ -54,9 +54,11 @@ class cSocketWB :
 
       else:
          HostIp = self.GetGatewayIp()
+         if not HostIp :
+            raise ValueError( "No connection" )
          BroadCastIp = HostIp.rsplit( ".", 1 )[0] + ".*"
 
-         print "Scanning for devices"
+
          ArpRet = subprocess.check_output( ["nmap", "-sP", BroadCastIp] )
          IpList = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", ArpRet )[1:]
 
@@ -135,7 +137,6 @@ class cSocketWB :
 
    #---------------------------------------------------------------------------#
    def IsWallyBoxMiniAp( self ) :
-
       iwconfigRet = subprocess.check_output( ["iwconfig"] )
       if re.search("ESSID.*:.*WallyBox_Maint", iwconfigRet ) :
          return True
@@ -146,8 +147,19 @@ class cSocketWB :
    def GetGatewayIp( self ) :
       ipRet = subprocess.check_output( ["ip","r"] )
       match = re.search("^default.* (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})", ipRet )
-      gatewayIp = match.groups()[0]
+      if match :
+         gatewayIp = match.groups()[0]
+      else:
+         gatewayIp = None
       return gatewayIp
+
+   #---------------------------------------------------------------------------#
+   def GetLocalIp( self )  :
+      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+      s.connect(("8.8.8.8", 80))
+      Ip = s.getsockname()[0]
+      s.close()
+      return Ip
 
    #---------------------------------------------------------------------------#
    def Close( self ):

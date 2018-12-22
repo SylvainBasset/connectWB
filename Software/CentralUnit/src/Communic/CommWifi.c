@@ -119,8 +119,8 @@ static s_WindDesc const k_aWindDesc [] =
 /* Commands/responses table definition                                        */
 /*----------------------------------------------------------------------------*/
 
-static char l_szRespPing [40] ;      //SBA temp
-static char l_szRespGCfg [128] ;      //SBA temp
+static char l_szRespPing [1] ;      //SBA temp
+static char l_szRespGCfg [1] ;      //SBA temp
 
 #define LIST_CMD( Op, Opr, Opf )                          \
    Op(  AT,        At,        "AT\r",              TRUE )  \
@@ -174,7 +174,7 @@ typedef struct
 
 typedef struct
 {
-   char szStrData [128] ;
+   char szStrData [COEVSE_DATA_ITEM_SIZE] ;
 } s_DataItem ;
 
 typedef struct
@@ -182,7 +182,7 @@ typedef struct
    BOOL bSuspend ;
    BYTE byIdxIn ;
    BYTE byIdxOut ;
-   s_DataItem aDataItems [4] ;
+   s_DataItem aDataItems [16] ;
 } s_DataFifo ;
 
 
@@ -611,7 +611,7 @@ static void cwifi_ExecSendData( void )
          l_DataFifo.bSuspend = TRUE ;
       }
 
-      bUartAccept = uwifi_Send( pDataItem->szStrData, strlen(pDataItem->szStrData) ) ;
+      bUartAccept = uwifi_Send( pDataItem->szStrData, strlen(pDataItem->szStrData) ) ; //vérifier zéro fin de chaine
       ERR_FATAL_IF( ! bUartAccept ) ;
 
       byIdxOut = NEXTIDX( byIdxOut, l_DataFifo.aDataItems )  ;
@@ -822,11 +822,58 @@ static RESULT cwifi_WindCallBackSocketData( char C* i_pszProcessData, BOOL i_bPe
 static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPendingData )
 {
    BOOL bSendDone ;
+   BYTE byNbComma ;
+   CHAR C* pszChar ;
+   BYTE byFileIdx ;
+   CHAR sFileIndex[3] ;
+   BYTE byInputIdx ;
+   CHAR sInputIndex[3] ;
 
-   bSendDone = uWifi_IsSendDone() ;
+   bSendDone = uWifi_IsSendDone() ; //attente fin emission avec timeout decl. Syserr
    if ( bSendDone && i_bPendingData )
    {
-      uwifi_Send( "1234\r\n", strlen("1234\r\n") ) ; // SBA appel pour fourniture infos
+      pszChar = i_pszProcessData ;
+      byFileIdx = 0 ;
+      byInputIdx = 0 ;
+      byNbComma = 0 ;
+
+      while ( *pszChar != '\0' )
+      {
+         if ( *pszChar != ':'  )
+         {
+            if ( byNbComma == 2 )
+            {
+               if ( byFileIdx < sizeof(sFileIndex) )
+               {
+                  sFileIndex[byFileIdx] = *pszChar ;
+                  byFileIdx++ ;
+               }
+            }
+
+            if ( byNbComma == 3 )
+            {
+               if ( byInputIdx < sizeof(sInputIndex) )
+               {
+                  sInputIndex[byInputIdx] = *pszChar ;
+                  byInputIdx++ ;
+               }
+            }
+         }
+         else
+         {
+            byNbComma++ ;
+         }
+         pszChar++ ;
+      }
+
+      if ( sInputIndex[0] == '0' )
+      {
+         uwifi_Send( "1234\r\n", strlen("1234\r\n") ) ; // SBA appel pour fourniture infos
+      }
+      else
+      {
+         uwifi_Send( "5678\r\n", strlen("5678\r\n") ) ; // SBA appel pour fourniture infos
+      }
    }
 
    return OK ;

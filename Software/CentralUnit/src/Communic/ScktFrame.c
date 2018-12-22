@@ -249,12 +249,24 @@ static void sfrm_ProcessResExt( char C* i_szStrFrm, BOOL i_bLastCall )
 static void sfrm_SendRes( char C* i_szParam )
 {
    s_FrameDesc C* pFrmDesc ;
-   char szRes [128] ;
+   char szRes [COEVSE_DATA_ITEM_SIZE] ;
+   char * pszRes ;
+   BYTE byResSize ;
 
    pFrmDesc = &k_aFrameDesc[ ( l_eFrmId - SFRM_ID_FIRST ) ] ;
 
-   strncpy( szRes, pFrmDesc->FrmRes, sizeof(szRes) ) ;
-   strncat( szRes, i_szParam, sizeof(szRes) ) ;
+   pszRes = szRes ;
+   byResSize = sizeof(szRes) ;
+
+   strncpy( pszRes, pFrmDesc->FrmRes, byResSize ) ;
+   pszRes += strlen( pFrmDesc->FrmRes ) ;
+   byResSize -= strlen( pFrmDesc->FrmRes ) ;
+
+   strncpy( pszRes, i_szParam, byResSize ) ;
+
+      /* Note : force the end of string */
+
+   szRes[ sizeof(szRes)-1 ] = '\0' ;
 
    cwifi_AddExtData( szRes ) ;
 }

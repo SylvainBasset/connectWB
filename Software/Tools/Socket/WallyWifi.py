@@ -1,6 +1,6 @@
 # -*- coding: Utf-8 -*-
 #------------------------------------------------------------------------------#
-# WallyTerm : SSID/pwd wifi setting
+# WallyWifi : SSID/pwd wifi setting
 # Version : 0.1
 #------------------------------------------------------------------------------#
 
@@ -12,7 +12,8 @@ from WallySocket import cSocketWB
 #---------------------------------------------------------------------------#
 def SendAndCheck( SockWB, StrCmd ):
    SockWB.Send( StrCmd )
-   Rec = SockWB.Receive( 3 ).lower()
+   Rec = SockWB.Receive( 1000 ).lower()
+   print Rec
    if "err" in Rec:
       raise ValueError( "Wifi setting error" )
 

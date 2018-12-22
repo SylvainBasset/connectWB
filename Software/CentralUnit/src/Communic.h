@@ -60,6 +60,8 @@ BYTE uwifi_GetError( BOOL i_bReset ) ;
 /* CommOEvse.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
+#define COEVSE_DATA_ITEM_SIZE    100
+
 typedef struct
 {
    BOOL bEvConnect ;

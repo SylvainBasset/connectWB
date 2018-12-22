@@ -1,0 +1,53 @@
+<html>
+   <head><title>Boiler demo control</title></head>
+   <body bgcolor="white" text="black">
+
+   <script>
+   var allowSubmit = false;
+   function testSubmit() {
+   if (!allowSubmit)
+   return false;
+   allowSubmit = false;
+   document.getElementById("submitButton").disabled = true;
+   setTimeout(function() {
+   allowSubmit = true;
+   document.getElementById("submitButton").disabled = false;
+   }, 1000);
+   return true;
+   }
+   </script>
+
+   <span style="background-color: ;"><span style="color: #20124d;"><b><span style="font-size: x-large;"><span style="font-family: &quot;Courier New&quot;,Courier,monospace;">Boiler demo control</span></span></b></i></span></span>
+   <br><br><br><br>
+
+   <fieldset>
+   <legend><h4>Set radiators temperature</h4></legend>
+   <p><form name="CGI Example" method="GET" action="output.cgi" onSubmit="return testSubmit();">
+   <input type="text" name="text" size="40" maxlength="40">&nbsp;
+   <input id="submitButton" type="submit" name="submit" value="Submit" >
+   </form>
+   </p>
+   </fieldset>
+
+   <br><br>
+
+   <fieldset>
+   <legend><h4>Set water temperature</h4></legend>
+   <p><form name="CGI Example" method="GET" action=" output.cgi" OnSubmit="setTimeout('redirect()', 1000)">
+   <input type="text" name="text" size="40" maxlength="40">&nbsp;
+   <input id="submitButton" type="submit" name="submit" value="Submit" >
+   </form>
+   </p>
+   </fieldset>
+
+   <fieldset>
+   <legend><h4>Set water temperature</h4></legend>
+   <p><form name="CGI Example" method="GET" action=" output.cgi" OnSubmit="redirect('test.shtml')">
+   <input type="text" name="text" size="40" maxlength="40">&nbsp;
+   <input id="submitButton" type="submit" name="submit" value="Submit" >
+   </form>
+   </p>
+   </fieldset>
+
+   </body>
+</html>

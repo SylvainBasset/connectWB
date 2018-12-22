@@ -1,0 +1,35 @@
+<html>
+   <head>
+   </head>
+
+   <body bgcolor="#F2F2F2">
+
+   <script src="/jQuery.min.js"></script>
+
+   <script>
+   let cgi = "output.cgi?text="
+   let prefix = "CGI_"
+   let suffix = "&submit=Submit"
+
+   function get_content()
+   {
+      var elem = document.getElementById("cocolastico");
+      alert('bouton!');
+
+      let data = "dotdot"
+      let Str = cgi+prefix+elem.value+suffix
+      alert(Str)
+      $.get(Str);
+   }
+   </script>
+
+   <input id="cocolastico" type="text" name="text" size="40" maxlength="40"><p>
+
+   <input type="button" onclick="get_content()" value="Get Content"/>
+   <p id='txt'>
+   <span class="A">I am</span>
+   <span class="B">working in </span>
+   <span class="C">ABC company.</span>
+
+   </body>
+</html>
