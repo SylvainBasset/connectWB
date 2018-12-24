@@ -18,14 +18,14 @@
 /* Module description:                                                        */
 /*    //TBD                                                                   */
 /* - //initialisation RTC                                                     */
-/* - //gestion changement d'heure à chaque traitement cyclique                */
+/* - //gestion changement d'heure Ã  chaque traitement cyclique                */
 /* - //calibration de l'horloge HSI avec le timer 21 en input compare         */
-/*     si inferieur à seuil, augmentation du trimm                            */
-/*     si superieur à seuil, diminution du trimm                              */
+/*     si inferieur Ã  seuil, augmentation du trimm                            */
+/*     si superieur Ã  seuil, diminution du trimm                              */
 /*     moyennage de la valeur sur 64 mesures                                  */
 /*----------------------------------------------------------------------------*/
 //SBA:
-// voir si utilisation prescaller sur input compare pour réduire passage en IT
+// voir si utilisation prescaller sur input compare pour rï¿½duire passage en IT
 // Actuellement on a un taux d'occupation CPU de ~3%
 // Permettrait de gagner 1 ou 2 % de taux d'occupation CPU
 
@@ -56,7 +56,7 @@ RTC_InitTypeDef const k_sRtcInit =     /* HAL RTC initialisation constants */
    handle.State = HAL_RTC_STATE_READY ; \
    handle.Lock = HAL_UNLOCKED ;
 
-//SBA: vérifier tous les lock, et les champs non initialisés
+//SBA: vï¿½rifier tous les lock, et les champs non initialisï¿½s
 
 
                                        /* RTC set init handle macro */
@@ -116,6 +116,7 @@ DWORD const k_dwReprMDHMidSum = ( 7 * 100 * 100 ) + ( 1 * 100 ) ;
 /*----------------------------------------------------------------------------*/
 
 static void clk_ComSetDateTime( s_DateTime const* i_psDateTime ) ;
+static BOOL clk_ComIsValid( s_DateTime C* i_pDateTime ) ;
 static void clk_ComGetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday ) ;
 static e_SummerState clk_GetSummerState( s_DateTime const* i_psDateTime ) ;
 static DWORD clk_CalcReprMDH( BYTE i_byMonth, BYTE i_byDay, BYTE i_byHour ) ;
@@ -145,8 +146,8 @@ void clk_Init( void )
    DWORD dwInitTmp ;
    SWORD sdwCalibPpmErr ;
 
-   // ajout capa sur schema elec (uniquement sur partie backup ou général)
-   // vérification si besoin de plus de tests si les appels à la HAL
+   // ajout capa sur schema elec (uniquement sur partie backup ou gï¿½nï¿½ral)
+   // vï¿½rification si besoin de plus de tests si les appels ï¿½ la HAL
 
    /* Note: at module initialition, the system verifies if the datetime is */
    /* lost by checking 32kHz clock ready but, RTC enable bit, and datetime */
@@ -256,6 +257,14 @@ void clk_GetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday )
 
 
 /*----------------------------------------------------------------------------*/
+
+BOOL clk_IsValid( s_DateTime C* i_psDateTime )
+{
+   return clk_ComIsValid( i_psDateTime ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
 /* Cyclic task ( period = 1sec )                                              */
 /*----------------------------------------------------------------------------*/
 
@@ -328,12 +337,7 @@ static void clk_ComSetDateTime( s_DateTime const* i_psDateTime )
    e_SummerState eSummerState ;
 
 
-   ERR_FATAL_IF( i_psDateTime->byYear > 99 ) ;
-   ERR_FATAL_IF( i_psDateTime->byMonth > 12 ) ;
-   ERR_FATAL_IF( i_psDateTime->byDays > 31 ) ;
-   ERR_FATAL_IF( i_psDateTime->byHours > 23 ) ;
-   ERR_FATAL_IF( i_psDateTime->byMinutes > 59 ) ;
-   ERR_FATAL_IF( i_psDateTime->bySeconds > 59 ) ;
+   ERR_FATAL_IF( ! clk_ComIsValid( i_psDateTime ) ) ;
 
 
    SET_RTC_HANDLE( sRtcHandle ) ;      /* RTC set handle */
@@ -411,6 +415,51 @@ static void clk_ComSetDateTime( s_DateTime const* i_psDateTime )
       CLEAR_BIT( RTC->CR, RTC_CR_BCK ) ;
    }
    RTC->WPR = 0xFFU ;                  /* enable RTC register write protection */
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static BOOL clk_ComIsValid( s_DateTime C* i_pDateTime )
+{
+   BOOL bValid ;
+
+   bValid = TRUE ;
+
+   if ( ( i_pDateTime->byYear > 99 ) ||
+        ( i_pDateTime->byMonth == 0 ) || ( i_pDateTime->byMonth > 12 ) ||
+        ( i_pDateTime->byDays == 0 ) || ( i_pDateTime->byDays > 31 ) ||
+        ( i_pDateTime->byHours > 23 ) ||
+        ( i_pDateTime->byMinutes > 59 ) ||
+        ( i_pDateTime->bySeconds > 59 ) )
+   {
+      bValid = FALSE ;
+   }
+
+
+   if ( ( i_pDateTime->byMonth == 2 ) || ( i_pDateTime->byMonth == 4 ) ||
+        ( i_pDateTime->byMonth == 6 ) || ( i_pDateTime->byMonth == 9 ) ||
+        ( i_pDateTime->byMonth == 11 ) )
+   {
+      if ( i_pDateTime->byDays == 31 )
+      {
+         bValid = FALSE ;
+      }
+   }
+
+
+   if ( i_pDateTime->byMonth == 2 )
+   {
+      if ( i_pDateTime->byDays == 30 )
+      {
+         bValid = FALSE ;
+      }
+      if ( ( i_pDateTime->byDays == 29 ) && ( ( i_pDateTime->byYear % 4 ) != 0 ) )
+      {
+         bValid = FALSE ;
+      }
+   }
+   return bValid ;
 }
 
 

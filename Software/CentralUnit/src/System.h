@@ -58,6 +58,7 @@ DWORD tim_GetRemainSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
 
 void clk_Init( void ) ;
 BOOL clk_IsDateTimeLost( void ) ;
+BOOL clk_IsValid( s_DateTime C* i_psDateTime ) ;
 SDWORD clk_GetCalib( DWORD * o_dwNbCalibActions ) ;
 void clk_GetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday ) ;
 void clk_SetDateTime( s_DateTime const * i_psDateTime ) ;

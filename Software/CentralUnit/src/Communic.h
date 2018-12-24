@@ -16,19 +16,31 @@
 /* ScktFrame.c                                                                */
 /*----------------------------------------------------------------------------*/
 
+typedef void (*f_ScktGetFrame)( char * i_pszFrame ) ;
+typedef void (*f_ScktGetResExt)( char C* i_pszResExt, BOOL i_bLastCall ) ;
+
 void sfrm_Init( void ) ;
+
+
+/*----------------------------------------------------------------------------*/
+/* HtmlInfo.c                                                                 */
+/*----------------------------------------------------------------------------*/
+
+typedef void (*f_htmlSsi)( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutPut, WORD i_byOutSize ) ;
+typedef void (*f_htmlCgi)( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszValue ) ;
+
+void html_Init( void ) ;
 
 
 /*----------------------------------------------------------------------------*/
 /* CommWifi.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
-typedef void (*f_ScktGetFrame)( char * i_pszFrame ) ;
-typedef void (*f_ScktGetResExt)( char C* i_pszResExt, BOOL i_bLastCall ) ;
-
 void cwifi_Init( void ) ;
-void cwifi_RegisterScktFunc( f_ScktGetFrame fScktGetFrame,
-                             f_ScktGetResExt fScktGetResExt ) ;
+
+void cwifi_RegisterScktFunc( f_ScktGetFrame i_fScktGetFrame, f_ScktGetResExt i_fScktGetResExt ) ;
+void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi ) ;
+
 void cwifi_AskForRestart( void ) ;
 void cwifi_SetMaintMode( BOOL i_bMaintmode ) ;
 BOOL cwifi_IsConnected( void ) ;

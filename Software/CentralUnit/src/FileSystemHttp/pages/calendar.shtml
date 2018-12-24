@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+   <head>
+   </head>
+   <title>WallyBox</title>
+
+
+   <script src="/jQuery.min.js"></script>
+
+   <script>
+   let cgi = "output.cgi?text=+CGI:1:"
+   let suffix = "&submit=Submit"
+   var Str
+
+   function sleep(milliseconds) {
+     var start = new Date().getTime();
+     for (var i = 0; i < 1e7; i++) {
+       if ((new Date().getTime() - start) > milliseconds){
+         break;
+       }
+     }
+   }
+
+   function Send_DateTime()
+   {
+      let ElemDay = document.getElementById("day");
+      let ElemMonth = document.getElementById("month");
+      let ElemYear = document.getElementById("year");
+      let ElemHour = document.getElementById("hour");
+      let ElemMin = document.getElementById("min");
+
+      Str = cgi + "0" + ":" + ElemDay.value + "," + ElemMonth.value + "," +
+            + ElemYear.value + "," + ElemHour.value + "," + ElemMin.value + suffix
+
+      $.get(Str);
+      sleep(500)
+      window.location.reload(true);
+   }
+
+
+
+
+   </script>
+
+   <style>
+      .maligne {
+      margin-top:-20px;
+      border-top: solid 4px #0000ff;
+      width:100%;
+      }
+
+      .marge {
+      margin-left: 4em;
+      }
+   </style>
+
+
+   <body bgcolor="#eeeeee">
+   <div style="text-align: center;">
+
+   <span style="color: #073763; font-size: xx-large; text-align: center;"><b>WallyBox</b></span><br>
+   <div style="text-align: left;">
+   <p>
+   <a href="index.shtml"><img src="ImgStatus.png"/></a>
+   <img src="ImgCalSel.png"/>
+   <a href="wifi.shtml"><img src="ImgWifi.png"/></a>
+   <div class="maligne" /></div>
+
+   <br><br>
+   <p>Date/heure courante:
+      <b>
+         &nbsp;&nbsp;
+         <!--#input:1:0--> <!--#input:1:1--> <!--#input:1:2--> <!--#input:1:3-->
+         &nbsp;&nbsp;
+         <!--#input:1:4-->:<!--#input:1:5-->:<!--#input:1:6-->
+      </b>
+   </p>
+
+   <FORM>
+   <p>Nouveau r&eacute;glage:</p>
+
+   <span>
+      <SELECT id="day" size="1">
+         <OPTION>01<OPTION>02<OPTION>03<OPTION>04<OPTION>05<OPTION>06<OPTION>07<OPTION>08<OPTION>09
+         <OPTION>11<OPTION>12<OPTION>13<OPTION>14<OPTION>15<OPTION>16<OPTION>17<OPTION>18<OPTION>19
+         <OPTION>21<OPTION>22<OPTION>23<OPTION>24<OPTION>25<OPTION>26<OPTION>27<OPTION>28<OPTION>29
+         <OPTION>30<OPTION>31
+      </SELECT>
+      <SELECT id="month" size="1">
+         <OPTION value="1">janvier
+         <OPTION value="2">f&eacute;vrier
+         <OPTION value="3">mars
+         <OPTION value="4">avril
+         <OPTION value="5">mai
+         <OPTION value="6">juin
+         <OPTION value="7">juillet
+         <OPTION value="8">ao&ucirc;t
+         <OPTION value="9">septembre
+         <OPTION value="10">octobre
+         <OPTION value="11">novmebre
+         <OPTION value="12">d&eacute;cembre
+      </SELECT>
+      <SELECT id="year" size="1">
+         <OPTION>2000<OPTION>2001<OPTION>2002<OPTION>2003<OPTION>2004<OPTION>2005<OPTION>2006<OPTION>2007<OPTION>2008<OPTION>2009
+         <OPTION>2010<OPTION>2011<OPTION>2012<OPTION>2013<OPTION>2014<OPTION>2015<OPTION>2016<OPTION>2017<OPTION>2018<OPTION>2019
+         <OPTION>2020<OPTION>2021<OPTION>2022<OPTION>2023<OPTION>2024<OPTION>2025<OPTION>2026<OPTION>2027<OPTION>2028<OPTION>2029
+         <OPTION>2030<OPTION>2031<OPTION>2032<OPTION>2033<OPTION>2034<OPTION>2035<OPTION>2036<OPTION>2037<OPTION>2038<OPTION>2039
+         <OPTION>2040<OPTION>2041<OPTION>2042<OPTION>2043<OPTION>2044<OPTION>2045<OPTION>2046<OPTION>2047<OPTION>2048<OPTION>2049
+         <OPTION>2050<OPTION>2051<OPTION>2052<OPTION>2053<OPTION>2054<OPTION>2055<OPTION>2056<OPTION>2057<OPTION>2058<OPTION>2059
+         <OPTION>2060<OPTION>2061<OPTION>2062<OPTION>2063<OPTION>2064<OPTION>2065<OPTION>2066<OPTION>2067<OPTION>2068<OPTION>2069
+         <OPTION>2070<OPTION>2071<OPTION>2072<OPTION>2073<OPTION>2074<OPTION>2075<OPTION>2076<OPTION>2077<OPTION>2078<OPTION>2079
+         <OPTION>2080<OPTION>2081<OPTION>2082<OPTION>2083<OPTION>2084<OPTION>2085<OPTION>2086<OPTION>2087<OPTION>2088<OPTION>2089
+         <OPTION>2090<OPTION>2091<OPTION>2092<OPTION>2093<OPTION>2094<OPTION>2095<OPTION>2096<OPTION>2097<OPTION>2098<OPTION>2099
+      </SELECT>
+   </span>
+   <span class="marge">
+      <SELECT id="hour" size="1">
+         <OPTION>00<OPTION>01<OPTION>02<OPTION>03<OPTION>04<OPTION>05<OPTION>06<OPTION>07<OPTION>08<OPTION>09
+         <OPTION>10<OPTION>11<OPTION>12<OPTION>13<OPTION>14<OPTION>15<OPTION>16<OPTION>17<OPTION>18<OPTION>19
+         <OPTION>20<OPTION>21<OPTION>22<OPTION>23
+      </SELECT>
+      h
+      <SELECT id="min" size="1">
+         <OPTION>00<OPTION>01<OPTION>02<OPTION>03<OPTION>04<OPTION>05<OPTION>06<OPTION>07<OPTION>08<OPTION>09
+         <OPTION>10<OPTION>11<OPTION>12<OPTION>13<OPTION>14<OPTION>15<OPTION>16<OPTION>17<OPTION>18<OPTION>19
+         <OPTION>20<OPTION>21<OPTION>22<OPTION>23<OPTION>24<OPTION>25<OPTION>26<OPTION>27<OPTION>28<OPTION>29
+         <OPTION>30<OPTION>31<OPTION>32<OPTION>33<OPTION>34<OPTION>35<OPTION>36<OPTION>37<OPTION>38<OPTION>39
+         <OPTION>40<OPTION>41<OPTION>42<OPTION>43<OPTION>44<OPTION>45<OPTION>46<OPTION>47<OPTION>48<OPTION>49
+         <OPTION>50<OPTION>51<OPTION>52<OPTION>53<OPTION>54<OPTION>55<OPTION>56<OPTION>57<OPTION>58<OPTION>59
+      </SELECT>
+      min
+   </span>
+   <span class="marge">
+      <input type="button" onclick="Send_DateTime()" value="OK"/>
+   </span>
+
+   </FORM>
+   <br><br>
+   <hr>
+
+   <p>Input from Host2:  <!--#input:1:1--></p>
+
+      <p><form name="CGI Example" method="POST" action="output.cgi" >
+      <input type="text" name="text" size="40" maxlength="40">&nbsp;
+         <input type="submit" name="submit" value="Submit" >
+        </form>
+      </p>
+
+   </body>
+</html>

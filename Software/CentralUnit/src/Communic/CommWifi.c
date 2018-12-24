@@ -26,6 +26,8 @@
 #define CWIFI_DATAMODE_TIMEOUT   800         /* ms */
 
 #define CWIFI_WIND_PREFIX       "+WIND:"
+#define CWIFI_CGI_PREFIX        "+CGI:"
+
 #define CWIFI_RESP_OK           "OK\r\n"
 #define CWIFI_RESP_ERR          "ERROR"
 
@@ -201,10 +203,13 @@ static RESULT cwifi_AddDataFifo( char C* i_szStrData ) ;
 static void cwifi_ExecSendData( void ) ;
 
 static void cwifi_ProcessRec( void ) ;
-static void cwifi_ProcessRecWind( char * i_pszProcessData, BOOL i_bPendingData  ) ;
+static void cwifi_ProcessRecWind( char * io_pszProcessData, BOOL i_bPendingData  ) ;
+static void cwifi_ProcessRecCgi( char C* i_pszProcessData ) ;
 static void cwifi_ProcessRecResp( char * io_pszProcessData ) ;
+
 static char C* cwifi_RSplit( char C* i_pszStr, char C* i_pszDelim ) ;
 static void cwifi_ResetVar( void ) ;
+
 static void cwifi_HrdInit( void ) ;
 static void cwifi_HrdModuleReset( void ) ;
 
@@ -222,6 +227,9 @@ static BOOL l_bConfigDone ;
 
 static f_ScktGetFrame l_fScktGetFrame ;
 static f_ScktGetResExt l_fScktGetResExt ;
+
+static f_htmlSsi l_fHtmlSsi ;
+static f_htmlCgi l_fHtmlCgi ;
 
 static s_CmdFifo l_CmdFifo ;
 static s_DataFifo l_DataFifo ;
@@ -244,11 +252,19 @@ void cwifi_Init( void )
 
 /*----------------------------------------------------------------------------*/
 
-void cwifi_RegisterScktFunc( f_ScktGetFrame fScktGetFrame,
-                             f_ScktGetResExt fScktGetResExt )
+void cwifi_RegisterScktFunc( f_ScktGetFrame i_fScktGetFrame, f_ScktGetResExt i_fScktGetResExt )
 {
-   l_fScktGetFrame = fScktGetFrame ;
-   l_fScktGetResExt = fScktGetResExt ;
+   l_fScktGetFrame = i_fScktGetFrame ;
+   l_fScktGetResExt = i_fScktGetResExt ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi )
+{
+   l_fHtmlSsi = i_fHtmlSsi ;
+   l_fHtmlCgi = i_fHtmlCgi ;
 }
 
 
@@ -652,6 +668,11 @@ static void cwifi_ProcessRec( void )
             pbyProcessData = &abyReadData[sizeof(CWIFI_WIND_PREFIX)-1] ;
             cwifi_ProcessRecWind( (char*)pbyProcessData, bPendingData ) ;
          }
+         else if ( strncmp( (char*)abyReadData, CWIFI_CGI_PREFIX, strlen(CWIFI_CGI_PREFIX) ) == 0 )
+         {
+            pbyProcessData = &abyReadData[sizeof(CWIFI_CGI_PREFIX)-1] ;
+            cwifi_ProcessRecCgi( (char*)pbyProcessData ) ;
+         }
          else if ( ! bPendingData )
          {
             if ( l_bDataMode && ( l_eWifiState == CWIFI_STATE_CONNECTED ) &&
@@ -824,18 +845,18 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
    BOOL bSendDone ;
    BYTE byNbComma ;
    CHAR C* pszChar ;
-   BYTE byFileIdx ;
-   CHAR sFileIndex[3] ;
-   BYTE byInputIdx ;
-   CHAR sInputIndex[3] ;
+   DWORD dwValParam1 ;
+   DWORD dwValParam2 ;
+   char szOutput [256] ;
+   WORD wSize ;
 
    bSendDone = uWifi_IsSendDone() ; //attente fin emission avec timeout decl. Syserr
    if ( bSendDone && i_bPendingData )
    {
       pszChar = i_pszProcessData ;
-      byFileIdx = 0 ;
-      byInputIdx = 0 ;
       byNbComma = 0 ;
+      dwValParam1 = 0 ;
+      dwValParam2 = 0 ;
 
       while ( *pszChar != '\0' )
       {
@@ -843,19 +864,19 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          {
             if ( byNbComma == 2 )
             {
-               if ( byFileIdx < sizeof(sFileIndex) )
+               if ( ( *pszChar >= '0' ) && ( *pszChar <= '9' ) )
                {
-                  sFileIndex[byFileIdx] = *pszChar ;
-                  byFileIdx++ ;
+                  dwValParam1 *= 10 ;
+                  dwValParam1 += ( *pszChar - '0' ) ;
                }
             }
 
             if ( byNbComma == 3 )
             {
-               if ( byInputIdx < sizeof(sInputIndex) )
+               if ( ( *pszChar >= '0' ) && ( *pszChar <= '9' ) )
                {
-                  sInputIndex[byInputIdx] = *pszChar ;
-                  byInputIdx++ ;
+                  dwValParam2 *= 10 ;
+                  dwValParam2 += ( *pszChar - '0' ) ;
                }
             }
          }
@@ -866,17 +887,71 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          pszChar++ ;
       }
 
-      if ( sInputIndex[0] == '0' )
+      if ( l_fHtmlSsi != NULL )
       {
-         uwifi_Send( "1234\r\n", strlen("1234\r\n") ) ; // SBA appel pour fourniture infos
-      }
-      else
-      {
-         uwifi_Send( "5678\r\n", strlen("5678\r\n") ) ; // SBA appel pour fourniture infos
+         (*l_fHtmlSsi)(dwValParam1, dwValParam2, szOutput, ( sizeof(szOutput) - 2 ) ) ;
+
+         wSize = strlen( szOutput ) ;
+         szOutput[wSize] = '\r' ;
+         wSize++ ;
+         szOutput[wSize] = '\n' ;
+         wSize++ ;
+         uwifi_Send( szOutput, wSize ) ;
       }
    }
 
    return OK ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+
+static void cwifi_ProcessRecCgi( char C* i_pszProcessData )
+{
+   BYTE byNbComma ;
+   CHAR C* pszChar ;
+   DWORD dwValParam1 ;
+   DWORD dwValParam2 ;
+
+   pszChar = i_pszProcessData ;
+   byNbComma = 0 ;
+   dwValParam1 = 0 ;
+   dwValParam2 = 0 ;
+
+   while ( ( *pszChar != '\0' ) && ( byNbComma < 2 ) )
+   {
+      if ( *pszChar != ':'  )
+      {
+         if ( byNbComma == 0 )
+         {
+            if ( ( *pszChar >= '0' ) && ( *pszChar <= '9' ) )
+            {
+               dwValParam1 *= 10 ;
+               dwValParam1 += ( *pszChar - '0' ) ;
+            }
+         }
+
+         if ( byNbComma == 1 )
+         {
+            if ( ( *pszChar >= '0' ) && ( *pszChar <= '9' ) )
+            {
+               dwValParam2 *= 10 ;
+               dwValParam2 += ( *pszChar - '0' ) ;
+            }
+         }
+      }
+      else
+      {
+         byNbComma++ ;
+      }
+      pszChar++ ;
+   }
+   if ( ( l_fHtmlCgi != NULL ) && ( byNbComma == 2 ) )
+   {
+      (*l_fHtmlCgi)(dwValParam1, dwValParam2, pszChar ) ;
+   }
 }
 
 

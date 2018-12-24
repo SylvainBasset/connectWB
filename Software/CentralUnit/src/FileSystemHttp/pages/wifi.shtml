@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>WIFI DEMO</title>
+
+
+<style>
+.maligne
+{
+margin-top:-20px;
+border-top: solid 4px #0000ff;
+width:100%;
+}
+</style>
+
+
+
+<body bgcolor="#eeeeee">
+<div style="text-align: center;">
+
+<span style="color: #073763; font-size: xx-large; text-align: center;"><b>WallyBox</b></span><br>
+<div style="text-align: left;">
+<p>
+<a href="index.shtml"><img src="ImgStatus.png"/></a>
+<a href="calendar.shtml"><img src="ImgCal.png"/></a>
+<img src="ImgWifiSel.png"/>
+<div class="maligne" /></div>
+<p>
+
+<p>Input from Host:  <!--#input:1:0--></p>
+
+<p>Input from Host2:  <!--#input:1:1--></p>
+
+
+   <p><form name="CGI Example" method="POST" action="output.cgi" >
+   <input type="text" name="text" size="40" maxlength="40">&nbsp;
+      <input type="submit" name="submit" value="Submit" >
+     </form>
+   </p>
+
+</body>
+</html>

@@ -4,12 +4,28 @@
 <title>WIFI DEMO</title>
 
 
+<style>
+.maligne
+{
+margin-top:-20px;
+border-top: solid 4px #0000ff;
+width:100%;
+}
+</style>
+
 
 
 <body bgcolor="#eeeeee">
 <div style="text-align: center;">
 
-<span style="color: #073763; font-size: xx-large;"text-align: center;"><b>SPWF DEMO</b></span><br>
+<span style="color: #073763; font-size: xx-large; text-align: center;"><b>WallyBox</b></span><br>
+<div style="text-align: left;">
+<p>
+<img src="ImgStatusSel.png"/>
+<a href="calendar.shtml"><img src="ImgCal.png"/></a>
+<a href="wifi.shtml"><img src="ImgWifi.png"/></a>
+<div class="maligne" /></div>
+<p>
 
 <p>Input from Host:  <!--#input:1:0--></p>
 

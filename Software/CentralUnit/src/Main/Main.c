@@ -119,6 +119,8 @@ int main( void )
    cstate_Init() ;
    cwifi_Init() ;
    sfrm_Init() ;
+   html_Init() ;
+
    coevse_Init() ;
    //coevse_SetEnable( TRUE ) ;
    //coevse_SetEnable( FALSE ) ;
@@ -211,15 +213,15 @@ static void main_LedInit( void )
 /*----------------------------------------------------------------------------*/
 static void main_SetInitDate( void )
 {
-   s_DateTime sSetDT ;
-
-   sSetDT.byYear = 01 ;
-   sSetDT.byMonth = 01 ;
-   sSetDT.byDays = 01 ;
-   sSetDT.byHours = 00 ;
-   sSetDT.byMinutes = 00 ;
-   sSetDT.bySeconds = 00 ;
-   clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur syst�me
+   //s_DateTime sSetDT ;
+   //
+   //sSetDT.byYear = 01 ;
+   //sSetDT.byMonth = 01 ;
+   //sSetDT.byDays = 01 ;
+   //sSetDT.byHours = 00 ;
+   //sSetDT.byMinutes = 00 ;
+   //sSetDT.bySeconds = 00 ;
+   //clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur syst�me
 }
 
 
