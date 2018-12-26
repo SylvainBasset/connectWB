@@ -36,6 +36,23 @@
       sleep(500)
       window.location.reload(true);
    }
+
+   function Send_Calendar()
+   {
+      let ElemDay = document.getElementById("CalDay");
+      let ElemHourStart = document.getElementById("CalHourStart");
+      let ElemMinStart = document.getElementById("CalMinStart");
+      let ElemHourEnd = document.getElementById("CalHourEnd");
+      let ElemMinEnd = document.getElementById("CalMinEnd");
+
+      Str = cgi + "1" + ":" + ElemDay.value + "," +
+            ElemHourStart.value + "," + ElemMinStart.value + "," +
+            ElemHourEnd.value   + "," + ElemMinEnd.value + suffix
+
+      $.get(Str);
+      sleep(500)
+      window.location.reload(true);
+   }
    </script>
 
    <style>
@@ -46,7 +63,7 @@
       }
 
       .marge {
-      margin-left: 4em;
+      margin-left: 3em;
       }
    </style>
 
@@ -70,11 +87,9 @@
          <!--#input:1:4-->:<!--#input:1:5-->:<!--#input:1:6-->
       </b>
    </p>
-
-   <FORM>
-   <p>Nouveau r&eacute;glage:</p>
-
-   <span>
+   <br>
+   Nouveau r&eacute;glage:
+   <span class="marge">
       <SELECT id="day" size="1">
          <OPTION>01<OPTION>02<OPTION>03<OPTION>04<OPTION>05<OPTION>06<OPTION>07<OPTION>08<OPTION>09
          <OPTION>11<OPTION>12<OPTION>13<OPTION>14<OPTION>15<OPTION>16<OPTION>17<OPTION>18<OPTION>19
@@ -129,8 +144,8 @@
       <input type="button" onclick="Send_DateTime()" value="OK"/>
    </span>
 
-   </FORM>
-   <br><br>
+
+   <br><br><br>
    <hr>
 
    <p>Plages horaire de charge:</p>
@@ -144,18 +159,66 @@
       <TR><TD> Samedi:</TD><!--#input:1:12--></TR>
       <TR><TD> Dimanche:</TD><!--#input:1:13--></TR>
    </TABLE>
+   <br>
+   Nouveau r&eacute;glage:
+   <span class="marge">
+      <SELECT id="CalDay" size="1">
+         <OPTION value="7">---Tous les jours---
+         <OPTION value="8">---Semaine---
+         <OPTION value="9">---Weekend---
+         <OPTION value="0">Lundi
+         <OPTION value="1">Mardi
+         <OPTION value="2">Mercredi
+         <OPTION value="3">Jeudi
+         <OPTION value="4">Vendredi
+         <OPTION value="5">Samedi
+         <OPTION value="6">Dimanche
+      </SELECT>
+   </span>
+
+   <span class="marge">
+      De
+      <SELECT id="CalHourStart" size="1">
+         <OPTION>00<OPTION>01<OPTION>02<OPTION>03<OPTION>04<OPTION>05<OPTION>06<OPTION>07<OPTION>08<OPTION>09
+         <OPTION>10<OPTION>11<OPTION>12<OPTION>13<OPTION>14<OPTION>15<OPTION>16<OPTION>17<OPTION>18<OPTION>19
+         <OPTION>20<OPTION>21<OPTION>22<OPTION>23
+      </SELECT>
+      h
+      <SELECT id="CalMinStart" size="1">
+         <OPTION>00<OPTION>01<OPTION>02<OPTION>03<OPTION>04<OPTION>05<OPTION>06<OPTION>07<OPTION>08<OPTION>09
+         <OPTION>10<OPTION>11<OPTION>12<OPTION>13<OPTION>14<OPTION>15<OPTION>16<OPTION>17<OPTION>18<OPTION>19
+         <OPTION>20<OPTION>21<OPTION>22<OPTION>23<OPTION>24<OPTION>25<OPTION>26<OPTION>27<OPTION>28<OPTION>29
+         <OPTION>30<OPTION>31<OPTION>32<OPTION>33<OPTION>34<OPTION>35<OPTION>36<OPTION>37<OPTION>38<OPTION>39
+         <OPTION>40<OPTION>41<OPTION>42<OPTION>43<OPTION>44<OPTION>45<OPTION>46<OPTION>47<OPTION>48<OPTION>49
+         <OPTION>50<OPTION>51<OPTION>52<OPTION>53<OPTION>54<OPTION>55<OPTION>56<OPTION>57<OPTION>58<OPTION>59
+      </SELECT>
+      min
+   </span>
+
+   <span class="marge">
+      &agrave;
+      <SELECT id="CalHourEnd" size="1">
+         <OPTION>00<OPTION>01<OPTION>02<OPTION>03<OPTION>04<OPTION>05<OPTION>06<OPTION>07<OPTION>08<OPTION>09
+         <OPTION>10<OPTION>11<OPTION>12<OPTION>13<OPTION>14<OPTION>15<OPTION>16<OPTION>17<OPTION>18<OPTION>19
+         <OPTION>20<OPTION>21<OPTION>22<OPTION>23
+      </SELECT>
+      h
+      <SELECT id="CalMinEnd" size="1">
+         <OPTION>00<OPTION>01<OPTION>02<OPTION>03<OPTION>04<OPTION>05<OPTION>06<OPTION>07<OPTION>08<OPTION>09
+         <OPTION>10<OPTION>11<OPTION>12<OPTION>13<OPTION>14<OPTION>15<OPTION>16<OPTION>17<OPTION>18<OPTION>19
+         <OPTION>20<OPTION>21<OPTION>22<OPTION>23<OPTION>24<OPTION>25<OPTION>26<OPTION>27<OPTION>28<OPTION>29
+         <OPTION>30<OPTION>31<OPTION>32<OPTION>33<OPTION>34<OPTION>35<OPTION>36<OPTION>37<OPTION>38<OPTION>39
+         <OPTION>40<OPTION>41<OPTION>42<OPTION>43<OPTION>44<OPTION>45<OPTION>46<OPTION>47<OPTION>48<OPTION>49
+         <OPTION>50<OPTION>51<OPTION>52<OPTION>53<OPTION>54<OPTION>55<OPTION>56<OPTION>57<OPTION>58<OPTION>59
+      </SELECT>
+      min
+   </span>
+
+   <span class="marge">
+      <input type="button" onclick="Send_Calendar()" value="OK"/>
+   </span>
 
    <br><br>
-   <hr>
-
-
-   <p>Input from Host2:  <!--#input:1:1--></p>
-
-      <p><form name="CGI Example" method="POST" action="output.cgi" >
-      <input type="text" name="text" size="40" maxlength="40">&nbsp;
-         <input type="submit" name="submit" value="Submit" >
-        </form>
-      </p>
 
    </body>
 </html>

@@ -13,3 +13,5 @@ Software/\.metadata/\.plugins/org\.eclipse\.e4\.workbench/
 Software/\.metadata/version\.ini
 
 Documentation/soft ST/
+
+Software/Tools/Socket/\./LastIp\.dat

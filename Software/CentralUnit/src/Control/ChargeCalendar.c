@@ -83,6 +83,30 @@ void cal_Init( void )
 
 
 /*----------------------------------------------------------------------------*/
+
+BOOL cal_IsValid( s_Time C* i_pStartTime, s_Time C* i_pEndTime )
+{
+   DWORD dwStartValue ;
+   DWORD dwEndValue ;
+   BOOL bValid ;
+                                       /* calulate starting time in second */
+   dwStartValue = cal_CalcCntFromStruct( i_pStartTime ) ;
+                                       /* calculate ending time in second */
+   dwEndValue = cal_CalcCntFromStruct( i_pEndTime ) ;
+
+   if ( dwStartValue <= dwEndValue )
+   {
+      bValid = TRUE ;
+   }
+   else
+   {
+      bValid = FALSE ;
+   }
+   return bValid ;
+}
+
+
+/*----------------------------------------------------------------------------*/
 /* Set calendard Start/End time                                               */
 /*    - <i_byWeekday> day of the week (0=Monday, 6=Sunday)                    */
 /*    - <i_pStartTime> sarting time for this day                              */

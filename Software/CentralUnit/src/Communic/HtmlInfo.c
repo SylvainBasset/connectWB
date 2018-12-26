@@ -214,21 +214,27 @@ static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszVa
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
 {
    s_DateTime DateTime ;
+   BYTE byDayStartSet ;
+   BYTE byDayEndSet ;
+   BYTE byDay ;
+   s_Time TimeStart ;
+   s_Time TimeEnd ;
 
    unsigned int uiDays ;
    unsigned int uiMonth ;
    unsigned int uiYear ;
    unsigned int uiHours ;
    unsigned int uiMinutes ;
+   unsigned int uiHoursEnd ;
+   unsigned int uiMinutesEnd ;
+
+
 
    switch ( i_dwParam2 )
    {
       case 0 :
-         sscanf( i_pszValue, "%u,%u,%u,%u,%u", &uiDays,
-                                               &uiMonth,
-                                               &uiYear,
-                                               &uiHours,
-                                               &uiMinutes  ) ;
+         sscanf( i_pszValue, "%u,%u,%u,%u,%u", &uiDays, &uiMonth, &uiYear,
+                                               &uiHours, &uiMinutes  ) ;
          DateTime.byYear = uiYear - 2000 ;
          DateTime.byMonth = uiMonth ;
          DateTime.byDays = uiDays ;
@@ -241,6 +247,45 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
             clk_SetDateTime( &DateTime ) ;
          }
          //TODO: voir si affichage message erreur avec un SSI
+         break ;
+
+      case 1 :
+         sscanf( i_pszValue, "%u,%u,%u,%u,%u", &uiDays, &uiHours, &uiMinutes,
+                                               &uiHoursEnd, &uiMinutesEnd ) ;
+         switch( uiDays )
+         {
+            case 7 :
+               byDayStartSet = 0 ;
+               byDayEndSet = 6 ;
+               break ;
+            case 8 :
+               byDayStartSet = 0 ;
+               byDayEndSet = 4 ;
+               break ;
+            case 9 :
+               byDayStartSet = 5 ;
+               byDayEndSet = 6 ;
+               break ;
+            default :
+               byDayStartSet = uiDays ;
+               byDayEndSet = uiDays ;
+               break ;
+         }
+
+         TimeStart.byHours = uiHours ;
+         TimeStart.byMinutes = uiMinutes ;
+         TimeStart.bySeconds = 0 ;
+         TimeEnd.byHours = uiHoursEnd ;
+         TimeEnd.byMinutes = uiMinutesEnd ;
+         TimeEnd.bySeconds = 0 ;
+
+         if ( cal_IsValid( &TimeStart, &TimeEnd ) )
+         {
+            for ( byDay = byDayStartSet ; byDay <= byDayEndSet ; byDay++ )
+            {
+               cal_SetDayVals( byDay, &TimeStart, &TimeEnd ) ;
+            }
+         }
          break ;
 
       default :
