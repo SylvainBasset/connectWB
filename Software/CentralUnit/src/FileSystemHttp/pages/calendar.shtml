@@ -36,10 +36,6 @@
       sleep(500)
       window.location.reload(true);
    }
-
-
-
-
    </script>
 
    <style>
@@ -53,7 +49,6 @@
       margin-left: 4em;
       }
    </style>
-
 
    <body bgcolor="#eeeeee">
    <div style="text-align: center;">
@@ -137,6 +132,22 @@
    </FORM>
    <br><br>
    <hr>
+
+   <p>Plages horaire de charge:</p>
+
+   <TABLE BORDER="0">
+      <TR><TD> Lundi: </TD><!--#input:1:7--></TR>
+      <TR><TD> Mardi:</TD><!--#input:1:8--></TR>
+      <TR><TD> Mercredi:</TD><!--#input:1:9--></TR>
+      <TR><TD> Jeudi:</TD><!--#input:1:10--></TR>
+      <TR><TD> Vendredi:</TD><!--#input:1:11--></TR>
+      <TR><TD> Samedi:</TD><!--#input:1:12--></TR>
+      <TR><TD> Dimanche:</TD><!--#input:1:13--></TR>
+   </TABLE>
+
+   <br><br>
+   <hr>
+
 
    <p>Input from Host2:  <!--#input:1:1--></p>
 

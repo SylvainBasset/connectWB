@@ -17,8 +17,8 @@
 /*----------------------------------------------------------------------------*/
 
 void cal_Init( void ) ;
-void cal_SetDayVals( BYTE i_byWeekday,
-                     s_Time const * i_psStartTime, s_Time const * i_psEndTime ) ;
+void cal_SetDayVals( BYTE i_byWeekday, s_Time C* i_pStartTime, s_Time C* i_pEndTime ) ;
+void cal_GetDayVals( BYTE i_byWeekday, s_Time * o_pStartTime, s_Time * o_pEndTime ) ;
 BOOL cal_IsChargeEnable( void ) ;
 
 

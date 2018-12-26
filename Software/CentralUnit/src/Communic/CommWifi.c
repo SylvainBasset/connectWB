@@ -19,6 +19,8 @@
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
+#define CWIFI_SEND_TIMEOUT       100         /* ms */
+
 #define CWIFI_RESET_DURATION     200         /* wifi module reset duration (ms) */
 #define CWIFI_PWRUP_DURATION       1         /* duration to wait after reset release (ms) */
 
@@ -693,6 +695,7 @@ static void cwifi_ProcessRec( void )
          }
       }
       wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), FALSE ) ;
+      bPendingData = FALSE ;
    }
 
    if ( ( l_CmdCurStatus.eStatus == CWIFI_CMDST_PROCESSING ) &&
@@ -842,16 +845,16 @@ static RESULT cwifi_WindCallBackSocketData( char C* i_pszProcessData, BOOL i_bPe
 
 static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPendingData )
 {
-   BOOL bSendDone ;
    BYTE byNbComma ;
    CHAR C* pszChar ;
    DWORD dwValParam1 ;
    DWORD dwValParam2 ;
    char szOutput [256] ;
    WORD wSize ;
+   DWORD dwTmpSend ;
 
-   bSendDone = uWifi_IsSendDone() ; //attente fin emission avec timeout decl. Syserr
-   if ( bSendDone && i_bPendingData )
+
+   if ( ( i_bPendingData ) && ( l_fHtmlSsi != NULL ) )
    {
       pszChar = i_pszProcessData ;
       byNbComma = 0 ;
@@ -887,16 +890,32 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          pszChar++ ;
       }
 
-      if ( l_fHtmlSsi != NULL )
-      {
-         (*l_fHtmlSsi)(dwValParam1, dwValParam2, szOutput, ( sizeof(szOutput) - 2 ) ) ;
+      (*l_fHtmlSsi)(dwValParam1, dwValParam2, szOutput, ( sizeof(szOutput) - 2 ) ) ;
 
-         wSize = strlen( szOutput ) ;
-         szOutput[wSize] = '\r' ;
-         wSize++ ;
-         szOutput[wSize] = '\n' ;
-         wSize++ ;
-         uwifi_Send( szOutput, wSize ) ;
+      wSize = strlen( szOutput ) ;
+      szOutput[wSize] = '\r' ;
+      wSize++ ;
+      szOutput[wSize] = '\n' ;
+      wSize++ ;
+
+      tim_StartMsTmp( &dwTmpSend ) ;
+      while( ! uWifi_IsSendDone() )
+      {
+         if ( tim_IsEndMsTmp( &l_dwTmpDataMode, CWIFI_SEND_TIMEOUT ) )
+         {
+            ERR_FATAL() ;
+         }
+      }
+
+      uwifi_Send( szOutput, wSize ) ;
+
+      tim_StartMsTmp( &dwTmpSend ) ;
+      while( ! uWifi_IsSendDone() )
+      {
+         if ( tim_IsEndMsTmp( &l_dwTmpDataMode, CWIFI_SEND_TIMEOUT ) )
+         {
+            ERR_FATAL() ;
+         }
       }
    }
 

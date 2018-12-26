@@ -41,7 +41,8 @@ DWORD l_adwTimeSecEnd [ NB_DAYS_WEEK ] ;
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
-static DWORD cal_CalcTimeSecValue( s_Time const * i_psTime ) ;
+static DWORD cal_CalcCntFromStruct( s_Time const * i_psTime ) ;
+static void cal_CalcStructFromCnt( DWORD i_dwTimeSec, s_Time * o_pTime ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -84,12 +85,11 @@ void cal_Init( void )
 /*----------------------------------------------------------------------------*/
 /* Set calendard Start/End time                                               */
 /*    - <i_byWeekday> day of the week (0=Monday, 6=Sunday)                    */
-/*    - <i_psStartTime> sarting time for this day                             */
-/*    - <i_psEndTime> ending time for this day                                */
+/*    - <i_pStartTime> sarting time for this day                              */
+/*    - <i_pEndTime> ending time for this day                                 */
 /*----------------------------------------------------------------------------*/
 
-void cal_SetDayVals( BYTE i_byWeekday,
-                     s_Time const * i_psStartTime, s_Time const * i_psEndTime )
+void cal_SetDayVals( BYTE i_byWeekday, s_Time C* i_pStartTime, s_Time C* i_pEndTime )
 {
    DWORD dwStartValue ;
    DWORD dwEndValue ;
@@ -97,9 +97,9 @@ void cal_SetDayVals( BYTE i_byWeekday,
    ERR_FATAL_IF( i_byWeekday >= NB_DAYS_WEEK ) ;
 
                                        /* calulate starting time in second */
-   dwStartValue = cal_CalcTimeSecValue( i_psStartTime ) ;
+   dwStartValue = cal_CalcCntFromStruct( i_pStartTime ) ;
                                        /* calculate ending time in second */
-   dwEndValue = cal_CalcTimeSecValue( i_psEndTime ) ;
+   dwEndValue = cal_CalcCntFromStruct( i_pEndTime ) ;
 
                                        /* if end time is after start time */
    ERR_FATAL_IF( dwStartValue > dwEndValue ) ;
@@ -112,6 +112,19 @@ void cal_SetDayVals( BYTE i_byWeekday,
    eep_write( (DWORD)&g_sDataEeprom->sCalData.adwTimeSecStart[i_byWeekday], dwStartValue ) ;
                                        /* write ending time in eeprom */
    eep_write( (DWORD)&g_sDataEeprom->sCalData.adwTimeSecEnd[i_byWeekday], dwEndValue ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+void cal_GetDayVals( BYTE i_byWeekday, s_Time * o_pStartTime, s_Time * o_pEndTime )
+{
+                                       /* if week day outside limit */
+   ERR_FATAL_IF( i_byWeekday >= NB_DAYS_WEEK ) ;
+
+   cal_CalcStructFromCnt( l_adwTimeSecStart[i_byWeekday], o_pStartTime ) ;
+   cal_CalcStructFromCnt( l_adwTimeSecEnd[i_byWeekday], o_pEndTime ) ;
+
 }
 
 
@@ -142,7 +155,7 @@ BOOL cal_IsChargeEnable( void )
                                        /* if week day outside limit */
       ERR_FATAL_IF( byWeekday >= NB_DAYS_WEEK ) ;
                                        /* calculate current time in second */
-      dwTimeSecCurrent = cal_CalcTimeSecValue( &sCurDateTime.sTime ) ;
+      dwTimeSecCurrent = cal_CalcCntFromStruct( &sCurDateTime.sTime ) ;
 
                                        /* get starting time in second */
       dwTimeSecStart = l_adwTimeSecStart[byWeekday] ;
@@ -182,7 +195,7 @@ BOOL cal_IsChargeEnable( void )
 /* calculations.                                                              */
 /*----------------------------------------------------------------------------*/
 
-static DWORD cal_CalcTimeSecValue( s_Time const * i_psTime )
+static DWORD cal_CalcCntFromStruct( s_Time const * i_psTime )
 {
    BYTE byHours ;
    BYTE byMinutes ;
@@ -197,4 +210,33 @@ static DWORD cal_CalcTimeSecValue( s_Time const * i_psTime )
    ERR_FATAL_IF( bySeconds > 59 ) ;
                                        /* return second value for this time */
    return ( ( byHours * 60 * 60 ) + ( byMinutes * 60 ) + bySeconds ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void cal_CalcStructFromCnt( DWORD i_dwTimeSec, s_Time * o_pTime )
+{
+   BYTE byHours ;
+   BYTE byMinutes ;
+   BYTE bySeconds ;
+   DWORD dwTimeSec ;
+
+   dwTimeSec = i_dwTimeSec ;
+
+   bySeconds = ( dwTimeSec % 60 ) ;
+   dwTimeSec = dwTimeSec / 60 ;
+
+   byMinutes = ( dwTimeSec % 60 ) ;
+   dwTimeSec = dwTimeSec / 60 ;
+
+   byHours = dwTimeSec ;
+
+   ERR_FATAL_IF( byHours > 23 ) ;
+   ERR_FATAL_IF( byMinutes > 59 ) ;
+   ERR_FATAL_IF( bySeconds > 59 ) ;
+
+   o_pTime->byHours = byHours ;
+   o_pTime->byMinutes = byMinutes ;
+   o_pTime->bySeconds = bySeconds ;
 }

@@ -213,6 +213,41 @@ static void main_LedInit( void )
 /*----------------------------------------------------------------------------*/
 static void main_SetInitDate( void )
 {
+   BYTE i ;
+   s_Time TimeStart ;
+   s_Time TimeEnd ;
+
+   for ( i = 0 ; i < 7 ;i++ )
+   {
+      TimeStart.byHours = 0 ;
+      TimeStart.byMinutes = 0 ;
+      TimeStart.bySeconds = 0 ;
+      TimeEnd.byHours = 0 ;
+      TimeEnd.byMinutes = 0 ;
+      TimeEnd.bySeconds = 0 ;
+      cal_SetDayVals( i, &TimeStart, &TimeEnd ) ;
+   }
+
+   TimeStart.byHours = 10 ;
+   TimeStart.byMinutes = 42 ;
+   TimeStart.bySeconds = 14 ;
+   TimeEnd.byHours = 15 ;
+   TimeEnd.byMinutes = 15 ;
+   TimeEnd.bySeconds = 00 ;
+   cal_SetDayVals( 1, &TimeStart, &TimeEnd ) ;
+
+   TimeStart.byHours = 11 ;
+   TimeStart.byMinutes = 10 ;
+   TimeStart.bySeconds = 14 ;
+   TimeEnd.byHours = 17 ;
+   TimeEnd.byMinutes = 23 ;
+   TimeEnd.bySeconds = 00 ;
+   cal_SetDayVals( 5, &TimeStart, &TimeEnd ) ;
+
+
+
+
+
    //s_DateTime sSetDT ;
    //
    //sSetDT.byYear = 01 ;

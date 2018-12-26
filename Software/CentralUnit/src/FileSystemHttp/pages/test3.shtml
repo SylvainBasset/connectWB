@@ -24,12 +24,10 @@
    </script>
 
    <input id="cocolastico" type="text" name="text" size="40" maxlength="40"><p>
-
    <input type="button" onclick="get_content()" value="Get Content"/>
-   <p id='txt'>
-   <span class="A">I am</span>
-   <span class="B">working in </span>
-   <span class="C">ABC company.</span>
+
+   <!--#input:1:7-->
+   <!--#input:1:8-->
 
    </body>
 </html>

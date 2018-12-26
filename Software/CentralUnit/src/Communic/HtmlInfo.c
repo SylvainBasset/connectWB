@@ -9,6 +9,7 @@
 
 
 #include "Define.h"
+#include "Control.h"
 #include "Communic.h"
 #include "System.h"
 
@@ -54,6 +55,8 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
 {
    s_DateTime DateTime ;
    BYTE byWeekday ;
+   s_Time StartTime ;
+   s_Time EndTime ;
 
    clk_GetDateTime( &DateTime, &byWeekday ) ;
 
@@ -152,6 +155,32 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
 
       case 6 :
          snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.bySeconds ) ;
+         break ;
+
+
+      case 7 :
+      case 8 :
+      case 9 :
+      case 10 :
+      case 11 :
+      case 12 :
+      case 13 :
+         byWeekday = i_dwParam2 - 7 ;
+         cal_GetDayVals( byWeekday, &StartTime, &EndTime ) ;
+
+         if ( ( StartTime.byHours == EndTime.byHours ) &&
+              ( StartTime.byMinutes == EndTime.byMinutes ) &&
+              ( StartTime.bySeconds == EndTime.bySeconds ) )
+         {
+            strncpy( o_pszOutput, "<TD><b>Off</b></TD>", i_byOutSize ) ;
+         }
+         else
+         {
+            snprintf( o_pszOutput, i_byOutSize,
+                      "<TD>de <b>%02u:%02u</b></TD><TD>&agrave; <b>%02u:%02u</b></TD>",
+                      StartTime.byHours, StartTime.byMinutes,
+                      EndTime.byHours, EndTime.byMinutes ) ;
+         }
          break ;
 
       default :
