@@ -37,8 +37,16 @@ static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOut
 {
    switch ( i_dwParam1 )
    {
-      case 1 :
+      case HTML_PAGE_STATUS :
+         *o_pszOutput = 0 ;   //TMP
+         break ;
+
+      case HTML_PAGE_CALENDAR :
          html_ProcessSsiCalendar( i_dwParam2, o_pszOutput, i_byOutSize ) ;
+         break ;
+
+      case HTML_PAGE_WIFI :
+         *o_pszOutput = 0 ;   //TMP
          break ;
 
       default :
@@ -57,12 +65,14 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
    BYTE byWeekday ;
    s_Time StartTime ;
    s_Time EndTime ;
+   DWORD dwStartTimeCnt ;
+   DWORD dwEndTimeCnt ;
 
    clk_GetDateTime( &DateTime, &byWeekday ) ;
 
    switch ( i_dwParam2 )
    {
-      case 0 :
+      case HTML_CALENDAR_SSI_WEEKDAY :
          switch ( byWeekday )
          {
             case 0 :
@@ -92,11 +102,11 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
          }
          break ;
 
-      case 1 :
+      case HTML_CALENDAR_SSI_DAY :
          snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.byDays ) ;
          break ;
 
-      case 2 :
+      case HTML_CALENDAR_SSI_MONTH :
          switch ( DateTime.byMonth )
          {
             case 1 :
@@ -141,45 +151,60 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
          }
          break ;
 
-      case 3 :
+      case HTML_CALENDAR_SSI_YEAR :
          snprintf( o_pszOutput, i_byOutSize, "%04u", ((WORD)DateTime.byYear + 2000 ) ) ;
          break ;
 
-      case 4 :
+      case HTML_CALENDAR_SSI_HOURS :
          snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.byHours ) ;
          break ;
 
-      case 5 :
+      case HTML_CALENDAR_SSI_MINUTES :
          snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.byMinutes ) ;
          break ;
 
-      case 6 :
+      case HTML_CALENDAR_SSI_SECONDS :
          snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.bySeconds ) ;
          break ;
 
 
-      case 7 :
-      case 8 :
-      case 9 :
-      case 10 :
-      case 11 :
-      case 12 :
-      case 13 :
+      case HTML_CALENDAR_SSI_CAL_MONDAY :
+      case HTML_CALENDAR_SSI_CAL_TUESDAY :
+      case HTML_CALENDAR_SSI_CAL_WEDNESDAY :
+      case HTML_CALENDAR_SSI_CAL_THURSDAY :
+      case HTML_CALENDAR_SSI_CAL_FRIDAY :
+      case HTML_CALENDAR_SSI_CAL_SATURDAY :
+      case HTML_CALENDAR_SSI_CAL_SUNDAY :
          byWeekday = i_dwParam2 - 7 ;
-         cal_GetDayVals( byWeekday, &StartTime, &EndTime ) ;
+         cal_GetDayVals( byWeekday, &StartTime, &EndTime, &dwStartTimeCnt, &dwEndTimeCnt ) ;
 
-         if ( ( StartTime.byHours == EndTime.byHours ) &&
-              ( StartTime.byMinutes == EndTime.byMinutes ) &&
-              ( StartTime.bySeconds == EndTime.bySeconds ) )
-         {
-            strncpy( o_pszOutput, "<TD><b>Off</b></TD>", i_byOutSize ) ;
-         }
-         else
+         if ( dwStartTimeCnt < dwEndTimeCnt )
          {
             snprintf( o_pszOutput, i_byOutSize,
                       "<TD>de <b>%02u:%02u</b></TD><TD>&agrave; <b>%02u:%02u</b></TD>",
                       StartTime.byHours, StartTime.byMinutes,
                       EndTime.byHours, EndTime.byMinutes ) ;
+         }
+         else if ( dwStartTimeCnt > dwEndTimeCnt )
+         {
+            if ( dwEndTimeCnt == 0 )
+            {
+               snprintf( o_pszOutput, i_byOutSize,
+                         "<TD>de <b>%02u:%02u</b></TD><TD>&agrave; <b>minuit</b></TD>",
+                         StartTime.byHours, StartTime.byMinutes ) ;
+            }
+            else
+            {
+               snprintf( o_pszOutput, i_byOutSize,
+                         "<TD>de <b>minuit</b></TD><TD>&agrave; <b>%02u:%02u</b></TD>" \
+                         "<TD>et de <b>%02u:%02u</b></TD><TD>&agrave; <b>minuit</b></TD>",
+                         EndTime.byHours, EndTime.byMinutes,
+                         StartTime.byHours, StartTime.byMinutes ) ;
+            }
+         }
+         else
+         {
+            strncpy( o_pszOutput, "<TD><b>Off</b></TD>", i_byOutSize ) ;
          }
          break ;
 
@@ -199,8 +224,14 @@ static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszVa
 {
    switch ( i_dwParam1 )
    {
-      case 1 :
+      case HTML_PAGE_STATUS :
+         break ;
+
+      case HTML_PAGE_CALENDAR :
          html_ProcessCgiCalendar( i_dwParam2, i_pszValue ) ;
+         break ;
+
+      case HTML_PAGE_WIFI :
          break ;
 
       default :
@@ -228,11 +259,9 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
    unsigned int uiHoursEnd ;
    unsigned int uiMinutesEnd ;
 
-
-
    switch ( i_dwParam2 )
    {
-      case 0 :
+      case HTML_CALENDAR_CGI_DATE :
          sscanf( i_pszValue, "%u,%u,%u,%u,%u", &uiDays, &uiMonth, &uiYear,
                                                &uiHours, &uiMinutes  ) ;
          DateTime.byYear = uiYear - 2000 ;
@@ -249,7 +278,7 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
          //TODO: voir si affichage message erreur avec un SSI
          break ;
 
-      case 1 :
+      case HTML_CALENDAR_CGI_DAYSET :
          sscanf( i_pszValue, "%u,%u,%u,%u,%u", &uiDays, &uiHours, &uiMinutes,
                                                &uiHoursEnd, &uiMinutesEnd ) ;
          switch( uiDays )

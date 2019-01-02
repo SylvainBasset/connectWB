@@ -226,6 +226,7 @@ static DWORD l_dwTmpDataMode ;
 static DWORD l_dwTmpIsAlive ;
 static BOOL l_bMaintMode ;
 static BOOL l_bConfigDone ;
+static BOOL l_bPendingData ;
 
 static f_ScktGetFrame l_fScktGetFrame ;
 static f_ScktGetResExt l_fScktGetResExt ;
@@ -649,16 +650,20 @@ static void cwifi_ProcessRec( void )
    BYTE abyReadData[512] ;
    WORD wNbReadVal ;
    BYTE * pbyProcessData ;
-   BYTE bPendingData ;
-
-   bPendingData = FALSE ;
 
    wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), FALSE ) ;
 
    if ( wNbReadVal == 0 )
-   {                                   /* lecture temporaire donn�es avant CR/LF final */
-      wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), TRUE ) ;
-      bPendingData = TRUE ;
+   {
+      if ( ! l_bPendingData )
+      {                                /* lecture temporaire données avant CR/LF final */
+         wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), TRUE ) ;
+         l_bPendingData = TRUE ;
+      }
+   }
+   else
+   {
+      l_bPendingData = FALSE ;
    }
 
    while ( wNbReadVal != 0 )
@@ -668,14 +673,14 @@ static void cwifi_ProcessRec( void )
          if ( strncmp( (char*)abyReadData, CWIFI_WIND_PREFIX, strlen(CWIFI_WIND_PREFIX) ) == 0 )
          {
             pbyProcessData = &abyReadData[sizeof(CWIFI_WIND_PREFIX)-1] ;
-            cwifi_ProcessRecWind( (char*)pbyProcessData, bPendingData ) ;
+            cwifi_ProcessRecWind( (char*)pbyProcessData, l_bPendingData ) ;
          }
          else if ( strncmp( (char*)abyReadData, CWIFI_CGI_PREFIX, strlen(CWIFI_CGI_PREFIX) ) == 0 )
          {
             pbyProcessData = &abyReadData[sizeof(CWIFI_CGI_PREFIX)-1] ;
             cwifi_ProcessRecCgi( (char*)pbyProcessData ) ;
          }
-         else if ( ! bPendingData )
+         else if ( ! l_bPendingData )
          {
             if ( l_bDataMode && ( l_eWifiState == CWIFI_STATE_CONNECTED ) &&
                  l_bSocketConnected )
@@ -684,7 +689,7 @@ static void cwifi_ProcessRec( void )
                {
                   pbyProcessData = &abyReadData[0] ;
                   (*l_fScktGetFrame)((char*)pbyProcessData) ;
-                  tim_StartMsTmp( &l_dwTmpDataMode ) ; // red�marrage tempo
+                  tim_StartMsTmp( &l_dwTmpDataMode ) ; // redémarrage tempo
                }
             }
             else
@@ -694,8 +699,11 @@ static void cwifi_ProcessRec( void )
             }
          }
       }
+      if ( l_bPendingData )
+      {
+         break ;
+      }
       wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), FALSE ) ;
-      bPendingData = FALSE ;
    }
 
    if ( ( l_CmdCurStatus.eStatus == CWIFI_CMDST_PROCESSING ) &&

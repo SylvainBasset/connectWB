@@ -26,6 +26,33 @@ void sfrm_Init( void ) ;
 /* HtmlInfo.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
+#define  HTML_PAGE_STATUS        0
+#define  HTML_PAGE_CALENDAR      1
+#define  HTML_PAGE_WIFI          2
+
+
+#define  HTML_CALENDAR_SSI_WEEKDAY          0
+#define  HTML_CALENDAR_SSI_DAY              1
+#define  HTML_CALENDAR_SSI_MONTH            2
+#define  HTML_CALENDAR_SSI_YEAR             3
+#define  HTML_CALENDAR_SSI_HOURS            4
+#define  HTML_CALENDAR_SSI_MINUTES          5
+#define  HTML_CALENDAR_SSI_SECONDS          6
+
+#define  HTML_CALENDAR_SSI_CAL_MONDAY       7
+#define  HTML_CALENDAR_SSI_CAL_TUESDAY      8
+#define  HTML_CALENDAR_SSI_CAL_WEDNESDAY    9
+#define  HTML_CALENDAR_SSI_CAL_THURSDAY    10
+#define  HTML_CALENDAR_SSI_CAL_FRIDAY      11
+#define  HTML_CALENDAR_SSI_CAL_SATURDAY    12
+#define  HTML_CALENDAR_SSI_CAL_SUNDAY      13
+
+
+#define HTML_CALENDAR_CGI_DATE              0
+#define HTML_CALENDAR_CGI_DAYSET            1
+
+
+
 typedef void (*f_htmlSsi)( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutPut, WORD i_byOutSize ) ;
 typedef void (*f_htmlCgi)( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszValue ) ;
 

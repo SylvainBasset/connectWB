@@ -242,7 +242,7 @@ static void main_SetInitDate( void )
    TimeEnd.byHours = 17 ;
    TimeEnd.byMinutes = 23 ;
    TimeEnd.bySeconds = 00 ;
-   cal_SetDayVals( 5, &TimeStart, &TimeEnd ) ;
+   cal_SetDayVals( 5, &TimeEnd, &TimeStart ) ;
 
 
 

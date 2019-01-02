@@ -23,8 +23,14 @@
 /*----------------------------------------------------------------------------*/
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
+
+#define CAL_HOUR_MAX       23
+#define CAL_MINUTES_MAX    59
+#define CAL_SECONDS_MAX    59
+
                                        /* maximum time value in second */
-#define CAL_TIMESEC_MAX    ( ( 23 * 60 * 60 ) + ( 59 * 60 ) + 59 )
+#define CAL_TIMESEC_MAX    ( ( CAL_HOUR_MAX * 60 * 60 ) + \
+                             ( CAL_MINUTES_MAX * 60 ) + CAL_SECONDS_MAX )
 
 
 /*----------------------------------------------------------------------------*/
@@ -64,8 +70,7 @@ void cal_Init( void )
 
                                        /* if read value are outside valid ranges or */
                                        /* starting time is after ending time */
-      if ( ( dwTimeSecStart > CAL_TIMESEC_MAX ) || ( dwTimeSecEnd > CAL_TIMESEC_MAX ) ||
-           ( dwTimeSecStart > dwTimeSecEnd ) )
+      if ( ( dwTimeSecStart > CAL_TIMESEC_MAX ) || ( dwTimeSecEnd > CAL_TIMESEC_MAX ) )
       {
          dwTimeSecStart = 0 ;          /* starting time is set to 0 (initial value) */
          dwTimeSecEnd = 0 ;            /* ending time is set to 0 (initial value) */
@@ -86,21 +91,17 @@ void cal_Init( void )
 
 BOOL cal_IsValid( s_Time C* i_pStartTime, s_Time C* i_pEndTime )
 {
-   DWORD dwStartValue ;
-   DWORD dwEndValue ;
    BOOL bValid ;
-                                       /* calulate starting time in second */
-   dwStartValue = cal_CalcCntFromStruct( i_pStartTime ) ;
-                                       /* calculate ending time in second */
-   dwEndValue = cal_CalcCntFromStruct( i_pEndTime ) ;
 
-   if ( dwStartValue <= dwEndValue )
+   if ( ( i_pStartTime->byHours > CAL_HOUR_MAX ) || ( i_pEndTime->byHours > CAL_HOUR_MAX ) ||
+        ( i_pStartTime->byMinutes > CAL_MINUTES_MAX ) || ( i_pEndTime->byMinutes > CAL_MINUTES_MAX ) ||
+        ( i_pStartTime->bySeconds > CAL_SECONDS_MAX ) || ( i_pEndTime->bySeconds > CAL_SECONDS_MAX ) )
    {
-      bValid = TRUE ;
+      bValid = FALSE ;
    }
    else
    {
-      bValid = FALSE ;
+      bValid = TRUE ;
    }
    return bValid ;
 }
@@ -125,8 +126,6 @@ void cal_SetDayVals( BYTE i_byWeekday, s_Time C* i_pStartTime, s_Time C* i_pEndT
                                        /* calculate ending time in second */
    dwEndValue = cal_CalcCntFromStruct( i_pEndTime ) ;
 
-                                       /* if end time is after start time */
-   ERR_FATAL_IF( dwStartValue > dwEndValue ) ;
                                        /* set starting time */
    l_adwTimeSecStart[i_byWeekday] = dwStartValue ;
                                        /* set ending time */
@@ -141,14 +140,30 @@ void cal_SetDayVals( BYTE i_byWeekday, s_Time C* i_pStartTime, s_Time C* i_pEndT
 
 /*----------------------------------------------------------------------------*/
 
-void cal_GetDayVals( BYTE i_byWeekday, s_Time * o_pStartTime, s_Time * o_pEndTime )
+void cal_GetDayVals( BYTE i_byWeekday, s_Time * o_pStartTime, s_Time * o_pEndTime,
+                                       DWORD * o_pdwCntStart, DWORD * o_pdwCntEnd )
 {
+   DWORD dwCntStart ;
+   DWORD dwCntEnd ;
+
                                        /* if week day outside limit */
    ERR_FATAL_IF( i_byWeekday >= NB_DAYS_WEEK ) ;
 
-   cal_CalcStructFromCnt( l_adwTimeSecStart[i_byWeekday], o_pStartTime ) ;
-   cal_CalcStructFromCnt( l_adwTimeSecEnd[i_byWeekday], o_pEndTime ) ;
+   dwCntStart = l_adwTimeSecStart[i_byWeekday] ;
+   dwCntEnd = l_adwTimeSecEnd[i_byWeekday] ;
 
+   cal_CalcStructFromCnt( dwCntStart, o_pStartTime ) ;
+   cal_CalcStructFromCnt( dwCntEnd, o_pEndTime ) ;
+
+   if ( o_pdwCntStart != NULL )
+   {
+      *o_pdwCntStart = dwCntStart ;
+   }
+
+   if ( o_pdwCntEnd != NULL )
+   {
+      *o_pdwCntEnd = dwCntEnd ;
+   }
 }
 
 
@@ -186,18 +201,27 @@ BOOL cal_IsChargeEnable( void )
                                        /* get ending time in second */
       dwTimeSecEnd = l_adwTimeSecEnd[byWeekday] ;
 
-                                       /* if end time is after start time */
-      ERR_FATAL_IF( dwTimeSecEnd < dwTimeSecStart ) ;
-
                                        /* starting time = ending time means */
                                        /* charge is discarded this day */
       if ( dwTimeSecEnd != dwTimeSecStart )
-      {                                /* if current time is between starting */
+      {
+         if ( dwTimeSecStart < dwTimeSecEnd )
+         {                             /* if current time is between starting */
                                        /* and ending time */
-         if ( ( dwTimeSecCurrent >= dwTimeSecStart ) &&
-              ( dwTimeSecCurrent < dwTimeSecEnd ) )
-         {
-            bRet = TRUE ;              /* charge is allowed */
+            if ( ( dwTimeSecCurrent >= dwTimeSecStart ) &&
+                 ( dwTimeSecCurrent < dwTimeSecEnd ) )
+            {
+               bRet = TRUE ;              /* charge is allowed */
+            }
+         }
+         else
+         {                                /* if current time is outside starting */
+                                          /* and ending time */
+            if ( ( dwTimeSecCurrent >= dwTimeSecStart ) ||
+                 ( dwTimeSecCurrent < dwTimeSecEnd ) )
+            {
+               bRet = TRUE ;              /* charge is allowed */
+            }
          }
       }
    }
@@ -229,9 +253,9 @@ static DWORD cal_CalcCntFromStruct( s_Time const * i_psTime )
    byMinutes = i_psTime->byMinutes ;   /* get minute */
    bySeconds = i_psTime->bySeconds ;   /* get second */
 
-   ERR_FATAL_IF( byHours > 23 ) ;
-   ERR_FATAL_IF( byMinutes > 59 ) ;
-   ERR_FATAL_IF( bySeconds > 59 ) ;
+   ERR_FATAL_IF( byHours > CAL_HOUR_MAX ) ;
+   ERR_FATAL_IF( byMinutes > CAL_MINUTES_MAX ) ;
+   ERR_FATAL_IF( bySeconds > CAL_SECONDS_MAX ) ;
                                        /* return second value for this time */
    return ( ( byHours * 60 * 60 ) + ( byMinutes * 60 ) + bySeconds ) ;
 }
@@ -256,9 +280,9 @@ static void cal_CalcStructFromCnt( DWORD i_dwTimeSec, s_Time * o_pTime )
 
    byHours = dwTimeSec ;
 
-   ERR_FATAL_IF( byHours > 23 ) ;
-   ERR_FATAL_IF( byMinutes > 59 ) ;
-   ERR_FATAL_IF( bySeconds > 59 ) ;
+   ERR_FATAL_IF( byHours > CAL_HOUR_MAX ) ;
+   ERR_FATAL_IF( byMinutes > CAL_MINUTES_MAX ) ;
+   ERR_FATAL_IF( bySeconds > CAL_SECONDS_MAX ) ;
 
    o_pTime->byHours = byHours ;
    o_pTime->byMinutes = byMinutes ;
