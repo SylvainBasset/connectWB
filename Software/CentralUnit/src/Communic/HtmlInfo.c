@@ -15,12 +15,13 @@
 
 
 
-static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_byOutSize ) ;
-static void html_ProcessSsiCalendar( DWORD i_dwParam2, char * o_pszOut, WORD i_byOutSize ) ;
+static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize ) ;
+static void html_ProcessSsiCalendar( DWORD i_dwParam2, char * o_pszOut, WORD i_wStrSize ) ;
 
 static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue ) ;
 
+static CHAR * html_AddToStr( CHAR * o_pszString, WORD * io_pwStrSize, CHAR C* i_szStrToAdd ) ;
 
 /*----------------------------------------------------------------------------*/
 
@@ -34,7 +35,7 @@ void html_Init( void )
 
 /*----------------------------------------------------------------------------*/
 
-static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_byOutSize )
+static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize )
 {
    switch ( i_dwParam1 )
    {
@@ -43,7 +44,7 @@ static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOut
          break ;
 
       case HTML_PAGE_CALENDAR :
-         html_ProcessSsiCalendar( i_dwParam2, o_pszOutput, i_byOutSize ) ;
+         html_ProcessSsiCalendar( i_dwParam2, o_pszOutput, i_wStrSize ) ;
          break ;
 
       case HTML_PAGE_WIFI :
@@ -60,7 +61,7 @@ static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOut
 /*----------------------------------------------------------------------------*/
 
 static void html_ProcessSsiCalendar( DWORD i_dwParam2,
-                                     char * o_pszOutput, WORD i_byOutSize )
+                                     char * o_pszOutput, WORD i_wStrSize )
 {
    s_DateTime DateTime ;
    BYTE byWeekday ;
@@ -68,104 +69,68 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
    s_Time EndTime ;
    DWORD dwStartTimeCnt ;
    DWORD dwEndTimeCnt ;
-
-   clk_GetDateTime( &DateTime, &byWeekday ) ;
+   WORD wStrSize ;
+   CHAR * pszOutput ;
+   CHAR szResFormat[16] ;
 
    switch ( i_dwParam2 )
    {
-      case HTML_CALENDAR_SSI_WEEKDAY :
+      case HTML_CALENDAR_SSI_DATETIME :
+         wStrSize = i_wStrSize ;
+         pszOutput = o_pszOutput ;
+         *pszOutput = 0 ;
+
+         clk_GetDateTime( &DateTime, &byWeekday ) ;
+
          switch ( byWeekday )
          {
-            case 0 :
-               strncpy( o_pszOutput, "Lundi", i_byOutSize ) ;
-               break ;
-            case 1 :
-               strncpy( o_pszOutput, "Mardi", i_byOutSize ) ;
-               break ;
-            case 2 :
-               strncpy( o_pszOutput, "Mercredi", i_byOutSize ) ;
-               break ;
-            case 3 :
-               strncpy( o_pszOutput, "Jeudi", i_byOutSize ) ;
-               break ;
-            case 4 :
-               strncpy( o_pszOutput, "Vendredi", i_byOutSize ) ;
-               break ;
-            case 5 :
-               strncpy( o_pszOutput, "Samedi", i_byOutSize ) ;
-               break ;
-            case 6 :
-               strncpy( o_pszOutput, "Dimanche", i_byOutSize ) ;
-               break ;
-            default :
-               strncpy( o_pszOutput, "---", i_byOutSize ) ;
-               break ;
+            case 0 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Lundi" ) ;    break ;
+            case 1 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Mardi" ) ;    break ;
+            case 2 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Mercredi" ) ; break ;
+            case 3 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Jeudi" ) ;    break ;
+            case 4 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Vendredi" ) ; break ;
+            case 5 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Samedi" ) ;   break ;
+            case 6 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Dimanche" ) ; break ;
+            default : pszOutput = html_AddToStr( pszOutput, &wStrSize, "---" ) ;      break ;
          }
-         break ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, " " ) ;
 
-      case HTML_CALENDAR_SSI_DAY :
-         snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.byDays ) ;
-         break ;
+         snprintf( szResFormat, sizeof(szResFormat), "%02u", DateTime.byDays ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, szResFormat ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, " " ) ;
 
-      case HTML_CALENDAR_SSI_MONTH :
          switch ( DateTime.byMonth )
          {
-            case 1 :
-               strncpy( o_pszOutput, "Janvier", i_byOutSize ) ;
-               break ;
-            case 2 :
-               strncpy( o_pszOutput, "F&eacute;vrier", i_byOutSize ) ;
-               break ;
-            case 3 :
-               strncpy( o_pszOutput, "Mars", i_byOutSize ) ;
-               break ;
-            case 4 :
-               strncpy( o_pszOutput, "Avril", i_byOutSize ) ;
-               break ;
-            case 5 :
-               strncpy( o_pszOutput, "Mai", i_byOutSize ) ;
-               break ;
-            case 6 :
-               strncpy( o_pszOutput, "Juin", i_byOutSize ) ;
-               break ;
-            case 7 :
-               strncpy( o_pszOutput, "Juillet", i_byOutSize ) ;
-               break ;
-            case 8 :
-               strncpy( o_pszOutput, "Ao&ucirc;t", i_byOutSize ) ;
-               break ;
-            case 9 :
-               strncpy( o_pszOutput, "Septembre", i_byOutSize ) ;
-               break ;
-            case 10 :
-               strncpy( o_pszOutput, "Octobre", i_byOutSize ) ;
-               break ;
-            case 11 :
-               strncpy( o_pszOutput, "Novembre", i_byOutSize ) ;
-               break ;
-            case 12 :
-               strncpy( o_pszOutput, "D&eacute;cembre", i_byOutSize ) ;
-               break ;
-            default :
-               strncpy( o_pszOutput, "---", i_byOutSize ) ;
-               break ;
+            case 1 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Janvier" ) ;         break ;
+            case 2 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "F&eacute;vrier" ) ;  break ;
+            case 3 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Mars" ) ;            break ;
+            case 4 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Avril" ) ;           break ;
+            case 5 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Mai" ) ;             break ;
+            case 6 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Juin" ) ;            break ;
+            case 7 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Juillet" ) ;         break ;
+            case 8 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Ao&ucirc;t" ) ;      break ;
+            case 9 :  pszOutput = html_AddToStr( pszOutput, &wStrSize, "Septembre" ) ;       break ;
+            case 10 : pszOutput = html_AddToStr( pszOutput, &wStrSize, "Octobre" ) ;         break ;
+            case 11 : pszOutput = html_AddToStr( pszOutput, &wStrSize, "Novembre" ) ;        break ;
+            case 12 : pszOutput = html_AddToStr( pszOutput, &wStrSize, "D&eacute;cembre" ) ; break ;
+            default : pszOutput = html_AddToStr( pszOutput, &wStrSize, "---" ) ;             break ;
          }
-         break ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, " " ) ;
 
-      case HTML_CALENDAR_SSI_YEAR :
-         snprintf( o_pszOutput, i_byOutSize, "%04u", ((WORD)DateTime.byYear + 2000 ) ) ;
-         break ;
+         snprintf( szResFormat, sizeof(szResFormat), "%04u", ((WORD)DateTime.byYear + 2000 ) ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, szResFormat ) ;
 
-      case HTML_CALENDAR_SSI_HOURS :
-         snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.byHours ) ;
-         break ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, "&nbsp;&nbsp;&nbsp;" ) ;
 
-      case HTML_CALENDAR_SSI_MINUTES :
-         snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.byMinutes ) ;
-         break ;
+         snprintf( szResFormat, sizeof(szResFormat), "%02u", DateTime.byHours ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, szResFormat ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, ":" ) ;
+         snprintf( szResFormat, sizeof(szResFormat), "%02u", DateTime.byMinutes ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, szResFormat ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, ":" ) ;
+         snprintf( szResFormat, sizeof(szResFormat), "%02u", DateTime.bySeconds ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, szResFormat ) ;
 
-      case HTML_CALENDAR_SSI_SECONDS :
-         snprintf( o_pszOutput, i_byOutSize, "%02u", DateTime.bySeconds ) ;
          break ;
 
 
@@ -176,12 +141,12 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
       case HTML_CALENDAR_SSI_CAL_FRIDAY :
       case HTML_CALENDAR_SSI_CAL_SATURDAY :
       case HTML_CALENDAR_SSI_CAL_SUNDAY :
-         byWeekday = i_dwParam2 - 7 ;
+         byWeekday = i_dwParam2 - HTML_CALENDAR_SSI_CAL_MONDAY ;
          cal_GetDayVals( byWeekday, &StartTime, &EndTime, &dwStartTimeCnt, &dwEndTimeCnt ) ;
 
          if ( dwStartTimeCnt < dwEndTimeCnt )
          {
-            snprintf( o_pszOutput, i_byOutSize,
+            snprintf( o_pszOutput, i_wStrSize,
                       "<TD>de <b>%02u:%02u</b></TD><TD>&agrave; <b>%02u:%02u</b></TD>",
                       StartTime.byHours, StartTime.byMinutes,
                       EndTime.byHours, EndTime.byMinutes ) ;
@@ -190,13 +155,13 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
          {
             if ( dwEndTimeCnt == 0 )
             {
-               snprintf( o_pszOutput, i_byOutSize,
+               snprintf( o_pszOutput, i_wStrSize,
                          "<TD>de <b>%02u:%02u</b></TD><TD>&agrave; <b>minuit</b></TD>",
                          StartTime.byHours, StartTime.byMinutes ) ;
             }
             else
             {
-               snprintf( o_pszOutput, i_byOutSize,
+               snprintf( o_pszOutput, i_wStrSize,
                          "<TD>de <b>minuit</b></TD><TD>&agrave; <b>%02u:%02u</b></TD>" \
                          "<TD>et de <b>%02u:%02u</b></TD><TD>&agrave; <b>minuit</b></TD>",
                          EndTime.byHours, EndTime.byMinutes,
@@ -205,12 +170,12 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
          }
          else
          {
-            strncpy( o_pszOutput, "<TD><b>Off</b></TD>", i_byOutSize ) ;
+            strncpy( o_pszOutput, "<TD><b>Off</b></TD>", i_wStrSize ) ;
          }
          break ;
 
       default :
-          strncpy( o_pszOutput, "---", i_byOutSize ) ;
+          strncpy( o_pszOutput, "---", i_wStrSize ) ;
           break ;
    }
 }
@@ -321,4 +286,29 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
       default :
          break ;
    }
+}
+
+
+/*============================================================================*/
+
+/*----------------------------------------------------------------------------*/
+
+static CHAR * html_AddToStr( CHAR * o_pszString, WORD * io_pwStrSize, CHAR C* i_szStrToAdd )
+{
+   CHAR * pszEnd ;
+   BYTE byLenToAdd ;
+
+   byLenToAdd = strlen(i_szStrToAdd) ;
+   pszEnd = o_pszString ;
+
+   if ( *io_pwStrSize > byLenToAdd )
+   {
+      strncpy( o_pszString, i_szStrToAdd, *io_pwStrSize ) ;
+
+      *io_pwStrSize -= strlen(i_szStrToAdd) ;
+
+      pszEnd += strlen(i_szStrToAdd) ;
+   }
+
+   return pszEnd ;
 }

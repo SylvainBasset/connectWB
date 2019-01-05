@@ -914,7 +914,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
    CHAR C* pszChar ;
    DWORD dwValParam1 ;
    DWORD dwValParam2 ;
-   char szOutput [256] ;
+   char szOutput [512] ;
    WORD wSize ;
    DWORD dwTmpSend ;
 

@@ -102,10 +102,7 @@
    <p>Date/heure courante:
       <br><br>
       <b>
-         &nbsp;&nbsp;
-         <!--#input:1:0--> <!--#input:1:1--> <!--#input:1:2--> <!--#input:1:3-->
-         &nbsp;&nbsp;
-         <!--#input:1:4-->:<!--#input:1:5-->:<!--#input:1:6-->
+         &nbsp;&nbsp;<!--#input:1:0-->
       </b>
    </p>
    <br>
@@ -199,13 +196,13 @@
    <p>Plages horaire de charge:</p>
 
    <TABLE BORDER="0">
-      <TR><TD> Lundi: </TD><!--#input:1:7--></TR>
-      <TR><TD> Mardi:</TD><!--#input:1:8--></TR>
-      <TR><TD> Mercredi:</TD><!--#input:1:9--></TR>
-      <TR><TD> Jeudi:</TD><!--#input:1:10--></TR>
-      <TR><TD> Vendredi:</TD><!--#input:1:11--></TR>
-      <TR><TD> Samedi:</TD><!--#input:1:12--></TR>
-      <TR><TD> Dimanche:</TD><!--#input:1:13--></TR>
+      <TR><TD> Lundi: </TD><!--#input:1:1--></TR>
+      <TR><TD> Mardi:</TD><!--#input:1:2--></TR>
+      <TR><TD> Mercredi:</TD><!--#input:1:3--></TR>
+      <TR><TD> Jeudi:</TD><!--#input:1:4--></TR>
+      <TR><TD> Vendredi:</TD><!--#input:1:5--></TR>
+      <TR><TD> Samedi:</TD><!--#input:1:6--></TR>
+      <TR><TD> Dimanche:</TD><!--#input:1:7--></TR>
    </TABLE>
    <br>
    Nouveau r&eacute;glage:
