@@ -1,42 +1,115 @@
 <!DOCTYPE html>
 <html>
-<head>
-<title>WallyBox</title>
+   <head>
+   </head>
+   <title>WallyBox</title>
+
+   <script src="/jQuery.min.js"></script>
+
+   <script>
+   let cgi = "output.cgi?text=+CGI:1:"
+   let suffix = "&submit=Submit"
+   var Str
+
+   function sleep(milliseconds) {
+     var start = new Date().getTime();
+     for (var i = 0; i < 1e7; i++) {
+       if ((new Date().getTime() - start) > milliseconds){
+         break;
+       }
+     }
+   }
+
+   function Send_DateTime()
+   {
+      let ElemDay = document.getElementById("day");
+      let ElemMonth = document.getElementById("month");
+      let ElemYear = document.getElementById("year");
+      let ElemHour = document.getElementById("hour");
+      let ElemMin = document.getElementById("min");
+
+      Str = cgi + "0" + ":" + ElemDay.value + "," + ElemMonth.value + "," +
+            + ElemYear.value + "," + ElemHour.value + "," + ElemMin.value + suffix
+
+      $.get(Str);
+      sleep(500)
+      window.location.reload(true);
+   }
+
+   function Send_Calendar()
+   {
+      let ElemDay = document.getElementById("CalDay");
+      let ElemHourStart = document.getElementById("CalHourStart");
+      let ElemMinStart = document.getElementById("CalMinStart");
+      let ElemHourEnd = document.getElementById("CalHourEnd");
+      let ElemMinEnd = document.getElementById("CalMinEnd");
+
+      Str = cgi + "1" + ":" + ElemDay.value + "," +
+            ElemHourStart.value + "," + ElemMinStart.value + "," +
+            ElemHourEnd.value   + "," + ElemMinEnd.value + suffix
+
+      $.get(Str);
+      sleep(500)
+      window.location.reload(true);
+   }
+   </script>
+
+   <style>
+      .maligne {
+      margin-top: 15px;
+      border-top: solid 3px #0000ff;
+      width:100%;
+      }
+
+      .marge {
+      margin-left: 3em;
+      }
+      #tabs ul li
+      {
+          display:inline-block;
+          float:left;
+          height:32px;
+          min-width:120px;
+          text-align:center;
+          line-height: 30px;
+          padding:0 16px 0 16px;
+          margin: 1px 0px 0px 0px;
+          border: 1px solid gray;
+          border-top-left-radius: 6px;
+          border-top-right-radius: 6px;
+          background:#C0C0F0;
+      }
+   </style>
 
 
-<style>
-.maligne
-{
-margin-top:-20px;
-border-top: solid 4px #0000ff;
-width:100%;
-}
-</style>
+   <body bgcolor="#eeeeee">
+   <div style="text-align: center;">
 
+   <span style="color: #073763; font-size: xx-large; text-align: center;"><b>WallyBox</b></span><br>
+   <div style="text-align: left;">
+   <p>
+   <div id="tabs">
+       <ul>
+           <a href="index.shtml"><b><li>STATUS</li></b></a>
+           <a href="calendar.shtml"><li>CALENDRIER</li></a>
+           <a href="wifi.shtml"><li>WIFI</li></a>
+       </ul>
+   </div>
+   <br>
+   <div class="maligne"/></div>
+   <br><br>
 
-
-<body bgcolor="#eeeeee">
-<div style="text-align: center;">
-
-<span style="color: #073763; font-size: xx-large; text-align: center;"><b>WallyBox</b></span><br>
-<div style="text-align: left;">
-<p>
-<img src="ImgStatusSel.png"/>
-<a href="calendar.shtml"><img src="ImgCal.png"/></a>
-<a href="wifi.shtml"><img src="ImgWifi.png"/></a>
-<div class="maligne" /></div>
-<p>
-
-<p>Input from Host:  <!--#input:1:0--></p>
-
-<p>Input from Host2:  <!--#input:1:1--></p>
-
-
-   <p><form name="CGI Example" method="POST" action="output.cgi" >
-   <input type="text" name="text" size="40" maxlength="40">&nbsp;
-      <input type="submit" name="submit" value="Submit" >
-     </form>
+   <p>Date/heure courante:
+      <br><br>
+      <b>
+         &nbsp;&nbsp;
+         <!--#input:1:0--> <!--#input:1:1--> <!--#input:1:2--> <!--#input:1:3-->
+         &nbsp;&nbsp;
+         <!--#input:1:4-->:<!--#input:1:5-->:<!--#input:1:6-->
+      </b>
    </p>
+   <br>
 
-</body>
+
+   </body>
 </html>

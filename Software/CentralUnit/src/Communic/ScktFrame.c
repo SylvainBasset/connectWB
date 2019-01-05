@@ -13,6 +13,11 @@
 #include "System.h"
 #include "Main.h"
 
+
+/*----------------------------------------------------------------------------*/
+
+#define SFRM_DATA_ITEM_SIZE    100 //SBA voir si augementation
+
 typedef enum
 {
    SFRM_ID_NULL = 0,
@@ -105,11 +110,10 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
       }
       sfrm_ExecCmd( l_eFrmId, pszArg ) ;
 
-      if ( pFrmDesc->bExtCmd )
-      {
-         cwifi_AddExtData( "at+s." ) ;
-      }
-      else
+      cwifi_AddExtData( "at+s." ) ;
+      cwifi_AskFlushData() ;
+
+      if ( !pFrmDesc->bExtCmd )
       {
          l_eFrmId = SFRM_ID_NULL ;
       }
@@ -239,6 +243,7 @@ static void sfrm_ProcessResExt( char C* i_szStrFrm, BOOL i_bLastCall )
       if ( i_bLastCall )
       {
          cwifi_AddExtData( "at+s." ) ;
+         cwifi_AskFlushData() ;
          l_eFrmId = SFRM_ID_NULL ;
       }
    }
@@ -249,7 +254,7 @@ static void sfrm_ProcessResExt( char C* i_szStrFrm, BOOL i_bLastCall )
 static void sfrm_SendRes( char C* i_szParam )
 {
    s_FrameDesc C* pFrmDesc ;
-   char szRes [COEVSE_DATA_ITEM_SIZE] ;
+   char szRes [SFRM_DATA_ITEM_SIZE] ;
    char * pszRes ;
    BYTE byResSize ;
 

@@ -8,17 +8,28 @@
 import getpass
 from WallySocket import cSocketWB
 import socket
-
-
+import time
 #---------------------------------------------------------------------------#
 def SendAndCheck( SockWB, StrCmd, Check = True ):
 
    SockWB.Send( StrCmd )
+
    if Check :
-      Rec = SockWB.Receive( 1000 ).lower()
-      print Rec
-      if "err" in Rec:
-         raise ValueError( "setting error" )
+      Error = False
+      buf = ""
+      while( True ) :
+         buf =  buf + SockWB.Receive(60)
+         if ":OK" in buf :
+            break
+         if ":ERR" in buf :
+            Error = True
+            break ;
+
+      for Line in buf.splitlines() :
+         print Line
+
+      if Error :
+         raise ValueError( "command error" )
 
 
 #---------------------------------------------------------------------------#
@@ -29,9 +40,11 @@ if __name__ == "__main__" :
 
    Ip = SockWB.GetLocalIp()
 
-   Cmd = "$01:AT+S.HTTPDFSUPDATE=%s,/outfile.img"%Ip
+   Cmd = "$01:AT+S.HTTPDFSUPDATE=%s,/outfile.img\r\n"%Ip
 
    SendAndCheck( SockWB, Cmd)
-   SendAndCheck( SockWB, "$04:", False)                  # ask for restart,
 
+   print "Restart"
+   SendAndCheck( SockWB, "$04:\r\n", False)                  # ask for restart,
+   time.sleep(1)
    SockWB.Close()

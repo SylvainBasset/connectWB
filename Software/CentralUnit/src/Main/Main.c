@@ -47,19 +47,19 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
    .Speed = GPIO_SPEED_FAST,
 } ;
 
-#define TASK_PER_LOOP   100                        //SBA: doit �tre multiple de toutes les periodes
+#define TASK_PER_LOOP  1000                        //SBA: doit �tre multiple de toutes les periodes
 
-#define CLK_TASK_PER    100
-#define CLK_TASK_ORDER    0
+#define CLK_TASK_PER     1000//
+#define CLK_TASK_ORDER      0
 
-#define CSTATE_TASK_PER    1
-#define CSTATE_TASK_ORDER  0
+#define CSTATE_TASK_PER    10
+#define CSTATE_TASK_ORDER   0
 
-#define CWIFI_TASK_PER    1
-#define CWIFI_TASK_ORDER  0
+#define CWIFI_TASK_PER      1
+#define CWIFI_TASK_ORDER    0
 
-#define COEVSE_TASK_PER    1
-#define COEVSE_TASK_ORDER  0
+#define COEVSE_TASK_PER    10
+#define COEVSE_TASK_ORDER   0
 
 #define TASK_CALL( prefixlow, prefixup )                                         \
    if ( ( byTaskPerCnt % prefixup##_TASK_PER ) == prefixup##_TASK_ORDER )    \
@@ -165,7 +165,7 @@ int main( void )
       TASK_CALL( coevse, COEVSE ) ;
 
       tim_StartMsTmp( &dwTaskTmp ) ;
-      while ( ! tim_IsEndMsTmp( &dwTaskTmp, 10 ) ) ;
+      while ( ! tim_IsEndMsTmp( &dwTaskTmp, 1 ) ) ;
 
       byTaskPerCnt = ( byTaskPerCnt + 1 ) % TASK_PER_LOOP ;
    }

@@ -24,8 +24,8 @@
 #define CWIFI_RESET_DURATION     200         /* wifi module reset duration (ms) */
 #define CWIFI_PWRUP_DURATION       1         /* duration to wait after reset release (ms) */
 
-#define CWIFI_CMD_TIMEOUT      10000         /* ms */
-#define CWIFI_DATAMODE_TIMEOUT   800         /* ms */
+#define CWIFI_CMD_TIMEOUT      30000         /* ms */
+#define CWIFI_DATAMODE_TIMEOUT 30000         /* ms */
 
 #define CWIFI_WIND_PREFIX       "+WIND:"
 #define CWIFI_CGI_PREFIX        "+CGI:"
@@ -175,19 +175,15 @@ typedef struct
    s_CmdItem aCmdItems [10] ;
 } s_CmdFifo ;
 
+#define CWIFI_DATABUF_SIZE  512
 
 typedef struct
 {
-   char szStrData [COEVSE_DATA_ITEM_SIZE] ;
-} s_DataItem ;
-
-typedef struct
-{
-   BOOL bSuspend ;
-   BYTE byIdxIn ;
-   BYTE byIdxOut ;
-   s_DataItem aDataItems [16] ;
-} s_DataFifo ;
+   BOOL bAskFlush ;
+   BOOL bPendingFlush ;
+   DWORD dwNbChar ;
+   CHAR sDataBuf [CWIFI_DATABUF_SIZE] ;
+} s_DataBuf ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -201,7 +197,7 @@ static RESULT cwifi_FmtAddCmdFifo( e_CmdId i_eCmdId, char C* i_szArg1,
 static RESULT cwifi_AddCmdFifo( e_CmdId i_eCmdId, char C* i_szStrCmd ) ;
 static void cwifi_ExecSendCmd( void ) ;
 
-static RESULT cwifi_AddDataFifo( char C* i_szStrData ) ;
+static RESULT cwifi_AddDataBuffer( char C* i_szStrData ) ;
 static void cwifi_ExecSendData( void ) ;
 
 static void cwifi_ProcessRec( void ) ;
@@ -226,7 +222,9 @@ static DWORD l_dwTmpDataMode ;
 static DWORD l_dwTmpIsAlive ;
 static BOOL l_bMaintMode ;
 static BOOL l_bConfigDone ;
-static BOOL l_bPendingData ;
+static BOOL l_bCmdToDataInFifo ;
+
+static BOOL l_bInhPendingData ;
 
 static f_ScktGetFrame l_fScktGetFrame ;
 static f_ScktGetResExt l_fScktGetResExt ;
@@ -235,7 +233,7 @@ static f_htmlSsi l_fHtmlSsi ;
 static f_htmlCgi l_fHtmlCgi ;
 
 static s_CmdFifo l_CmdFifo ;
-static s_DataFifo l_DataFifo ;
+static s_DataBuf l_DataBuf ;
 
 
 
@@ -327,7 +325,13 @@ void cwifi_AddExtCmd( char C* i_szStrCmd )
 /*----------------------------------------------------------------------------*/
 void cwifi_AddExtData( char C* i_szStrCmd )
 {
-   cwifi_AddDataFifo( i_szStrCmd ) ;
+   cwifi_AddDataBuffer( i_szStrCmd ) ;
+}
+
+
+void cwifi_AskFlushData( void )
+{
+   l_DataBuf.bAskFlush = TRUE ;
 }
 
 
@@ -364,31 +368,48 @@ void cwifi_TaskCyc( void )
    {
       if ( tim_IsEndMsTmp( &l_dwTmpDataMode, CWIFI_DATAMODE_TIMEOUT ) )
       {
-         cwifi_AddDataFifo( "at+s." ) ;
+         cwifi_AddDataBuffer( "at+s." ) ;
+         l_DataBuf.bAskFlush = TRUE ;
       }
    }
 
-   if ( l_bDataMode )
+
+   if ( l_DataBuf.bPendingFlush )
    {
-      cwifi_ExecSendData() ;
+      if ( uWifi_IsSendDone() )
+      {
+         l_DataBuf.bAskFlush = FALSE ;
+         l_DataBuf.bPendingFlush = FALSE ;
+         l_DataBuf.dwNbChar = 0 ;
+         memset( &l_DataBuf.sDataBuf, 0, sizeof(l_DataBuf.sDataBuf) ) ;
+      }
    }
    else
    {
-      if ( l_bSocketConnected )
+      if ( l_bDataMode )
       {
-         if ( ( l_CmdFifo.byIdxIn == l_CmdFifo.byIdxOut ) &&
-              ( l_DataFifo.byIdxIn != l_DataFifo.byIdxOut ) )
-         {
-            cwifi_FmtAddCmdFifo( CWIFI_CMD_CMDTODATA, "", "" ) ;
-         }
+         cwifi_ExecSendData() ;
+         l_bCmdToDataInFifo = FALSE ;
       }
       else
       {
-         l_DataFifo.byIdxIn = 0 ;
-         l_DataFifo.byIdxOut = 0 ;
+         if ( l_bSocketConnected )
+         {
+            if ( ( l_DataBuf.bAskFlush ) && ( ! l_bCmdToDataInFifo ) &&
+                 ( l_CmdFifo.byIdxIn == l_CmdFifo.byIdxOut ) )
+            {
+               cwifi_FmtAddCmdFifo( CWIFI_CMD_CMDTODATA, "", "" ) ;
+               l_bCmdToDataInFifo = TRUE ;
+            }
+         }
+         else
+         {
+            l_bCmdToDataInFifo = FALSE ;
+         }
+         cwifi_ExecSendCmd() ;
       }
-      cwifi_ExecSendCmd() ;
    }
+
 }
 
 /*============================================================================*/
@@ -577,31 +598,36 @@ static void cwifi_ExecSendCmd( void )
 
 /*----------------------------------------------------------------------------*/
 
-static RESULT cwifi_AddDataFifo( char C* i_szStrData )
+static RESULT cwifi_AddDataBuffer( char C* i_szStrData )
 {
-   BYTE byCurIdxIn ;
-   BYTE byNextIdxIn ;
-   s_DataItem * pDataItem ;
+   WORD wBufSeparator ;
+   CHAR C* pszChar ;
    RESULT rRet ;
 
-   rRet = OK ;
+   rRet = ERR ;
 
-   byCurIdxIn = l_DataFifo.byIdxIn ;
+   if ( ! l_DataBuf.bPendingFlush )
+   {
+      wBufSeparator = l_DataBuf.dwNbChar % sizeof(l_DataBuf.sDataBuf) ;
+      pszChar = i_szStrData ;
 
-   byNextIdxIn = NEXTIDX( byCurIdxIn, l_DataFifo.aDataItems ) ;
+      while( *pszChar != 0 )
+      {
+         l_DataBuf.sDataBuf[wBufSeparator] = *pszChar ;
+         wBufSeparator = ( ( wBufSeparator + 1 ) % sizeof(l_DataBuf.sDataBuf) ) ;
+         pszChar++ ;
+         l_DataBuf.dwNbChar++ ;
+      }
 
-   if ( byNextIdxIn == l_DataFifo.byIdxOut )
-   {                                   // last element is lost
-      l_DataFifo.byIdxOut = NEXTIDX( l_DataFifo.byIdxOut, l_DataFifo.aDataItems ) ;
-      rRet = ERR ;
+      if ( l_DataBuf.dwNbChar > sizeof(l_DataBuf.sDataBuf) )
+      {
+         rRet = OK ;
+      }
    }
-
-   pDataItem = &l_DataFifo.aDataItems[byCurIdxIn] ;
-   strncpy( pDataItem->szStrData, i_szStrData, sizeof(pDataItem->szStrData) ) ; //SBA on recopie trop
-   l_DataFifo.byIdxIn = byNextIdxIn ;
 
    return rRet ;
 }
+
 
 
 /*----------------------------------------------------------------------------*/
@@ -610,32 +636,58 @@ static RESULT cwifi_AddDataFifo( char C* i_szStrData )
 
 static void cwifi_ExecSendData( void )
 {
-   BYTE byIdxOut ;
-   s_DataItem * pDataItem ;
+   WORD wBufSize ;
    BOOL bUartAccept ;
-   char * szStrData ;
+   WORD wBufSeparator ;
+   WORD wIdx1 ;
+   WORD wIdx2 ;
+   char sInterBuf[CWIFI_DATABUF_SIZE/2] ;
+   char * sDataBuf ;
 
-   byIdxOut = l_DataFifo.byIdxOut ;
-
-   if ( ( l_eWifiState != CWIFI_STATE_OFF ) && ( byIdxOut != l_DataFifo.byIdxIn ) &&
-         ( ! l_DataFifo.bSuspend ) && uWifi_IsSendDone() )
+   if ( ( l_eWifiState != CWIFI_STATE_OFF ) && ( l_DataBuf.bAskFlush ) &&
+        ( l_DataBuf.dwNbChar != 0 ) && uWifi_IsSendDone() )
    {
-      pDataItem = &l_DataFifo.aDataItems[byIdxOut] ;
+      sDataBuf = l_DataBuf.sDataBuf ;
+      wBufSize = sizeof( l_DataBuf.sDataBuf ) ;
 
-      szStrData = pDataItem->szStrData ;
 
-      if ( ( szStrData[0] == 'a' ) && ( szStrData[1] == 't' ) &&
-           ( szStrData[2] == '+' ) && ( szStrData[3] == 's' ) && ( szStrData[4] == '.' ) )
+      if ( l_DataBuf.dwNbChar <= wBufSize )
       {
-         l_DataFifo.bSuspend = TRUE ;
+         bUartAccept = uwifi_Send( sDataBuf, l_DataBuf.dwNbChar ) ;
+         ERR_FATAL_IF( ! bUartAccept ) ;
+      }
+      else
+      {
+         wBufSeparator = l_DataBuf.dwNbChar % wBufSize ;
+         if ( wBufSeparator > 512 )
+         {
+            memcpy( sInterBuf, &sDataBuf[wBufSeparator], ( wBufSize - wBufSeparator ) ) ;
+            wIdx2 = wBufSize - 1 ;
+            for ( wIdx1 = wBufSeparator - 1 ; wIdx1 != 0 ; wIdx1-- )
+            {
+               sDataBuf[wIdx2] = sDataBuf[wIdx1] ;
+               wIdx2-- ;
+            }
+            sDataBuf[wIdx2] = sDataBuf[wIdx1] ;
+            memcpy( &sDataBuf[0], sInterBuf, ( wBufSize - wBufSeparator ) ) ;
+         }
+         else
+         {
+            memcpy( sInterBuf, &sDataBuf[0], wBufSeparator ) ;
+            wIdx2 = 0 ;
+            for ( wIdx1 = wBufSeparator ; wIdx1 < wBufSize ; wIdx1++ )
+            {
+               sDataBuf[wIdx2] = sDataBuf[wIdx1] ;
+               wIdx2++ ;
+            }
+            memcpy( &sDataBuf[(wBufSize - wBufSeparator)], sInterBuf, wBufSeparator ) ;
+         }
+
+         bUartAccept = uwifi_Send( sDataBuf, wBufSize ) ;
+         ERR_FATAL_IF( ! bUartAccept ) ;
       }
 
-      bUartAccept = uwifi_Send( pDataItem->szStrData, strlen(pDataItem->szStrData) ) ; //vérifier zéro fin de chaine
-      ERR_FATAL_IF( ! bUartAccept ) ;
-
-      byIdxOut = NEXTIDX( byIdxOut, l_DataFifo.aDataItems )  ;
-      l_DataFifo.byIdxOut = byIdxOut ;
-
+      l_DataBuf.bPendingFlush = TRUE ;
       tim_StartMsTmp( &l_dwTmpDataMode ) ; // red�marrage tempo
    }
 }
@@ -650,20 +702,22 @@ static void cwifi_ProcessRec( void )
    BYTE abyReadData[512] ;
    WORD wNbReadVal ;
    BYTE * pbyProcessData ;
+   BOOL bPendingData ;
 
+   bPendingData = FALSE ;
    wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), FALSE ) ;
 
    if ( wNbReadVal == 0 )
    {
-      if ( ! l_bPendingData )
+      if ( ! l_bInhPendingData )
       {                                /* lecture temporaire données avant CR/LF final */
          wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), TRUE ) ;
-         l_bPendingData = TRUE ;
+         bPendingData = TRUE ;
       }
    }
    else
    {
-      l_bPendingData = FALSE ;
+      l_bInhPendingData = FALSE ;
    }
 
    while ( wNbReadVal != 0 )
@@ -673,17 +727,17 @@ static void cwifi_ProcessRec( void )
          if ( strncmp( (char*)abyReadData, CWIFI_WIND_PREFIX, strlen(CWIFI_WIND_PREFIX) ) == 0 )
          {
             pbyProcessData = &abyReadData[sizeof(CWIFI_WIND_PREFIX)-1] ;
-            cwifi_ProcessRecWind( (char*)pbyProcessData, l_bPendingData ) ;
+            cwifi_ProcessRecWind( (char*)pbyProcessData, bPendingData ) ;
          }
-         else if ( strncmp( (char*)abyReadData, CWIFI_CGI_PREFIX, strlen(CWIFI_CGI_PREFIX) ) == 0 )
+         else if ( ! bPendingData )
          {
-            pbyProcessData = &abyReadData[sizeof(CWIFI_CGI_PREFIX)-1] ;
-            cwifi_ProcessRecCgi( (char*)pbyProcessData ) ;
-         }
-         else if ( ! l_bPendingData )
-         {
-            if ( l_bDataMode && ( l_eWifiState == CWIFI_STATE_CONNECTED ) &&
-                 l_bSocketConnected )
+            if ( strncmp( (char*)abyReadData, CWIFI_CGI_PREFIX, strlen(CWIFI_CGI_PREFIX) ) == 0 )
+            {
+               pbyProcessData = &abyReadData[sizeof(CWIFI_CGI_PREFIX)-1] ;
+               cwifi_ProcessRecCgi( (char*)pbyProcessData ) ;
+            }
+            else if ( l_bDataMode && ( l_eWifiState == CWIFI_STATE_CONNECTED ) &&
+                      l_bSocketConnected )
             {
                if ( l_fScktGetFrame != NULL )
                {
@@ -699,7 +753,7 @@ static void cwifi_ProcessRec( void )
             }
          }
       }
-      if ( l_bPendingData )
+      if ( bPendingData )
       {
          break ;
       }
@@ -824,7 +878,10 @@ static RESULT cwifi_WindCallBackCmdMode( char C* i_pszProcessData, BOOL i_bPendi
 {
    if ( ! i_bPendingData )
    {
-      l_DataFifo.bSuspend = FALSE ;
+      l_DataBuf.bAskFlush = FALSE ;
+      l_DataBuf.bPendingFlush = FALSE ;
+      l_DataBuf.dwNbChar = 0 ;
+      memset( &l_DataBuf.sDataBuf, 0, sizeof(l_DataBuf.sDataBuf) ) ;
       l_dwTmpDataMode = 0 ;
    }
 
@@ -898,32 +955,36 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          pszChar++ ;
       }
 
-      (*l_fHtmlSsi)(dwValParam1, dwValParam2, szOutput, ( sizeof(szOutput) - 2 ) ) ;
-
-      wSize = strlen( szOutput ) ;
-      szOutput[wSize] = '\r' ;
-      wSize++ ;
-      szOutput[wSize] = '\n' ;
-      wSize++ ;
-
-      tim_StartMsTmp( &dwTmpSend ) ;
-      while( ! uWifi_IsSendDone() )
+      if ( byNbComma == 4 )
       {
-         if ( tim_IsEndMsTmp( &l_dwTmpDataMode, CWIFI_SEND_TIMEOUT ) )
-         {
-            ERR_FATAL() ;
-         }
-      }
+         (*l_fHtmlSsi)(dwValParam1, dwValParam2, szOutput, ( sizeof(szOutput) - 2 ) ) ;
 
-      uwifi_Send( szOutput, wSize ) ;
+         wSize = strlen( szOutput ) ;
+         szOutput[wSize] = '\r' ;
+         wSize++ ;
+         szOutput[wSize] = '\n' ;
+         wSize++ ;
 
-      tim_StartMsTmp( &dwTmpSend ) ;
-      while( ! uWifi_IsSendDone() )
-      {
-         if ( tim_IsEndMsTmp( &l_dwTmpDataMode, CWIFI_SEND_TIMEOUT ) )
+         tim_StartMsTmp( &dwTmpSend ) ;
+         while( ! uWifi_IsSendDone() )
          {
-            ERR_FATAL() ;
+            if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_SEND_TIMEOUT ) )
+            {
+               ERR_FATAL() ;
+            }
          }
+
+         uwifi_Send( szOutput, wSize ) ;
+
+         tim_StartMsTmp( &dwTmpSend ) ;
+         while( ! uWifi_IsSendDone() )
+         {
+            if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_SEND_TIMEOUT ) )
+            {
+               ERR_FATAL() ;
+            }
+         }
+         l_bInhPendingData = TRUE ;
       }
    }
 

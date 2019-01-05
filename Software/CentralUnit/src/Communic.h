@@ -76,6 +76,7 @@ BOOL cwifi_IsMaintMode( void ) ;
 
 void cwifi_AddExtCmd( char C* i_szStrCmd ) ;
 void cwifi_AddExtData( char C* i_szStrCmd ) ;
+void cwifi_AskFlushData( void ) ;
 void cwifi_TaskCyc( void ) ;
 
 
@@ -98,8 +99,6 @@ BYTE uwifi_GetError( BOOL i_bReset ) ;
 /*----------------------------------------------------------------------------*/
 /* CommOEvse.c                                                                 */
 /*----------------------------------------------------------------------------*/
-
-#define COEVSE_DATA_ITEM_SIZE    100
 
 typedef struct
 {

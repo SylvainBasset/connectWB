@@ -21,6 +21,7 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2, char * o_pszOut, WORD i_b
 static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue ) ;
 
+
 /*----------------------------------------------------------------------------*/
 
 void html_Init( void )

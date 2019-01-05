@@ -1,42 +1,62 @@
 <!DOCTYPE html>
 <html>
-<head>
-<title>WallyBox</title>
+   <head>
+   </head>
+   <title>WallyBox</title>
+
+   <style>
+      .maligne
+      {
+      margin-top: 15px;
+      border-top: solid 3px #0000ff;
+      width:100%;
+      }
+      #tabs ul li
+      {
+          display:inline-block;
+          float:left;
+          height:32px;
+          min-width:120px;
+          text-align:center;
+          line-height: 30px;
+          padding:0 16px 0 16px;
+          margin: 1px 0px 0px 0px;
+          border: 1px solid gray;
+          border-top-left-radius: 6px;
+          border-top-right-radius: 6px;
+          background:#C0C0F0;
+      }
+   </style>
 
 
-<style>
-.maligne
-{
-margin-top:-20px;
-border-top: solid 4px #0000ff;
-width:100%;
-}
-</style>
+
+   <body bgcolor="#eeeeee">
+   <div style="text-align: center;">
+
+   <span style="color: #073763; font-size: xx-large; text-align: center;"><b>WallyBox</b></span><br>
+   <div style="text-align: left;">
+   <p>
+   <div id="tabs">
+       <ul>
+           <a href="index.shtml"><li>STATUS</li></a>
+           <a href="calendar.shtml"><li>CALENDRIER</li></a>
+           <a href="wifi.shtml"><b><li>WIFI</li></b></a>
+       </ul>
+   </div>
+   <br>
+   <div class="maligne"/></div>
+   <br><br>
+
+   <p>Input from Host:  <!--#input:1:0--></p>
+
+   <p>Input from Host2:  <!--#input:1:1--></p>
 
 
-
-<body bgcolor="#eeeeee">
-<div style="text-align: center;">
-
-<span style="color: #073763; font-size: xx-large; text-align: center;"><b>WallyBox</b></span><br>
-<div style="text-align: left;">
-<p>
-<a href="index.shtml"><img src="ImgStatus.png"/></a>
-<a href="calendar.shtml"><img src="ImgCal.png"/></a>
-<img src="ImgWifiSel.png"/>
-<div class="maligne" /></div>
-<p>
-
-<p>Input from Host:  <!--#input:1:0--></p>
-
-<p>Input from Host2:  <!--#input:1:1--></p>
-
-
-   <p><form name="CGI Example" method="POST" action="output.cgi" >
-   <input type="text" name="text" size="40" maxlength="40">&nbsp;
-      <input type="submit" name="submit" value="Submit" >
-     </form>
-   </p>
+      <p><form name="CGI Example" method="POST" action="output.cgi" >
+      <input type="text" name="text" size="40" maxlength="40">&nbsp;
+         <input type="submit" name="submit" value="Submit" >
+        </form>
+      </p>
 
 </body>
 </html>
