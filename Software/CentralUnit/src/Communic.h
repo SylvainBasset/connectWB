@@ -84,7 +84,7 @@ void cwifi_TaskCyc( void ) ;
 
 void uwifi_Init( void ) ;
 WORD uwifi_Read( BYTE * o_pbyData, WORD i_dwMaxSize, BOOL i_bGetPending ) ;
-BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize ) ;
+BOOL uwifi_Send( void C* i_pvData, DWORD i_dwSize ) ;
 BOOL uWifi_IsSendDone( void ) ;
 void uwifi_SetErrorDetection( BOOL i_bEnable ) ;
 BYTE uwifi_GetError( BOOL i_bReset ) ;

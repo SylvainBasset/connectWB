@@ -117,7 +117,7 @@ void uwifi_Init( void )
 /*                 transfer is not complete                                   */
 /*----------------------------------------------------------------------------*/
 
-BOOL uwifi_Send( void const* i_pvData, DWORD i_dwSize )
+BOOL uwifi_Send( void C* i_pvData, DWORD i_dwSize )
 {
    BOOL bRet ;
 

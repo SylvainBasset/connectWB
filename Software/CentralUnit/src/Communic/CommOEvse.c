@@ -645,7 +645,7 @@ static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
 
 static void coevse_CmdresultGetVersion( char C* i_pszDataRes )
 {
-   REFPARM( i_pszDataRes )
+   USEPARAM( i_pszDataRes )
 }
 
 

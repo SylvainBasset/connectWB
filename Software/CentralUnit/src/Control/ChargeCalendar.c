@@ -47,7 +47,7 @@ DWORD l_adwTimeSecEnd [ NB_DAYS_WEEK ] ;
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
-static DWORD cal_CalcCntFromStruct( s_Time const * i_psTime ) ;
+static DWORD cal_CalcCntFromStruct( s_Time C* i_psTime ) ;
 static void cal_CalcStructFromCnt( DWORD i_dwTimeSec, s_Time * o_pTime ) ;
 
 
@@ -243,7 +243,7 @@ BOOL cal_IsChargeEnable( void )
 /* calculations.                                                              */
 /*----------------------------------------------------------------------------*/
 
-static DWORD cal_CalcCntFromStruct( s_Time const * i_psTime )
+static DWORD cal_CalcCntFromStruct( s_Time C* i_psTime )
 {
    BYTE byHours ;
    BYTE byMinutes ;

@@ -21,43 +21,43 @@
 /* Standard types                                                             */
 /*----------------------------------------------------------------------------*/
 
-typedef unsigned long int DWORD ;      /* dw  unsigned 32 bits */
-typedef signed long int SDWORD ;       /* sdw signed 32 bits */
+typedef unsigned long int DWORD ;   /* unsigned 32 bits (dw) */
+typedef signed long int SDWORD ;    /* signed 32 bits (sdw) */
 
-typedef unsigned short int WORD ;      /* w   unsigned 16 bits */
-typedef signed short int SWORD ;       /* sw  signed 16 bits */
+typedef unsigned short int WORD ;   /* unsigned 16 bits (w) */
+typedef signed short int SWORD ;    /* signed 16 bits (sw) */
 
-typedef unsigned char BYTE ;           /* by   unsigned 8 bits */
-typedef signed char SBYTE ;            /* sby  signed 8 bits */
+typedef unsigned char BYTE ;        /* unsigned 8 bits (by) */
+typedef signed char SBYTE ;         /* signed 8 bits (sby) */
 
-typedef unsigned char BOOL ;           /* b   boolean */
+typedef unsigned char BOOL ;        /* boolean (b) */
 
-typedef char CHAR ;                    /* c   character */
+typedef char CHAR ;                 /* character (c) */
 
-typedef float FLOAT ;                  /* f   32 bits float */
-typedef double DOUBLE ;                /* fd  64 bits float */
+typedef float FLOAT ;               /* 32 bits float (f) */
+typedef double DOUBLE ;             /* 64 bits float (fd) */
 
-typedef BYTE RESULT ;               /* r   unsigned 8 bits for execution
-                                              return statut, OK, ERR, xx_R_yyy */
+typedef BYTE RESULT ;               /* unsigned 8 bits return statut (r) */
 
 
 /*-------------------------------------------------------------------------*/
 /* Standard types min/max                                                  */
 /*-------------------------------------------------------------------------*/
 
-#define QWORD_MAX   ((QWORD)0xFFFFFFFFFFFFFFFFuLL)  /* 64 bits */
-#define SQWORD_MIN  ((SQWORD)0x8000000000000000LL)
-#define SQWORD_MAX  ((SQWORD)0x7FFFFFFFFFFFFFFFLL)
-
-#define DWORD_MAX   ((DWORD)0xFFFFFFFFu)            /* 32 bits */
+                                    /* min/max for 64 bits types */
+#define QWORD_MAX   ((QWORD)0xFFFFFFFFFFFFFFFF)
+#define SQWORD_MIN  ((SQWORD)0x8000000000000000)
+#define SQWORD_MAX  ((SQWORD)0x7FFFFFFFFFFFFFFF)
+                                    /* min/max for 32 bits types */
+#define DWORD_MAX   ((DWORD)0xFFFFFFFF)
 #define SDWORD_MIN  ((SDWORD)0x80000000)
 #define SDWORD_MAX  ((SDWORD)0x7FFFFFFF)
 
-#define WORD_MAX    ((WORD)0xFFFFu)                 /* 16 bits */
+#define WORD_MAX    ((WORD)0xFFFFu) /* min/max for 16 bits types */
 #define SWORD_MIN   ((SWORD)0x8000)
 #define SWORD_MAX   ((SWORD)0x7FFF)
 
-#define BYTE_MAX    ((BYTE)0xFFu)                   /*  8 bits */
+#define BYTE_MAX    ((BYTE)0xFF)    /* min/max for 8 bits types */
 #define SBYTE_MIN   ((SBYTE)0x80)
 #define SBYTE_MAX   ((SBYTE)0x7F
 
@@ -66,82 +66,59 @@ typedef BYTE RESULT ;               /* r   unsigned 8 bits for execution
 /* Standard types constants                                                */
 /*-------------------------------------------------------------------------*/
 
-#ifndef FALSE
-#define FALSE  0                 /* boolean false (BOOL) */
-#endif /* FALSE */
+#define FALSE  0                    /* boolean false (BOOL) */
+#define TRUE   1                    /* boolean true (BOOL) */
 
-#ifndef TRUE
-#define TRUE   1                 /* boolean true (BOOL) */
-#endif /* TRUE */
+#define OK     0                    /* correct statut (RESULT) */
+#define ERR    1                    /* error statut (RESULT) */
 
-#ifndef OK
-#define OK     0                 /* correct statut (RESULT) */
-#endif /* OK */
-
-#ifndef ERR
-#define ERR    1                 /* error statut (RESULT) */
-#endif /* ERR */
 
 
 /*-------------------------------------------------------------------------*/
 /* Standard macro                                                          */
 /*-------------------------------------------------------------------------*/
 
-#ifndef NULL
-#define NULL   0                 /* null pointer */
-#endif
+#define C   const                   /* constant keyword */
 
-#define C   const              /* constant keyword */ //SBA : replace 'const'
+                                    /* test if one of bit in set <Bits> is set in <Value> */
+#define ISSET( Val, Bits )       ( ( (Val) & (Bits) ) != 0 )
 
-                                 /* elements number of <Array> */
-#define ARRAY_SIZE( Array )  ( sizeof(Array) / sizeof((Array)[0]) )
+                                    /* return elements number for an array */
+#define ARRAY_SIZE( Array )      ( sizeof( Array ) / sizeof( Array[0] ) )
 
-                                 /* next <Idx> value in <Array> table with
-                                    round buffer */
-#define NEXTIDX( Idx, Array ) \
-   ( ( (Idx) >= ARRAY_SIZE(Array) - 1 ) ? 0 : (Idx) + 1 )
-
-                                 /* test if bit <Msk> is set in <Value>, or test
-                                    if bit one of <Msk> bits os set in <Value> */
-#define ISSET( Value, Msk )  ( ( (Value) & (Msk) ) != 0 )
+                                    /* return next index value in a round buffer array */
+#define NEXTIDX( Idx, Array )    ( ( (Idx) < ARRAY_SIZE(Array) - 1 ) ? Idx + 1 : 0 )
 
 
-#define LO4B( byValue )    ( byValue & 0xFu )
+                                    /* return the 4 lowest bits on a BYTE */
+#define LO4B( byValue )          ( (BYTE)( byValue & 0xF ) )
+                                    /* return the 4 highest bits on a BYTE */
+#define HI4B( byValue )          ( (BYTE)( byValue >> 4 ) )
+                                    /* make BYTE from 2 4-bits parts */
+#define MAKEBYTE( byLo, byHi )   ( ( (BYTE)( byHi & 0xFu ) << 4 ) | (BYTE)( byLo & 0xFu ) )
 
-#define HI4B( byValue )    ( (byValue) >> 4u )
+                                    /* return the 8 lowest bits on a WORD */
+#define LOBYTE( wValue )         ( (BYTE)( wValue & 0xFF ) )
+                                    /* return the 8 highest bits on a WORD */
+#define HIBYTE( wValue )         ( (BYTE)( wValue >> 8 ) )
+                                    /* make WORD from 2 BYTE parts */
+#define MAKEWORD( byLo, byHi )   ( ( (WORD)( byHi & 0xFFu ) << 8 ) | (WORD)( byLo & 0xFFu ) )
 
-#define MAKEBYTE(byLow, byHigh) \
-   ( ( ( (BYTE)(byHigh) & 0xFu ) << 4 ) | ( (BYTE)(byLow) & 0xFu ) )
+                                    /* return the 16 lowest bits on a DWORD */
+#define LOWORD( wValue )         ( (WORD)( wValue & 0xFFFF ) )
+                                    /* return the 16 highest bits on a DWORD */
+#define HIWORD( wValue )         ( (WORD)( wValue >> 16 ) )
+                                    /* make DWORD from 2 WORD parts */
+#define MAKEDWORD( wLo, wHi )    ( ( (DWORD)( wHi & 0xFFFFu ) << 16 ) | (DWORD)( wLo & 0xFFFFu ) )
 
-                                 /* 8 bits LSB of 16 bits value <wValue> */
-#define LOBYTE( wValue )    ( (BYTE)( (WORD)(wValue) & 0xFFu ) )
-                                 /* 8 bits MSB of 16 bits value <wValue> */
-#define HIBYTE( wValue )    ( (BYTE)( (WORD)(wValue) >> 8u ) )
-                                 /* makes 16 bits word with <byLow> and <byHigh>
-                                    8 bits values */
-#define MAKEWORD( byLow, byHigh ) \
-   ( ( ( (WORD)(byHigh) & 0xFFu ) << 8u ) | ( (WORD)(byLow) & 0xFFu ) )
+                                 /* get minimum between <Val1> and <Val1> */
+#define GETMIN( Val1, Val2 )     ( ( (Val1) < (Val2) ) ? (Val1) : (Val2) )
+                                 /* get maximum between <Val1> and <Val2> */
+#define GETMAX( Val1, Val2 )     ( ( (Val1) < (Val2) ) ? (Val2) : (Val1) )
 
-
-                                 /* 16 bits LSB of 32 bits value <dwValue> */
-#define LOWORD( dwValue )   ( (WORD)( (DWORD)(dwValue) & 0xFFFFu ) )
-                                 /* 16 bits MSB of 32 bits value <dwValue> */
-#define HIWORD( dwValue )   ( (WORD)( (DWORD)(dwValue) >> 16u ) )
-                                 /* makes 32 bits word with <wLow> and <wHigh>
-                                    16 bits values */
-#define MAKEDWORD( wLow, wHigh ) \
-   ( ( (DWORD)( (WORD)(wHigh) ) << 16u ) | (DWORD)( (WORD)(wLow) ) )
-
-
-                                 /* get minimum between <Value1> and <Value2> */
-#define MIN( Value1, Value2 ) \
-   ( ( (Value1) < (Value2) ) ? (Value1) : (Value2) )
-                                 /* get maximum between <Value1> and <Value2> */
-#define MAX( Value1, Value2 ) \
-   ( ( (Value1) > (Value2) ) ? (Value1) : (Value2) )
-
-#define REFPARM( Value ) \
-   if ( Value ) {} ;
+                                 /* use paramètre in a test, to avoid non-used
+                                    parameter warning */
+#define USEPARAM( Val )          if ( Val ) {} ;
 
 
 /*-------------------------------------------------------------------------*/

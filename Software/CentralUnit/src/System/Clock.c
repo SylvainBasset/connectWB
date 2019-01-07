@@ -115,10 +115,10 @@ DWORD const k_dwReprMDHMidSum = ( 7 * 100 * 100 ) + ( 1 * 100 ) ;
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
-static void clk_ComSetDateTime( s_DateTime const* i_psDateTime ) ;
+static void clk_ComSetDateTime( s_DateTime C* i_psDateTime ) ;
 static BOOL clk_ComIsValid( s_DateTime C* i_pDateTime ) ;
 static void clk_ComGetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday ) ;
-static e_SummerState clk_GetSummerState( s_DateTime const* i_psDateTime ) ;
+static e_SummerState clk_GetSummerState( s_DateTime C* i_psDateTime ) ;
 static DWORD clk_CalcReprMDH( BYTE i_byMonth, BYTE i_byDay, BYTE i_byHour ) ;
 static void clk_RtcInit( void ) ;
 static void clk_32kHzInit( void ) ;
@@ -238,7 +238,7 @@ SDWORD clk_GetCalib( DWORD * o_dwNbCalibActions )
 /* Date/time writing                                                          */
 /*----------------------------------------------------------------------------*/
 
-void clk_SetDateTime( s_DateTime const* i_psDateTime )
+void clk_SetDateTime( s_DateTime C* i_psDateTime )
 {
    clk_ComSetDateTime( i_psDateTime ) ; /* set datetime */
 
@@ -323,7 +323,7 @@ void clk_TaskCyc( void )
 /* Common function for date/time setting                                      */
 /*----------------------------------------------------------------------------*/
 
-static void clk_ComSetDateTime( s_DateTime const* i_psDateTime )
+static void clk_ComSetDateTime( s_DateTime C* i_psDateTime )
 {
    RTC_HandleTypeDef sRtcHandle ;
    RTC_DateTypeDef sRtcDate ;
@@ -504,7 +504,7 @@ static void clk_ComGetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday )
 /* Get daylgigt saving status from one particular datetime                    */
 /*----------------------------------------------------------------------------*/
 
-static e_SummerState clk_GetSummerState( s_DateTime const* i_psDateTime )
+static e_SummerState clk_GetSummerState( s_DateTime C* i_psDateTime )
 {
    e_SummerState eSumState ;
    DWORD dwReprMDHCur ;
