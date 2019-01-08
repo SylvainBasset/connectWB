@@ -219,7 +219,6 @@ static void cwifi_HrdModuleReset( void ) ;
 static e_WifiState l_eWifiState ;
 static s_CmdCurStatus l_CmdCurStatus ;
 static DWORD l_dwTmpDataMode ;
-static DWORD l_dwTmpIsAlive ;
 static BOOL l_bMaintMode ;
 static BOOL l_bConfigDone ;
 static BOOL l_bCmdToDataInFifo ;
@@ -271,18 +270,18 @@ void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi )
 
 /*----------------------------------------------------------------------------*/
 
-void cwifi_AskForRestart( void )
-{
-   l_bConfigDone = FALSE ;
-   cwifi_FmtAddCmdFifo( CWIFI_CMD_CFUN, "0", "" ) ;
-}
-
-
-/*----------------------------------------------------------------------------*/
-
 void cwifi_SetMaintMode( BOOL i_bMaintmode )
 {
-   l_bMaintMode = i_bMaintmode ;
+   if ( l_bMaintMode != i_bMaintmode )
+   {
+      l_bMaintMode = i_bMaintmode ;
+
+      l_bConfigDone = FALSE ;
+      l_CmdFifo.byIdxIn = 0 ;
+      l_CmdFifo.byIdxOut = 0 ;
+
+      cwifi_FmtAddCmdFifo( CWIFI_CMD_CFUN, "0", "" ) ;
+   }
 }
 
 
@@ -441,6 +440,13 @@ static void cwifi_ConnectFSM( void )
          else
          {
             rRet = OK ;
+
+               /* This command is mandatory to reset the Wifi    */
+               /* module command reader, which could be unstable */
+               /* after a reset during handshake association.   */
+
+            rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_AT, "", "" ) ;
+
             if ( ! l_bMaintMode )
             {
                rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_priv_mode", "2" ) ;
@@ -462,10 +468,10 @@ static void cwifi_ConnectFSM( void )
             rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SAVE, "", "" ) ;
             rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_CFUN, "0", "" ) ;
 
-            l_bConfigDone = TRUE ;
 
             if ( rRet == OK )
             {
+               l_bConfigDone = TRUE ;
                l_eWifiState = CWIFI_STATE_CONNECTING ;
             }
          }
@@ -478,24 +484,12 @@ static void cwifi_ConnectFSM( void )
             if ( rRet == OK )
             {
                l_eWifiState = CWIFI_STATE_CONNECTED ;
-               tim_StartSecTmp( &l_dwTmpIsAlive ) ;
             }
          }
          break ;
 
       case CWIFI_STATE_CONNECTED :
-         if ( l_bDataMode )
-         {
-            if ( tim_IsEndSecTmp( &l_dwTmpIsAlive, 10 ) )
-            {
-               tim_StartSecTmp( &l_dwTmpIsAlive ) ;
-
-               if ( l_CmdCurStatus.eStatus == CWIFI_CMDST_NONE  )
-               {
-                  //cwifi_FmtAddCmdFifo( CWIFI_CMD_PING, "192.168.1.254", "" ) ;
-               }
-            }
-         }
+         /* nothing to do */
          break ;
    }
 }
@@ -535,15 +529,16 @@ static RESULT cwifi_AddCmdFifo( e_CmdId i_eCmdId, char C* i_szStrCmd )
    byNextIdxIn = NEXTIDX( byCurIdxIn, l_CmdFifo.aCmdItems ) ;
 
    if ( byNextIdxIn == l_CmdFifo.byIdxOut )
-   {                                   // last element is lost
-      l_CmdFifo.byIdxOut = NEXTIDX( l_CmdFifo.byIdxOut, l_CmdFifo.aCmdItems ) ;
+   {
       rRet = ERR ;
    }
-
-   pCmdItem = &l_CmdFifo.aCmdItems[byCurIdxIn] ;
-   pCmdItem->eCmdId = i_eCmdId ;
-   strncpy( pCmdItem->szStrCmd, i_szStrCmd, sizeof(pCmdItem->szStrCmd) ) ;
-   l_CmdFifo.byIdxIn = byNextIdxIn ;
+   else
+   {
+      pCmdItem = &l_CmdFifo.aCmdItems[byCurIdxIn] ;
+      pCmdItem->eCmdId = i_eCmdId ;
+      strncpy( pCmdItem->szStrCmd, i_szStrCmd, sizeof(pCmdItem->szStrCmd) ) ;
+      l_CmdFifo.byIdxIn = byNextIdxIn ;
+   }
 
    return rRet ;
 }
@@ -1171,7 +1166,6 @@ static void cwifi_ResetVar( void )
    memset( l_szWindSocketConIp, 0, sizeof(l_szWindSocketConIp) ) ;
 
    l_dwTmpDataMode = 0 ;
-   l_dwTmpIsAlive = 0 ;
 }
 
 

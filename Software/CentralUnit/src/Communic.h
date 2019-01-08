@@ -62,7 +62,6 @@ void cwifi_Init( void ) ;
 void cwifi_RegisterScktFunc( f_ScktGetFrame i_fScktGetFrame, f_ScktGetResExt i_fScktGetResExt ) ;
 void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi ) ;
 
-void cwifi_AskForRestart( void ) ;
 void cwifi_SetMaintMode( BOOL i_bMaintmode ) ;
 BOOL cwifi_IsConnected( void ) ;
 BOOL cwifi_IsSocketConnected( void ) ;

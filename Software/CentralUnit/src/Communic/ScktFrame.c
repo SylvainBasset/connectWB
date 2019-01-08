@@ -155,9 +155,8 @@ static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
          break ;
 
       case SFRM_ID_WIFI_EXITMAINT :
-         cwifi_SetMaintMode( FALSE ) ;
          sfrm_SendRes( "OK\r\n") ;
-         cwifi_AskForRestart() ;
+         cwifi_SetMaintMode( FALSE ) ;
          break ;
 
       case SFRM_ID_WIFI_GETDEVICE :

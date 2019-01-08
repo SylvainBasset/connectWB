@@ -115,7 +115,6 @@ void cstate_TaskCyc( void )
       {
          CurData.bWifiMaint = ! CurData.bWifiMaint ;
          cwifi_SetMaintMode( CurData.bWifiMaint ) ;
-         cwifi_AskForRestart() ;
       }
       else
       {
