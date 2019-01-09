@@ -27,6 +27,8 @@
 #define CWIFI_CMD_TIMEOUT      30000         /* ms */
 #define CWIFI_DATAMODE_TIMEOUT 30000         /* ms */
 
+#define CWIFI_MAINT_TIMEOUT      300         /* sec */
+
 #define CWIFI_WIND_PREFIX       "+WIND:"
 #define CWIFI_CGI_PREFIX        "+CGI:"
 
@@ -34,7 +36,7 @@
 #define CWIFI_RESP_ERR          "ERROR"
 
 #define CWIFI_MAINT_SSID         "WallyBox_Maint"
-#define CWIFI_MAINT_PWD          "75320000\0" //SBA
+#define CWIFI_MAINT_PWD          "73757065727061737465717565"  //"superpasteque"
 
 typedef RESULT (*f_WindCallback)( char C* i_pszProcessData, BOOL i_bPendingData ) ;
 
@@ -191,6 +193,7 @@ typedef struct
 /*----------------------------------------------------------------------------*/
 
 static void cwifi_ConnectFSM( void ) ;
+static void wifi_DoSetMaintMode( BOOL i_bMaintmode ) ;
 
 static RESULT cwifi_FmtAddCmdFifo( e_CmdId i_eCmdId, char C* i_szArg1,
                                                      char C* i_szArg2 ) ;
@@ -219,6 +222,8 @@ static void cwifi_HrdModuleReset( void ) ;
 static e_WifiState l_eWifiState ;
 static s_CmdCurStatus l_CmdCurStatus ;
 static DWORD l_dwTmpDataMode ;
+static DWORD l_dwTmpMaintMode ;
+
 static BOOL l_bMaintMode ;
 static BOOL l_bConfigDone ;
 static BOOL l_bCmdToDataInFifo ;
@@ -274,13 +279,7 @@ void cwifi_SetMaintMode( BOOL i_bMaintmode )
 {
    if ( l_bMaintMode != i_bMaintmode )
    {
-      l_bMaintMode = i_bMaintmode ;
-
-      l_bConfigDone = FALSE ;
-      l_CmdFifo.byIdxIn = 0 ;
-      l_CmdFifo.byIdxOut = 0 ;
-
-      cwifi_FmtAddCmdFifo( CWIFI_CMD_CFUN, "0", "" ) ;
+      wifi_DoSetMaintMode( i_bMaintmode ) ;
    }
 }
 
@@ -409,6 +408,10 @@ void cwifi_TaskCyc( void )
       }
    }
 
+   if ( l_bMaintMode && tim_IsEndSecTmp( &l_dwTmpMaintMode, CWIFI_MAINT_TIMEOUT ) )
+   {
+      wifi_DoSetMaintMode( FALSE ) ;
+   }
 }
 
 /*============================================================================*/
@@ -461,7 +464,11 @@ static void cwifi_ConnectFSM( void )
             {
                // set ip
                rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SETSSID, CWIFI_MAINT_SSID, "" ) ;
-               rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_priv_mode", "0" ) ;
+               rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_wep_keys[0]", CWIFI_MAINT_PWD ) ;
+               rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_wep_key_lens", "0D" ) ;
+               rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_auth_type", "0" ) ;
+
+               rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_priv_mode", "1" ) ;
                rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_mode", "3" ) ;
             }
 
@@ -492,6 +499,27 @@ static void cwifi_ConnectFSM( void )
          /* nothing to do */
          break ;
    }
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Maintenance mode setting                                                   */
+/*----------------------------------------------------------------------------*/
+
+static void wifi_DoSetMaintMode( BOOL i_bMaintmode )
+{
+   l_bMaintMode = i_bMaintmode ;
+
+   l_bConfigDone = FALSE ;
+   l_CmdFifo.byIdxIn = 0 ;
+   l_CmdFifo.byIdxOut = 0 ;
+
+   if ( i_bMaintmode )
+   {
+      tim_StartSecTmp( &l_dwTmpMaintMode ) ;
+   }
+
+   cwifi_FmtAddCmdFifo( CWIFI_CMD_CFUN, "0", "" ) ;
 }
 
 
