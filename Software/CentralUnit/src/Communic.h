@@ -20,6 +20,7 @@ typedef void (*f_ScktGetFrame)( char * i_pszFrame ) ;
 typedef void (*f_ScktGetResExt)( char C* i_pszResExt, BOOL i_bLastCall ) ;
 
 void sfrm_Init( void ) ;
+RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -41,9 +42,13 @@ void sfrm_Init( void ) ;
 #define  HTML_CALENDAR_SSI_CAL_SATURDAY     6
 #define  HTML_CALENDAR_SSI_CAL_SUNDAY       7
 
+#define  HTML_WIFI_SSI_WIFIHOME             0
+#define  HTML_WIFI_SSI_MAINTMODE            1
 
 #define HTML_CALENDAR_CGI_DATE              0
 #define HTML_CALENDAR_CGI_DAYSET            1
+
+#define HTML_WIFI_CGI_WIFI                  0
 
 
 

@@ -4,12 +4,100 @@
    </head>
    <title>WallyBox</title>
 
+   <script src="/jQuery.min.js"></script>
+
+   <script>
+      let cgi = "output.cgi?text=+CGI:2:"
+      let suffix = "&submit=Submit"
+      var Str
+
+      function sleep(milliseconds) {
+        var start = new Date().getTime();
+        for (var i = 0; i < 1e7; i++) {
+          if ((new Date().getTime() - start) > milliseconds){
+            break;
+          }
+        }
+      }
+
+      function Send_SsidPwd()
+      {
+         let ElemSsid = document.getElementById("ssid");
+         let ElemPwd = document.getElementById("pwd");
+
+         Str = cgi + "0" + ":" + ElemSsid.value + "," + ElemPwd.value + suffix
+
+         $.get(Str);
+         sleep(500)
+         window.location.reload(true);
+      }
+
+      function showPwd() {
+          var p = document.getElementById('pwd');
+          p.setAttribute('type', 'text');
+      }
+
+      function hidePwd() {
+          var p = document.getElementById('pwd');
+          p.setAttribute('type', 'password');
+      }
+
+      function readScan()
+      {
+         var rawFile = new XMLHttpRequest();
+         rawFile.open("GET", "scan.txt", false);
+         rawFile.onreadystatechange = function ()
+         {
+            if(rawFile.readyState === 4)
+            {
+               if(rawFile.status === 200 || rawFile.status == 0)
+               {
+                  var ScanRes = rawFile.responseText;
+                  var re = new RegExp('RSSI: .* SSID: \'.*\'','g');
+                  var AllWifi = ""
+                  NbFound = 0
+                  do
+                  {
+                     m = re.exec(ScanRes);
+                     if (m)
+                     {
+                        WifiName = m[0].replace("SSID:", "&nbsp;&nbsp;Nom:<FONT COLOR=\"#00C000\">");
+                        WifiName = WifiName.replace(/'/g, "")
+                        AllWifi = AllWifi + WifiName + "</FONT>" + "<br>"
+                        NbFound++
+                     }
+                  } while (m);
+
+                  var HtmlText = ""
+                  if ( NbFound == 0 )
+                  {
+                     HtmlText = "aucun r&eacute;seaux trouv&eacute;s:<br><br>"
+                  }
+                  else if ( NbFound == 1 )
+                  {
+                     HtmlText = NbFound + " r&eacute;seau trouv&eacute;:<br><br>" + AllWifi
+                  }
+                  else
+                  {
+                     HtmlText = NbFound + " r&eacute;seaux trouv&eacute;s:<br><br>" + AllWifi
+                  }
+                  document.getElementById("allwifi").innerHTML = HtmlText;
+               }
+            }
+         }
+         rawFile.send(null);
+      }
+   </script>
+
    <style>
       .maligne
       {
       margin-top: 15px;
       border-top: solid 3px #0000ff;
       width:100%;
+      }
+      .marge {
+      margin-left: 3em;
       }
       #tabs ul li
       {
@@ -47,16 +135,38 @@
    <div class="maligne"/></div>
    <br><br>
 
-   <p>Input from Host:  <!--#input:1:0--></p>
+   <p>Nom Wifi r&eacute;sident: <!--#input:2:0--> </p>
+   <p>Mode maintenance: <!--#input:2:1--> </p>
 
-   <p>Input from Host2:  <!--#input:1:1--></p>
+   <span class="marge">
+      <p>Nouveau Wifi r&eacute;sident:</p>
+      <input id="ssid" type="text"  size="40"  maxlength="40">
+      <br>
+      <p>Mot de passe:</p>
+      <input type="password" id="pwd" type="text" name="test" size="40"  maxlength="40">
+   </span>
 
+   <span class="marge">
+      <input type="button" onclick="Send_SsidPwd()" value="OK"/>
+   </span>
+   <br>
+   <input type="checkbox" onclick="if (pwd.type == 'text') pwd.type = 'password';
+     else pwd.type = 'text';">afficher le mot de passe</button>
 
-      <p><form name="CGI Example" method="POST" action="output.cgi" >
-      <input type="text" name="text" size="40" maxlength="40">&nbsp;
-         <input type="submit" name="submit" value="Submit" >
-        </form>
-      </p>
+   <br><br><br>
+   <hr>
+   <br>
+
+   <span class="marge">
+      <input type="button" onclick="readScan()" value="Read Scan"/>
+   </span>
+
+   <br>
+   <br>
+   <br>
+
+   <div id="allwifi"></div>
+
 
 </body>
 </html>

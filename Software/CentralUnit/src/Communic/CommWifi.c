@@ -29,6 +29,8 @@
 
 #define CWIFI_MAINT_TIMEOUT      300         /* sec */
 
+#define CWIFI_SCAN_PERIOD         60         /* sec */
+
 #define CWIFI_WIND_PREFIX       "+WIND:"
 #define CWIFI_CGI_PREFIX        "+CGI:"
 
@@ -128,19 +130,20 @@ static s_WindDesc const k_aWindDesc [] =
 static char l_szRespPing [1] ;      //SBA temp
 static char l_szRespGCfg [1] ;      //SBA temp
 
-#define LIST_CMD( Op, Opr, Opf )                          \
-   Op(  AT,        At,        "AT\r",              TRUE )  \
-   Op(  SCFG,      SCfg,      "AT+S.SCFG=%s,%s\r", TRUE )  \
-   Opr( GCFG,      GCfg,      "AT+S.GCFG=%s\r",    TRUE )  \
-   Op(  SETSSID,   SetSsid,   "AT+S.SSIDTXT=%s\r", TRUE )  \
-   Op(  CFUN,      CFun,      "AT+CFUN=%s\r",      FALSE )  \
-   Op(  SAVE,      Save,      "AT&W\r",            TRUE )  \
-   Op(  FACTRESET, FactReset, "AT&F\r",            TRUE )  \
-   Opr( PING,      Ping,      "AT+S.PING=%s\r",    TRUE )  \
-   Op(  SOCKD,     Sockd,     "AT+S.SOCKD=%s\r",   TRUE )  \
-   Op(  CMDTODATA, CmdToData, "AT+S.\r",           FALSE ) \
-   Op(  FSL,       Fsl,       "AT+S.FSL\r",        TRUE )  \
-   Opf( EXT,       Ext,       "",                  TRUE ) \
+#define LIST_CMD( Op, Opr, Opf )                            \
+   Op(  AT,        At,        "AT\r",               TRUE )  \
+   Op(  SCFG,      SCfg,      "AT+S.SCFG=%s,%s\r",  TRUE )  \
+   Opr( GCFG,      GCfg,      "AT+S.GCFG=%s\r",     TRUE )  \
+   Op(  SETSSID,   SetSsid,   "AT+S.SSIDTXT=%s\r",  TRUE )  \
+   Op(  CFUN,      CFun,      "AT+CFUN=%s\r",       FALSE ) \
+   Op(  SAVE,      Save,      "AT&W\r",             TRUE )  \
+   Op(  FACTRESET, FactReset, "AT&F\r",             TRUE )  \
+   Opr( PING,      Ping,      "AT+S.PING=%s\r",     TRUE )  \
+   Op(  SOCKD,     Sockd,     "AT+S.SOCKD=%s\r",    TRUE )  \
+   Op(  CMDTODATA, CmdToData, "AT+S.\r",            FALSE ) \
+   Op(  FSL,       Fsl,       "AT+S.FSL\r",         TRUE )  \
+   Op(  SCAN,      Scan,      "AT+S.SCAN=a,m,%s\r", TRUE ) \
+   Opf( EXT,       Ext,       "",                   TRUE ) \
 
 typedef enum
 {
@@ -223,6 +226,7 @@ static e_WifiState l_eWifiState ;
 static s_CmdCurStatus l_CmdCurStatus ;
 static DWORD l_dwTmpDataMode ;
 static DWORD l_dwTmpMaintMode ;
+static DWORD l_dwTmpScan ;
 
 static BOOL l_bMaintMode ;
 static BOOL l_bConfigDone ;
@@ -277,10 +281,7 @@ void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi )
 
 void cwifi_SetMaintMode( BOOL i_bMaintmode )
 {
-   if ( l_bMaintMode != i_bMaintmode )
-   {
-      wifi_DoSetMaintMode( i_bMaintmode ) ;
-   }
+   wifi_DoSetMaintMode( i_bMaintmode ) ;
 }
 
 
@@ -491,12 +492,21 @@ static void cwifi_ConnectFSM( void )
             if ( rRet == OK )
             {
                l_eWifiState = CWIFI_STATE_CONNECTED ;
+               if ( l_bMaintMode )
+               {
+                  cwifi_FmtAddCmdFifo( CWIFI_CMD_SCAN, "/scan.txt", "" ) ;
+               }
+               tim_StartSecTmp( &l_dwTmpScan ) ;
             }
          }
          break ;
 
       case CWIFI_STATE_CONNECTED :
-         /* nothing to do */
+         if ( tim_IsEndSecTmp( &l_dwTmpScan, CWIFI_SCAN_PERIOD ) )
+         {
+            cwifi_FmtAddCmdFifo( CWIFI_CMD_SCAN, "/scan.txt", "" ) ;
+            tim_StartSecTmp( &l_dwTmpScan ) ;
+         }
          break ;
    }
 }
@@ -1194,6 +1204,7 @@ static void cwifi_ResetVar( void )
    memset( l_szWindSocketConIp, 0, sizeof(l_szWindSocketConIp) ) ;
 
    l_dwTmpDataMode = 0 ;
+   l_dwTmpScan = 0 ;
 }
 
 

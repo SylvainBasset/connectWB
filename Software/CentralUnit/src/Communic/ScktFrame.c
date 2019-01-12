@@ -54,7 +54,7 @@ static s_FrameDesc const k_aFrameDesc [] =
 
 static void sfrm_ProcessFrame( char * i_szStrFrm ) ;
 static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg ) ;
-static RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
+static RESULT sfrm_DoWriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 static void sfrm_ProcessResExt( char C* i_szStrFrm, BOOL i_bLastCall ) ;
 static void sfrm_SendRes( char C* i_szRes ) ;
 
@@ -70,6 +70,14 @@ void sfrm_Init( void )
 {
    cwifi_RegisterScktFunc( &sfrm_ProcessFrame, &sfrm_ProcessResExt ) ;
    l_eFrmId = SFRM_ID_NULL ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
+{
+   return sfrm_DoWriteWifiId( i_bIsSsid, i_szParam ) ;
 }
 
 
@@ -133,7 +141,7 @@ static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
          break ;
 
       case SFRM_ID_WIFI_SETSSID :
-         if ( sfrm_WriteWifiId( TRUE, i_pszArg ) == OK )
+         if ( sfrm_DoWriteWifiId( TRUE, i_pszArg ) == OK )
          {
             sfrm_SendRes( "OK\r\n" ) ;
          }
@@ -144,7 +152,7 @@ static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
          break ;
 
       case SFRM_ID_WIFI_SETPWD :
-         if ( sfrm_WriteWifiId( FALSE, i_pszArg ) == OK )
+         if ( sfrm_DoWriteWifiId( FALSE, i_pszArg ) == OK )
          {
             sfrm_SendRes( "OK\r\n" ) ;
          }
@@ -176,7 +184,7 @@ static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
 
 
 /*----------------------------------------------------------------------------*/
-static RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
+static RESULT sfrm_DoWriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
 {
    DWORD dwEepAddr ;
    BYTE byEepSize ;

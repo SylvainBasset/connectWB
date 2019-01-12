@@ -9,6 +9,7 @@ import getpass
 from WallySocket import cSocketWB
 import socket
 import time
+
 #---------------------------------------------------------------------------#
 def SendAndCheck( SockWB, StrCmd, Check = True ):
 
@@ -47,4 +48,5 @@ if __name__ == "__main__" :
    print "Restart"
    SendAndCheck( SockWB, "$04:\r\n", False)                  # ask for restart,
    time.sleep(1)
+
    SockWB.Close()

@@ -17,9 +17,11 @@
 
 static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize ) ;
 static void html_ProcessSsiCalendar( DWORD i_dwParam2, char * o_pszOut, WORD i_wStrSize ) ;
+static void html_ProcessSsiWifi( DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize ) ;
 
 static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue ) ;
+static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue ) ;
 
 static CHAR * html_AddToStr( CHAR * o_pszString, WORD * io_pwStrSize, CHAR C* i_szStrToAdd ) ;
 
@@ -48,7 +50,7 @@ static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOut
          break ;
 
       case HTML_PAGE_WIFI :
-         *o_pszOutput = 0 ;   //TMP
+         html_ProcessSsiWifi( i_dwParam2, o_pszOutput, i_wStrSize ) ;
          break ;
 
       default :
@@ -181,6 +183,44 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
 }
 
 
+/*----------------------------------------------------------------------------*/
+
+static void html_ProcessSsiWifi( DWORD i_dwParam2,
+                                 char * o_pszOutput, WORD i_wStrSize )
+{
+   char * pszWifiSSID ;
+   WORD wStrSize ;
+   CHAR * pszOutput ;
+
+   wStrSize = i_wStrSize ;
+   pszOutput = o_pszOutput ;
+
+   switch ( i_dwParam2 )
+   {
+      case HTML_WIFI_SSI_WIFIHOME :
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, "<b>" ) ;
+         pszWifiSSID = g_sDataEeprom->sWifiConInfo.szWifiSSID ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, pszWifiSSID ) ;
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, "</b>" ) ;
+         break ;
+
+      case HTML_WIFI_SSI_MAINTMODE :
+         if ( cwifi_IsMaintMode() )
+         {
+            html_AddToStr( o_pszOutput, &i_wStrSize, "<b>oui</b>" ) ;
+         }
+         else
+         {
+            html_AddToStr( o_pszOutput, &i_wStrSize, "<b>non</b>" ) ;
+         }
+         break ;
+
+      default :
+          strncpy( o_pszOutput, "---", i_wStrSize ) ;
+          break ;
+   }
+}
+
 
 /*============================================================================*/
 
@@ -198,6 +238,7 @@ static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszVa
          break ;
 
       case HTML_PAGE_WIFI :
+         html_ProcessCgiWifi( i_dwParam2, i_pszValue ) ;
          break ;
 
       default :
@@ -281,6 +322,65 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
                cal_SetDayVals( byDay, &TimeStart, &TimeEnd ) ;
             }
          }
+         break ;
+
+      default :
+         break ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
+{
+   char szSsid[128] ;
+   char szPwd[128] ;
+   BYTE byIdxSsid ;
+   BYTE byIdxPwd ;
+   char C* pszValue ;
+   BOOL bSsid ;
+
+   switch ( i_dwParam2 )
+   {
+      case HTML_WIFI_CGI_WIFI :
+         bSsid = TRUE ;
+         byIdxSsid = 0 ;
+         byIdxPwd = 0 ;
+         pszValue = i_pszValue ;
+         while ( ( *pszValue != 0 ) && ( *pszValue != '\r' ) && ( *pszValue != '\n' ) )
+         {
+            if ( *pszValue == ',' )
+            {
+               pszValue++ ;
+               bSsid = FALSE ;
+            }
+
+            if ( bSsid )
+            {
+               if ( byIdxSsid < sizeof(szSsid) )
+               {
+                  szSsid[byIdxSsid] = *pszValue ;
+                  byIdxSsid++ ;
+               }
+            }
+            else
+            {
+               if ( byIdxPwd < sizeof(szPwd) )
+               {
+                  szPwd[byIdxPwd] = *pszValue ;
+                  byIdxPwd++ ;
+               }
+            }
+            pszValue++ ;
+         }
+
+         szSsid[byIdxSsid] = 0 ;
+         szPwd[byIdxPwd] = 0 ;
+
+         sfrm_WriteWifiId( TRUE, szSsid ) ;
+         sfrm_WriteWifiId( FALSE, szPwd ) ;
+         cwifi_SetMaintMode( FALSE ) ;
          break ;
 
       default :

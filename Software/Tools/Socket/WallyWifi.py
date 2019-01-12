@@ -7,15 +7,29 @@
 
 import getpass
 from WallySocket import cSocketWB
-
+import time
 
 #---------------------------------------------------------------------------#
-def SendAndCheck( SockWB, StrCmd ):
+def SendAndCheck( SockWB, StrCmd, Check = True ):
+
    SockWB.Send( StrCmd )
-   Rec = SockWB.Receive( 1000 ).lower()
-   print Rec
-   if "err" in Rec:
-      raise ValueError( "Wifi setting error" )
+
+   if Check :
+      Error = False
+      buf = ""
+      while( True ) :
+         buf =  buf + SockWB.Receive(60)
+         if ":OK" in buf :
+            break
+         if ":ERR" in buf :
+            Error = True
+            break ;
+
+      for Line in buf.splitlines() :
+         print Line
+
+      if Error :
+         raise ValueError( "command error" )
 
 
 #---------------------------------------------------------------------------#
@@ -28,9 +42,13 @@ if __name__ == "__main__" :
    pwd = getpass.getpass("enter pwd=")
 
    print ssid
+   print pwd
 
-   SendAndCheck( SockWB, "$02:%s"%ssid )
-   SendAndCheck( SockWB, "$03:%s"%pwd )
-   SendAndCheck( SockWB, "$04:" )                  # ask for restart,
+   SendAndCheck( SockWB, "$02:%s\r\n"%ssid )
+   SendAndCheck( SockWB, "$03:%s\r\n"%pwd )
+
+   print "Restart"
+   SendAndCheck( SockWB, "$04:\r\n", False)                  # ask for restart,
+   time.sleep(1)
 
    SockWB.Close()

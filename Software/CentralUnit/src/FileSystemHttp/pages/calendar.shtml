@@ -7,51 +7,51 @@
    <script src="/jQuery.min.js"></script>
 
    <script>
-   let cgi = "output.cgi?text=+CGI:1:"
-   let suffix = "&submit=Submit"
-   var Str
+      let cgi = "output.cgi?text=+CGI:1:"
+      let suffix = "&submit=Submit"
+      var Str
 
-   function sleep(milliseconds) {
-     var start = new Date().getTime();
-     for (var i = 0; i < 1e7; i++) {
-       if ((new Date().getTime() - start) > milliseconds){
-         break;
-       }
-     }
-   }
+      function sleep(milliseconds) {
+        var start = new Date().getTime();
+        for (var i = 0; i < 1e7; i++) {
+          if ((new Date().getTime() - start) > milliseconds){
+            break;
+          }
+        }
+      }
 
-   function Send_DateTime()
-   {
-      let ElemDay = document.getElementById("day");
-      let ElemMonth = document.getElementById("month");
-      let ElemYear = document.getElementById("year");
-      let ElemHour = document.getElementById("hour");
-      let ElemMin = document.getElementById("min");
+      function Send_DateTime()
+      {
+         let ElemDay = document.getElementById("day");
+         let ElemMonth = document.getElementById("month");
+         let ElemYear = document.getElementById("year");
+         let ElemHour = document.getElementById("hour");
+         let ElemMin = document.getElementById("min");
 
-      Str = cgi + "0" + ":" + ElemDay.value + "," + ElemMonth.value + "," +
-            + ElemYear.value + "," + ElemHour.value + "," + ElemMin.value + suffix
+         Str = cgi + "0" + ":" + ElemDay.value + "," + ElemMonth.value + "," +
+               + ElemYear.value + "," + ElemHour.value + "," + ElemMin.value + suffix
 
-      $.get(Str);
-      sleep(500)
-      window.location.reload(true);
-   }
+         $.get(Str);
+         sleep(500)
+         window.location.reload(true);
+      }
 
-   function Send_Calendar()
-   {
-      let ElemDay = document.getElementById("CalDay");
-      let ElemHourStart = document.getElementById("CalHourStart");
-      let ElemMinStart = document.getElementById("CalMinStart");
-      let ElemHourEnd = document.getElementById("CalHourEnd");
-      let ElemMinEnd = document.getElementById("CalMinEnd");
+      function Send_Calendar()
+      {
+         let ElemDay = document.getElementById("CalDay");
+         let ElemHourStart = document.getElementById("CalHourStart");
+         let ElemMinStart = document.getElementById("CalMinStart");
+         let ElemHourEnd = document.getElementById("CalHourEnd");
+         let ElemMinEnd = document.getElementById("CalMinEnd");
 
-      Str = cgi + "1" + ":" + ElemDay.value + "," +
-            ElemHourStart.value + "," + ElemMinStart.value + "," +
-            ElemHourEnd.value   + "," + ElemMinEnd.value + suffix
+         Str = cgi + "1" + ":" + ElemDay.value + "," +
+               ElemHourStart.value + "," + ElemMinStart.value + "," +
+               ElemHourEnd.value   + "," + ElemMinEnd.value + suffix
 
-      $.get(Str);
-      sleep(500)
-      window.location.reload(true);
-   }
+         $.get(Str);
+         sleep(500)
+         window.location.reload(true);
+      }
    </script>
 
    <style>
@@ -111,12 +111,12 @@
       <SELECT id="day" size="1">
         <OPTION>01</OPTION> <OPTION>02</OPTION> <OPTION>03</OPTION> <OPTION>04</OPTION>
         <OPTION>05</OPTION> <OPTION>06</OPTION> <OPTION>07</OPTION> <OPTION>08</OPTION>
-        <OPTION>09</OPTION> <OPTION>11</OPTION> <OPTION>12</OPTION> <OPTION>13</OPTION>
-        <OPTION>14</OPTION> <OPTION>15</OPTION> <OPTION>16</OPTION> <OPTION>17</OPTION>
-        <OPTION>18</OPTION> <OPTION>19</OPTION> <OPTION>21</OPTION> <OPTION>22</OPTION>
-        <OPTION>23</OPTION> <OPTION>24</OPTION> <OPTION>25</OPTION> <OPTION>26</OPTION>
-        <OPTION>27</OPTION> <OPTION>28</OPTION> <OPTION>29</OPTION> <OPTION>30</OPTION>
-        <OPTION>31</OPTION>
+        <OPTION>09</OPTION> <OPTION>10</OPTION> <OPTION>11</OPTION> <OPTION>12</OPTION>
+        <OPTION>13</OPTION> <OPTION>14</OPTION> <OPTION>15</OPTION> <OPTION>16</OPTION>
+        <OPTION>17</OPTION> <OPTION>18</OPTION> <OPTION>19</OPTION> <OPTION>20</OPTION>
+        <OPTION>21</OPTION> <OPTION>22</OPTION> <OPTION>23</OPTION> <OPTION>24</OPTION>
+        <OPTION>25</OPTION> <OPTION>26</OPTION> <OPTION>27</OPTION> <OPTION>28</OPTION>
+        <OPTION>29</OPTION> <OPTION>30</OPTION> <OPTION>31</OPTION>
       </SELECT>
       <SELECT id="month" size="1">
          <OPTION value="1">janvier</OPTION>
