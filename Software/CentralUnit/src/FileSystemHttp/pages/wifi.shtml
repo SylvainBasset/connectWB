@@ -149,7 +149,9 @@
    <span class="marge">
       <input type="button" onclick="Send_SsidPwd()" value="OK"/>
    </span>
+
    <br>
+
    <input type="checkbox" onclick="if (pwd.type == 'text') pwd.type = 'password';
      else pwd.type = 'text';">afficher le mot de passe</button>
 

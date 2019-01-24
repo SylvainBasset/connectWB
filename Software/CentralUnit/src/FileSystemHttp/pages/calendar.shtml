@@ -195,15 +195,17 @@
 
    <p>Plages horaire de charge:</p>
 
-   <TABLE BORDER="0">
-      <TR><TD> Lundi: </TD><!--#input:1:1--></TR>
-      <TR><TD> Mardi:</TD><!--#input:1:2--></TR>
-      <TR><TD> Mercredi:</TD><!--#input:1:3--></TR>
-      <TR><TD> Jeudi:</TD><!--#input:1:4--></TR>
-      <TR><TD> Vendredi:</TD><!--#input:1:5--></TR>
-      <TR><TD> Samedi:</TD><!--#input:1:6--></TR>
-      <TR><TD> Dimanche:</TD><!--#input:1:7--></TR>
-   </TABLE>
+   <div style="margin-left:20px">
+      <TABLE BORDER="0">
+         <TR><TD> Lundi : </TD><!--#input:1:1--></TR>
+         <TR><TD> Mardi : </TD><!--#input:1:2--></TR>
+         <TR><TD> Mercredi : </TD><!--#input:1:3--></TR>
+         <TR><TD> Jeudi : </TD><!--#input:1:4--></TR>
+         <TR><TD> Vendredi : </TD><!--#input:1:5--></TR>
+         <TR><TD> Samedi : </TD><!--#input:1:6--></TR>
+         <TR><TD> Dimanche : </TD><!--#input:1:7--></TR>
+      </TABLE>
+   </div>
    <br>
    Nouveau r&eacute;glage:
    <span class="marge">

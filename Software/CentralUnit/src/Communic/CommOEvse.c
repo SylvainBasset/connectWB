@@ -110,7 +110,8 @@ static void coevse_CmdSetErr( void ) ;
 static void coevse_CmdStart( e_CmdId i_eCmdId ) ;
 static void coevse_CmdEnd( void ) ;
 
-static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue ) ;
+static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
+                                  BOOL i_bIsSigned, DWORD i_dwMax ) ;
 static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue ) ;
 
 static void coevse_HrdInit( void ) ;
@@ -170,15 +171,25 @@ void coevse_SetEnable( BOOL i_bEnable )
 
 
 /*----------------------------------------------------------------------------*/
-/* Set current capacity                                                       */
+/* Set current capacity (A)                                                    */
 /*----------------------------------------------------------------------------*/
 
-void coevse_SetCurrentCap( WORD i_wCurrent )
+void coevse_SetCurrentCap( BYTE i_byCurrent )
 {
    WORD awParam [1] ;
 
-   awParam[0] = i_wCurrent ;
+   awParam[0] = i_byCurrent ;
    coevse_AddCmdFifo( COEVSE_CMD_SETCURRENTCAP, awParam, 1 ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Get current capacity                                                       */
+/*----------------------------------------------------------------------------*/
+
+DWORD coevse_GetCurrentCap( void )
+{
+   return l_Status.dwCurrentCapMax ;
 }
 
 
@@ -186,9 +197,9 @@ void coevse_SetCurrentCap( WORD i_wCurrent )
 /* Get if EV is plugged                                                       */
 /*----------------------------------------------------------------------------*/
 
-BOOL coevse_IsPlugged( void )
+e_coevseEVPlugState coevse_GetPlugState( void )
 {
-   return l_Status.bEvConnect ;
+   return l_Status.eEvPlugState ;
 }
 
 
@@ -210,6 +221,16 @@ BOOL coevse_IsCharging( void )
    }
 
    return bRet ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Get if EV charging                                                        */
+/*----------------------------------------------------------------------------*/
+
+SDWORD coevse_GetCurrent( void )
+{
+   return l_Status.sdwChargeCurrent ;
 }
 
 
@@ -525,11 +546,15 @@ static void coevse_CmdresultIsEvConnect( char C* i_pszDataRes )
 {
    if ( i_pszDataRes[1] == '1' )
    {
-      l_Status.bEvConnect = TRUE ;
+      l_Status.eEvPlugState = COEVSE_EV_PLUGGED ;
+   }
+   else if ( i_pszDataRes[1] == '2' )
+   {
+      l_Status.eEvPlugState = COEVSE_EV_UNKNOWN ;
    }
    else
    {
-      l_Status.bEvConnect = FALSE ;
+      l_Status.eEvPlugState = COEVSE_EV_UNPLUGGED ;
    }
 }
 
@@ -543,18 +568,18 @@ static void coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
    CHAR C* pszNext ;
 
    pszStr = i_pszDataRes ;
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.sdwCurrentCapMin = sdwValue ;
+      l_Status.dwCurrentCapMin = sdwValue ;
    }
 
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.sdwCurrentCapMax = sdwValue ;
+      l_Status.dwCurrentCapMax = sdwValue ;
    }
 }
 
@@ -568,14 +593,14 @@ static void coevse_CmdresultGetChargParam( char C* i_pszDataRes )
    CHAR C* pszNext ;
 
    pszStr = i_pszDataRes ;
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
       l_Status.sdwChargeVoltage = sdwValue ;
    }
 
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
@@ -625,18 +650,18 @@ static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
    CHAR C* pszNext ;
 
    pszStr = i_pszDataRes ;
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.sdwCurWh = sdwValue ;
+      l_Status.dwCurWh = sdwValue ;
    }
 
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue ) ;
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.sdwAccWh = sdwValue ;
+      l_Status.dwAccWh = sdwValue ;
    }
 }
 
@@ -651,13 +676,15 @@ static void coevse_CmdresultGetVersion( char C* i_pszDataRes )
 
 /*----------------------------------------------------------------------------*/
 
-static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue )
+static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
+                                  BOOL i_bIsSigned, DWORD i_dwMax )
 {
    BOOL bEndOfString ;
    BOOL bNeg ;
    DWORD dwValue ;
    char C* pszStr ;
    char C* pszEnd ;
+   BYTE byVal ;
 
    bEndOfString = FALSE ;
    bNeg = FALSE ;
@@ -683,8 +710,19 @@ static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue )
    {
       while( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
       {
+         byVal = ( *pszStr - '0' ) ;
+
+         if ( ( dwValue > ( i_dwMax - byVal ) / 10 ) )
+         {
+            dwValue = i_dwMax ;
+            while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) && ( *pszStr != 0 ) ) ) //SBA à tester
+            {
+               pszStr++ ;
+            }
+            break ;
+         }
          dwValue *= 10 ;
-         dwValue += ( *pszStr - '0' ) ;
+         dwValue += byVal ;
          pszStr++ ;
       }
       pszEnd = pszStr ;
@@ -694,7 +732,14 @@ static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue )
    {
       if ( bNeg )
       {
-         *o_psdwValue = -(SDWORD)dwValue ;
+         if ( i_bIsSigned )
+         {
+            *o_psdwValue = -(SDWORD)dwValue ;
+         }
+         else
+         {
+            *o_psdwValue = 0 ;
+         }
       }
       else
       {
@@ -736,6 +781,8 @@ static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue )
    while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) ||
           ( ( *pszStr >= 'A' ) && ( *pszStr <= 'F' ) ) )
       {
+                                             //Vérifier si pas débordement
+
          dwValue *= 16 ;
          if ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
          {

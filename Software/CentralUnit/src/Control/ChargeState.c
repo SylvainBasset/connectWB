@@ -24,6 +24,8 @@
 
 #define CSTATE_LED_BLINK               500
 
+#define CSTATE_
+
 typedef enum
 {
    CSTATE_LED_OFF = 0,
@@ -44,7 +46,9 @@ typedef struct
    BOOL bEnabled ;
    BOOL bEvPlugged ;
    BOOL bCharging ;
-   BOOL bForce ;
+   BOOL bEndOfCharge ;
+   DWORD dwCurrentMinStop ;
+   e_cstateForceSt eForceState ;
 } s_cstateData ;
 
 
@@ -52,8 +56,12 @@ typedef struct
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
+static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceSt ) ;
+static void cstate_UpdateEnable( void ) ;
+static e_cstateChargeSt cstate_DoGetChargeState( void ) ;
+static void cstate_UpdateLed( e_cstateChargeSt i_eChargeState ) ;
 static BOOL cstate_ButtonProcess( BOOL * o_bLongPress ) ;
-static void cstate_LedUpdate( s_cstateData C* i_pData ) ;
+
 
 static void cstate_HrdInitButton( void ) ;
 static void cstate_HrdInitLed( void ) ;
@@ -74,8 +82,8 @@ static BOOL l_bButtonState ;
 static e_cstateLedColor l_eWifiLedColor ;
 static e_cstateLedColor l_eChargeLedColor ;
 
-DWORD l_dwTmpBlinkLedWifi ;
-DWORD l_dwTmpBlinkLedCharge ;
+static DWORD l_dwTmpBlinkLedWifi ;
+static DWORD l_dwTmpBlinkLedCharge ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -84,10 +92,51 @@ DWORD l_dwTmpBlinkLedCharge ;
 
 void cstate_Init( void )
 {
+   l_Data.eForceState = CSTATE_FORCE_NONE ;
+   l_Data.bEnabled = BYTE_MAX ;              /* force first update */
    cstate_HrdInitButton() ;
    cstate_HrdInitLed() ;
 }
 
+
+/*----------------------------------------------------------------------------*/
+
+void cstate_SetCurrentMinStop( DWORD i_dwCurrentMinStop )
+{
+   l_Data.dwCurrentMinStop = i_dwCurrentMinStop ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+DWORD cstate_GetCurrentMinStop( void )
+{
+   return l_Data.dwCurrentMinStop ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+e_cstateForceSt cstate_GetForceState( void )
+{
+   return l_Data.eForceState ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+e_cstateChargeSt cstate_GetChargeState( void )
+{
+   return cstate_DoGetChargeState() ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+BOOL cstate_IsEvPlugged( void )
+{
+   return l_Data.bEvPlugged ;
+}
 
 /*----------------------------------------------------------------------------*/
 /* periodic task                                                              */
@@ -95,53 +144,256 @@ void cstate_Init( void )
 
 void cstate_TaskCyc( void )
 {
-   s_cstateData CurData ;
    BOOL bPress ;
    BOOL bLongPress ;
+   BOOL bCharging ;
+   BOOL bEvPlugged ;
+   e_cstateForceSt eForceState ;
+   e_cstateChargeSt eChargeState ;
 
+   l_Data.bWifiMaint = cwifi_IsMaintMode() ;
+   l_Data.bWifiConnect = cwifi_IsConnected() ;
 
-   CurData.bWifiMaint = cwifi_IsMaintMode() ;
-   CurData.bWifiConnect = cwifi_IsConnected() ;
+   bEvPlugged = ( coevse_GetPlugState() == COEVSE_EV_PLUGGED ) ;
 
-   CurData.bEvPlugged = coevse_IsPlugged() ;
-   CurData.bCharging = coevse_IsCharging() ;
-   CurData.bForce = l_Data.bForce ;
+   if ( l_Data.bEvPlugged != bEvPlugged )
+   {
+      l_Data.bEvPlugged = bEvPlugged ;
+      if ( bEvPlugged )
+      {
+         l_Data.bEndOfCharge = FALSE ;
+      }
+   }
 
    bPress = cstate_ButtonProcess( &bLongPress ) ;
+   eForceState = l_Data.eForceState ;
 
    if ( bPress )
    {
       if ( bLongPress )
       {
-         CurData.bWifiMaint = ! CurData.bWifiMaint ;
-         cwifi_SetMaintMode( CurData.bWifiMaint ) ;
+         cwifi_SetMaintMode( ! l_Data.bWifiMaint ) ;
       }
       else
       {
-         CurData.bForce = ! CurData.bForce ;
+    	  eForceState = cstate_GetNextForcedState( eForceState ) ;
+         l_Data.bEndOfCharge = FALSE ;
       }
    }
 
-   if ( l_Data.bCharging && ( ! CurData.bCharging ) )
+   bCharging = coevse_IsCharging() ;
+
+   if ( l_Data.bCharging != bCharging )
    {
-      CurData.bForce = FALSE ;
+      l_Data.bCharging = bCharging ;
+      if ( ! bCharging )
+      {
+    	  eForceState = CSTATE_FORCE_NONE ;
+         l_Data.bEndOfCharge = TRUE ;
+      }
    }
 
-                                        // limite min courant: test si carge en cours et courant < seuil
-   CurData.bEnabled = CurData.bForce || ( cal_IsChargeEnable() && TRUE ) ;
+   l_Data.eForceState = eForceState ;
 
-   if ( l_Data.bEnabled != CurData.bEnabled )
-   {
-      coevse_SetEnable( CurData.bEnabled ) ;
-   }
+   cstate_UpdateEnable() ;
 
-   cstate_LedUpdate( &CurData ) ;
+   eChargeState = cstate_DoGetChargeState() ;
 
-   l_Data = CurData ;
+   cstate_UpdateLed( eChargeState ) ;
 }
 
 
 /*=========================================================================*/
+
+/*----------------------------------------------------------------------------*/
+
+static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceSt )
+{
+   e_cstateForceSt eNextForceSt ;
+
+   if ( i_eForceSt == CSTATE_FORCE_NONE )
+   {
+      eNextForceSt = CSTATE_FORCE_AMPMIN ;
+   }
+   else if ( i_eForceSt == CSTATE_FORCE_AMPMIN )
+   {
+      eNextForceSt = CSTATE_FORCE_ALL ;
+   }
+   else
+   {
+      eNextForceSt = CSTATE_FORCE_NONE ;
+   }
+
+   return eNextForceSt ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static void cstate_UpdateEnable( void )
+{
+   SDWORD sdwCurrent ;
+   BOOL bEnabled ;
+
+   sdwCurrent = coevse_GetCurrent() ;
+
+   if ( l_Data.eForceState == CSTATE_FORCE_ALL )
+   {
+      bEnabled = TRUE ;
+   }
+   else if ( ( l_Data.eForceState  == CSTATE_FORCE_AMPMIN ) && ( cal_IsChargeEnable() ) )
+   {
+      bEnabled = TRUE ;
+   }
+   else if ( ( l_Data.eForceState  == CSTATE_FORCE_NONE ) &&
+             ( cal_IsChargeEnable() ) && ( sdwCurrent >= l_Data.dwCurrentMinStop ) )
+   {
+      bEnabled = TRUE ;
+   }
+   else
+   {
+      bEnabled = FALSE ;
+   }
+
+   if ( l_Data.bEnabled != bEnabled )
+   {
+      l_Data.bEnabled = bEnabled ;
+      coevse_SetEnable( bEnabled ) ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static e_cstateChargeSt cstate_DoGetChargeState( void )
+{
+   e_cstateChargeSt eChargeState ;
+
+   if ( l_Data.bCharging )
+   {
+      eChargeState = CSTATE_CHARGING ;
+   }
+   else if ( l_Data.eForceState == CSTATE_FORCE_ALL )
+   {
+      eChargeState = CSTATE_FORCE_ALL_WAIT_VE ;
+   }
+   else if ( l_Data.eForceState == CSTATE_FORCE_AMPMIN )
+   {
+      eChargeState = CSTATE_FORCE_AMPMIN_WAIT_VE ;
+   }
+   else if ( l_Data.bEndOfCharge )
+   {
+      eChargeState = CSTATE_END_OF_CHARGE ;
+   }
+   else if ( clk_IsDateTimeLost() )
+   {
+      eChargeState = CSTATE_DATE_TIME_LOST ;
+   }
+   else if ( l_Data.bEvPlugged && ( ! l_Data.bEnabled ) )
+   {
+      eChargeState = CSTATE_WAIT_CALENDAR ;
+   }
+   else
+   {
+      eChargeState = CSTATE_OFF ;
+   }
+
+   return eChargeState ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Update Led color/blink                                                     */
+/*----------------------------------------------------------------------------*/
+
+static void cstate_UpdateLed( e_cstateChargeSt i_eChargeState )
+{
+   e_cstateLedColor eWifiLedColor ;
+   e_cstateLedColor eChargeLedColor ;
+
+   if ( l_Data.bWifiMaint )
+   {
+      eWifiLedColor = CSTATE_LED_BLUE_BLINK ;
+   }
+   else if ( l_Data.bWifiConnect )
+   {
+      eWifiLedColor = CSTATE_LED_BLUE ;
+   }
+   else
+   {
+      eWifiLedColor = CSTATE_LED_OFF ;
+   }
+
+   if ( l_eWifiLedColor != eWifiLedColor )
+   {
+      l_eWifiLedColor = eWifiLedColor ;
+
+      cstate_HrdSetColorLedWifi( eWifiLedColor ) ;
+
+      if ( ( eWifiLedColor == CSTATE_LED_RED_BLINK ) ||
+           ( eWifiLedColor == CSTATE_LED_BLUE_BLINK ) ||
+           ( eWifiLedColor == CSTATE_LED_GREEN_BLINK )  )
+      {
+         tim_StartMsTmp( &l_dwTmpBlinkLedWifi ) ;
+      }
+      else
+      {
+         l_dwTmpBlinkLedWifi = 0 ;
+      }
+   }
+   if ( tim_IsEndMsTmp( &l_dwTmpBlinkLedWifi, CSTATE_LED_BLINK ) )
+   {
+      HAL_GPIO_TogglePin( CSTATE_LEDWIFI_COMMON_GPIO,CSTATE_LEDWIFI_COMMON_PIN ) ;
+      tim_StartMsTmp( &l_dwTmpBlinkLedWifi ) ;
+   }
+
+   switch( i_eChargeState )
+   {
+      case CSTATE_OFF :
+      case CSTATE_END_OF_CHARGE :
+         eChargeLedColor = CSTATE_LED_OFF ;
+         break ;
+      case CSTATE_FORCE_AMPMIN_WAIT_VE :
+         eChargeLedColor = CSTATE_LED_BLUE_BLINK ;
+         break ;
+      case CSTATE_FORCE_ALL_WAIT_VE :
+         eChargeLedColor = CSTATE_LED_BLUE ;
+         break ;
+      case CSTATE_WAIT_CALENDAR :
+         eChargeLedColor = CSTATE_LED_GREEN_BLINK ;
+         break ;
+      case CSTATE_DATE_TIME_LOST :
+         eChargeLedColor = CSTATE_LED_RED_BLINK ;
+         break ;
+      case CSTATE_CHARGING :
+         eChargeLedColor = CSTATE_LED_GREEN ;
+         break ;
+   }
+
+   if ( l_eChargeLedColor != eChargeLedColor )
+   {
+      l_eChargeLedColor = eChargeLedColor ;
+
+      cstate_HrdSetColorLedCharge( eChargeLedColor ) ;
+
+      if ( ( eChargeLedColor == CSTATE_LED_RED_BLINK ) ||
+           ( eChargeLedColor == CSTATE_LED_BLUE_BLINK ) ||
+           ( eChargeLedColor == CSTATE_LED_GREEN_BLINK )  )
+      {
+         tim_StartMsTmp( &l_dwTmpBlinkLedCharge ) ;
+      }
+      else
+      {
+         l_dwTmpBlinkLedCharge = 0 ;
+      }
+   }
+   if ( tim_IsEndMsTmp( &l_dwTmpBlinkLedCharge, CSTATE_LED_BLINK ) )
+   {
+      HAL_GPIO_TogglePin( CSTATE_LEDCH_COMMON_GPIO, CSTATE_LEDCH_COMMON_PIN ) ;
+      tim_StartMsTmp( &l_dwTmpBlinkLedCharge ) ;
+   }
+}
+
 
 /*----------------------------------------------------------------------------*/
 /* Button read proces                                                         */
@@ -186,94 +438,6 @@ static BOOL cstate_ButtonProcess( BOOL * o_bLongPress )
    }
 
    return bPressEvt ;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/* Update Led color/blink                                                     */
-/*----------------------------------------------------------------------------*/
-
-static void cstate_LedUpdate( s_cstateData C* i_pData )
-{
-   e_cstateLedColor eWifiLedColor ;
-   e_cstateLedColor eChargeLedColor ;
-
-   if ( i_pData->bWifiMaint )
-   {
-      eWifiLedColor = CSTATE_LED_BLUE_BLINK ;
-   }
-   else if ( i_pData->bWifiConnect )
-   {
-      eWifiLedColor = CSTATE_LED_BLUE ;
-   }
-   else
-   {
-      eWifiLedColor = CSTATE_LED_OFF ;
-   }
-
-   if ( l_eWifiLedColor != eWifiLedColor )
-   {
-      l_eWifiLedColor = eWifiLedColor ;
-
-      cstate_HrdSetColorLedWifi( eWifiLedColor ) ;
-
-      if ( ( eWifiLedColor == CSTATE_LED_RED_BLINK ) ||
-           ( eWifiLedColor == CSTATE_LED_BLUE_BLINK ) ||
-           ( eWifiLedColor == CSTATE_LED_GREEN_BLINK )  )
-      {
-         tim_StartMsTmp( &l_dwTmpBlinkLedWifi ) ;
-      }
-      else
-      {
-         l_dwTmpBlinkLedWifi = 0 ;
-      }
-   }
-   if ( tim_IsEndMsTmp( &l_dwTmpBlinkLedWifi, CSTATE_LED_BLINK ) )
-   {
-      HAL_GPIO_TogglePin( CSTATE_LEDWIFI_COMMON_GPIO,CSTATE_LEDWIFI_COMMON_PIN ) ;
-      tim_StartMsTmp( &l_dwTmpBlinkLedWifi ) ;
-   }
-
-
-   if ( i_pData->bCharging )
-   {
-      eChargeLedColor = CSTATE_LED_GREEN ;
-   }
-   else if ( i_pData->bForce )
-   {
-	  eChargeLedColor = CSTATE_LED_BLUE_BLINK ;
-   }
-   else if ( i_pData->bEvPlugged && ( ! i_pData->bEnabled ) )
-   {
-      eChargeLedColor = CSTATE_LED_GREEN_BLINK ;
-   }
-   else
-   {
-      eChargeLedColor = CSTATE_LED_OFF ;
-   }
-
-   if ( l_eChargeLedColor != eChargeLedColor )
-   {
-      l_eChargeLedColor = eChargeLedColor ;
-
-      cstate_HrdSetColorLedCharge( eChargeLedColor ) ;
-
-      if ( ( eChargeLedColor == CSTATE_LED_RED_BLINK ) ||
-           ( eChargeLedColor == CSTATE_LED_BLUE_BLINK ) ||
-           ( eChargeLedColor == CSTATE_LED_GREEN_BLINK )  )
-      {
-         tim_StartMsTmp( &l_dwTmpBlinkLedCharge ) ;
-      }
-      else
-      {
-         l_dwTmpBlinkLedCharge = 0 ;
-      }
-   }
-   if ( tim_IsEndMsTmp( &l_dwTmpBlinkLedCharge, CSTATE_LED_BLINK ) )
-   {
-      HAL_GPIO_TogglePin( CSTATE_LEDCH_COMMON_GPIO, CSTATE_LEDCH_COMMON_PIN ) ;
-      tim_StartMsTmp( &l_dwTmpBlinkLedCharge ) ;
-   }
 }
 
 

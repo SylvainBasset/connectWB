@@ -31,9 +31,15 @@ RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 #define  HTML_PAGE_CALENDAR      1
 #define  HTML_PAGE_WIFI          2
 
+#define  HTML_CHARGE_SSI_FORCE              0
+#define  HTML_CHARGE_SSI_CALENDAR_OK        1
+#define  HTML_CHARGE_SSI_EVPLUGGED          2
+#define  HTML_CHARGE_SSI_STATE              3
+#define  HTML_CHARGE_SSI_CURRENT_MES        4
+#define  HTML_CHARGE_SSI_CURRENT_CAP        5
+#define  HTML_CHARGE_SSI_CURRENT_MIN        6
 
 #define  HTML_CALENDAR_SSI_DATETIME         0
-
 #define  HTML_CALENDAR_SSI_CAL_MONDAY       1
 #define  HTML_CALENDAR_SSI_CAL_TUESDAY      2
 #define  HTML_CALENDAR_SSI_CAL_WEDNESDAY    3
@@ -44,6 +50,9 @@ RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 
 #define  HTML_WIFI_SSI_WIFIHOME             0
 #define  HTML_WIFI_SSI_MAINTMODE            1
+
+#define  HTML_CHARGE_CGI_CURRENT_CAPMAX     0
+#define  HTML_CHARGE_CGI_CURRENT_MIN        1
 
 #define HTML_CALENDAR_CGI_DATE              0
 #define HTML_CALENDAR_CGI_DAYSET            1
@@ -98,28 +107,41 @@ BYTE uwifi_GetError( BOOL i_bReset ) ;
 /* CommOEvse.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
+typedef enum
+{
+   COEVSE_EV_PLUGGED,
+   COEVSE_EV_UNPLUGGED,
+   COEVSE_EV_UNKNOWN,
+} e_coevseEVPlugState ;
+
 typedef struct
 {
-   BOOL bEvConnect ;
-   SDWORD sdwCurrentCapMin ;
-   SDWORD sdwCurrentCapMax ;
+   e_coevseEVPlugState eEvPlugState ;
+   DWORD dwCurrentCapMin ;
+   DWORD dwCurrentCapMax ;
    SDWORD sdwChargeVoltage ;
    SDWORD sdwChargeCurrent ;
-   SDWORD sdwCurWh ;
-   SDWORD sdwAccWh ;
+   DWORD dwCurWh ;
+   DWORD dwAccWh ;
 
    DWORD dwErrGfiTripCnt ;
    DWORD dwNoGndTripCnt ;
    DWORD dwStuckRelayTripCnt ;
-} s_coevseStatus ;
+} s_coevseStatus ; //SBA: renommer en Data
+
+#define COEVSE_CURRENT_CAPMAX_MAX   20
+#define COEVSE_CURRENT_CAPMAX_MIN    6
+
 
 void coevse_Init( void ) ;
 
 void coevse_SetEnable( BOOL i_bEnable ) ;
-void coevse_SetCurrentCap( WORD i_wCurrent ) ;
+void coevse_SetCurrentCap( BYTE i_byCurrent ) ;
+DWORD coevse_GetCurrentCap( void ) ;
 
-BOOL coevse_IsPlugged( void ) ;
+e_coevseEVPlugState coevse_GetPlugState( void ) ;
 BOOL coevse_IsCharging( void ) ;
+SDWORD coevse_GetCurrent( void ) ;
 s_coevseStatus coevse_GetStatus( void ) ;
 
 void coevse_TaskCyc( void ) ;

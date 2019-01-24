@@ -28,7 +28,36 @@ BOOL cal_IsChargeEnable( void ) ;
 /* ChargeState.c                                                              */
 /*----------------------------------------------------------------------------*/
 
+typedef enum
+{
+   CSTATE_OFF,
+   CSTATE_FORCE_AMPMIN_WAIT_VE,
+   CSTATE_FORCE_ALL_WAIT_VE,
+   CSTATE_DATE_TIME_LOST,
+   CSTATE_WAIT_CALENDAR,
+   CSTATE_CHARGING,
+   CSTATE_END_OF_CHARGE,
+} e_cstateChargeSt ;
+
+typedef enum
+{
+   CSTATE_FORCE_NONE,
+   CSTATE_FORCE_AMPMIN,
+   CSTATE_FORCE_ALL,
+} e_cstateForceSt ;              /* forced charge status */
+
+
+#define CSTATE_CURRENT_MIN_MAX   20
+#define CSTATE_CURRENT_MIN_MIN    0
+
 void cstate_Init( void ) ;
+
+void cstate_SetCurrentMinStop( DWORD i_dwCurrentMinStop ) ;
+DWORD cstate_GetCurrentMinStop( void ) ;
+
+e_cstateForceSt cstate_GetForceState( void ) ;
+e_cstateChargeSt cstate_GetChargeState( void ) ;
+BOOL cstate_IsEvPlugged( void ) ;
 void cstate_TaskCyc( void ) ;
 
 

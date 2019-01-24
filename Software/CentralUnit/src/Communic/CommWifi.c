@@ -990,7 +990,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
 
       if ( byNbComma == 4 )
       {
-         (*l_fHtmlSsi)(dwValParam1, dwValParam2, szOutput, ( sizeof(szOutput) - 2 ) ) ;
+         (*l_fHtmlSsi)(dwValParam1, dwValParam2, szOutput, ( sizeof(szOutput) - 1 ) ) ;
 
          wSize = strlen( szOutput ) ;
          szOutput[wSize] = '\r' ;

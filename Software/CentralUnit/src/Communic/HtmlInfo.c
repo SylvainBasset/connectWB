@@ -16,10 +16,13 @@
 
 
 static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize ) ;
+static void html_ProcessSsiCharge( DWORD i_dwParam2,
+                                   char * o_pszOutput, WORD i_wStrSize ) ;
 static void html_ProcessSsiCalendar( DWORD i_dwParam2, char * o_pszOut, WORD i_wStrSize ) ;
 static void html_ProcessSsiWifi( DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize ) ;
 
 static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszValue ) ;
+static void html_ProcessCgiCharge( DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue ) ;
 
@@ -42,7 +45,7 @@ static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOut
    switch ( i_dwParam1 )
    {
       case HTML_PAGE_STATUS :
-         *o_pszOutput = 0 ;   //TMP
+         html_ProcessSsiCharge( i_dwParam2, o_pszOutput, i_wStrSize ) ;
          break ;
 
       case HTML_PAGE_CALENDAR :
@@ -56,6 +59,131 @@ static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOut
       default :
          *o_pszOutput = 0 ;
          break ;
+   }
+}
+
+/*----------------------------------------------------------------------------*/
+
+static void html_ProcessSsiCharge( DWORD i_dwParam2,
+                                   char * o_pszOutput, WORD i_wStrSize )
+{
+   e_cstateForceSt eForceStatus ;
+   WORD wStrSize ;
+   e_cstateChargeSt eChargeState ;
+   e_coevseEVPlugState ePlugState ;
+   DWORD dwCurrent ;
+   SDWORD sdwCurrent ;
+
+   wStrSize = i_wStrSize ;
+
+   switch ( i_dwParam2 )
+   {
+      case HTML_CHARGE_SSI_FORCE :
+         eForceStatus = cstate_GetForceState() ;
+         if ( eForceStatus == CSTATE_FORCE_AMPMIN )
+         {
+            html_AddToStr( o_pszOutput, &wStrSize,
+                           "<FONT COLOR=\"#0000C0\">Oui, Condition courant minimum ignor&eacute;</FONT>" ) ;
+         }
+         else if ( eForceStatus == CSTATE_FORCE_ALL )
+         {
+            html_AddToStr( o_pszOutput, &wStrSize,
+                           "<FONT COLOR=\"#0000C0\">Oui, Charge syst&eacutematique</FONT>" ) ;
+         }
+         else
+         {
+            html_AddToStr( o_pszOutput, &wStrSize, "Non" ) ;
+         }
+         break ;
+
+      case HTML_CHARGE_SSI_CALENDAR_OK :
+         if ( cal_IsChargeEnable() )
+         {
+            html_AddToStr( o_pszOutput, &wStrSize, "<FONT COLOR=\"#00C000\">Oui</FONT>" ) ;
+         }
+         else
+         {
+            html_AddToStr( o_pszOutput, &wStrSize, "Non" ) ;
+         }
+         break ;
+
+      case HTML_CHARGE_SSI_EVPLUGGED :
+         ePlugState = coevse_GetPlugState() ;
+         if ( ePlugState == COEVSE_EV_PLUGGED )
+         {
+            html_AddToStr( o_pszOutput, &wStrSize, "<FONT COLOR=\"#00C000\">Oui</FONT>" ) ;
+         }
+         else if ( ePlugState == COEVSE_EV_UNKNOWN )
+         {
+            html_AddToStr( o_pszOutput, &wStrSize, "???" ) ;
+         }
+         else
+         {
+            html_AddToStr( o_pszOutput, &wStrSize, "Non" ) ;
+         }
+         break ;
+
+      case HTML_CHARGE_SSI_STATE :
+         eChargeState = cstate_GetChargeState() ;
+         switch ( eChargeState )
+         {
+            case CSTATE_OFF :
+               html_AddToStr( o_pszOutput, &wStrSize, "En arr&ecirc;t" ) ;
+               break ;
+
+            case CSTATE_FORCE_AMPMIN_WAIT_VE :
+            case CSTATE_FORCE_ALL_WAIT_VE :
+               html_AddToStr( o_pszOutput, &wStrSize,
+                              "<FONT COLOR=\"#0000C0\">Forc&eacute;, en attente VE</FONT>" ) ;
+               break ;
+
+            case CSTATE_DATE_TIME_LOST :
+               html_AddToStr( o_pszOutput, &wStrSize,
+                              "<FONT COLOR=\"#C00000\">Date/heure perdue</FONT>" ) ;
+               break ;
+
+            case CSTATE_WAIT_CALENDAR :
+               html_AddToStr( o_pszOutput, &wStrSize, "Attente heure de charge" ) ;
+               break ;
+
+            case CSTATE_CHARGING :
+               html_AddToStr( o_pszOutput, &wStrSize, "<FONT COLOR=\"#00C000\">En charge</FONT>" ) ;
+               break ;
+
+            case CSTATE_END_OF_CHARGE :
+               html_AddToStr( o_pszOutput, &wStrSize, "Charge terminée" ) ;
+               break ;
+
+            default :
+               html_AddToStr( o_pszOutput, &wStrSize, "En arr&ecirc;t" ) ;
+               break ;
+         }
+         break ;
+
+      case HTML_CHARGE_SSI_CURRENT_MES :
+         sdwCurrent = coevse_GetCurrent() ;
+         if ( sdwCurrent > 0 )
+         {
+            dwCurrent = (DWORD)sdwCurrent ;
+         }
+         else
+         {
+            dwCurrent = 0 ;
+         }
+         snprintf( o_pszOutput, i_wStrSize, "%lu", dwCurrent ) ;
+         break ;
+
+      case HTML_CHARGE_SSI_CURRENT_CAP :
+         snprintf( o_pszOutput, i_wStrSize, "%lu", coevse_GetCurrentCap() ) ;
+         break ;
+
+      case HTML_CHARGE_SSI_CURRENT_MIN :
+         snprintf( o_pszOutput, i_wStrSize, "%lu", cstate_GetCurrentMinStop() ) ;
+         break ;
+
+      default :
+          html_AddToStr( o_pszOutput, &wStrSize, "---" ) ;
+          break ;
    }
 }
 
@@ -231,6 +359,7 @@ static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszVa
    switch ( i_dwParam1 )
    {
       case HTML_PAGE_STATUS :
+         html_ProcessCgiCharge( i_dwParam2, i_pszValue ) ;
          break ;
 
       case HTML_PAGE_CALENDAR :
@@ -249,6 +378,44 @@ static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszVa
 
 /*----------------------------------------------------------------------------*/
 
+static void html_ProcessCgiCharge( DWORD i_dwParam2, char C* i_pszValue )
+{
+   WORD wCurrentCapMax ;
+   WORD wCurrentMin ;
+   BYTE byNbScan ;
+
+   switch ( i_dwParam2 )
+   {
+      case HTML_CHARGE_CGI_CURRENT_CAPMAX :
+         byNbScan = sscanf( i_pszValue, "%hu", &wCurrentCapMax ) ;
+
+         if ( ( byNbScan == 1 ) &&
+              ( wCurrentCapMax >= COEVSE_CURRENT_CAPMAX_MIN ) &&
+              ( wCurrentCapMax <= COEVSE_CURRENT_CAPMAX_MAX ) )
+         {
+            coevse_SetCurrentCap( wCurrentCapMax ) ;
+         }
+         break ;
+
+      case HTML_CHARGE_CGI_CURRENT_MIN :
+         byNbScan = sscanf( i_pszValue, "%hu", &wCurrentMin ) ;
+
+         if ( ( byNbScan == 1 ) &&
+              ( wCurrentMin >= CSTATE_CURRENT_MIN_MIN ) &&
+              ( wCurrentMin <= CSTATE_CURRENT_MIN_MAX ) )
+         {
+            cstate_SetCurrentMinStop( wCurrentMin ) ;
+         } ;
+         break ;
+
+      default :
+         break ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
 {
    s_DateTime DateTime ;
@@ -257,6 +424,7 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
    BYTE byDay ;
    s_Time TimeStart ;
    s_Time TimeEnd ;
+   BYTE byNbScan ;
 
    unsigned int uiDays ;
    unsigned int uiMonth ;
@@ -269,8 +437,8 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
    switch ( i_dwParam2 )
    {
       case HTML_CALENDAR_CGI_DATE :
-         sscanf( i_pszValue, "%u,%u,%u,%u,%u", &uiDays, &uiMonth, &uiYear,
-                                               &uiHours, &uiMinutes  ) ;
+         byNbScan = sscanf( i_pszValue, "%u,%u,%u,%u,%u", &uiDays, &uiMonth, &uiYear,
+                                                          &uiHours, &uiMinutes ) ;
          DateTime.byYear = uiYear - 2000 ;
          DateTime.byMonth = uiMonth ;
          DateTime.byDays = uiDays ;
@@ -278,7 +446,7 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
          DateTime.byMinutes = uiMinutes ;
          DateTime.bySeconds = 0 ;
 
-         if ( clk_IsValid( &DateTime ) )
+         if ( ( byNbScan == 5 ) && clk_IsValid( &DateTime ) )
          {
             clk_SetDateTime( &DateTime ) ;
          }
@@ -354,6 +522,7 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
             {
                pszValue++ ;
                bSsid = FALSE ;
+               continue ;
             }
 
             if ( bSsid )
