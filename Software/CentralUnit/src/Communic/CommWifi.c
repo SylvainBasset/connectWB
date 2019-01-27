@@ -426,6 +426,7 @@ static void cwifi_ConnectFSM( void )
    RESULT rRet ;
    char * pszWifiSSID ;
    char * pszWifiPassword ;
+   char szSecurity[2] ;
 
    switch ( l_eWifiState )
    {
@@ -453,7 +454,10 @@ static void cwifi_ConnectFSM( void )
 
             if ( ! l_bMaintMode )
             {
-               rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_priv_mode", "2" ) ;
+               szSecurity[0] = '0' + GETMIN( g_sDataEeprom->sWifiConInfo.dwWifiSecurity, 2 ) ;
+               szSecurity[1] = '\0' ;
+               rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_priv_mode", szSecurity ) ;
+
                rRet |= cwifi_FmtAddCmdFifo( CWIFI_CMD_SCFG, "wifi_mode", "1" ) ;
 
                pszWifiPassword = g_sDataEeprom->sWifiConInfo.szWifiPassword ;

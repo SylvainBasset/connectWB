@@ -80,8 +80,9 @@ typedef struct                         /* eeprom structure definition for calend
 
 typedef struct                         /* eeprom strcuture for wifi SSID and password */
 {
-   char szWifiSSID [32] ;              /* wifi SSID */
-   char szWifiPassword [32] ;          /* wifi password */
+   char szWifiSSID [128] ;             /* wifi SSID */
+   char szWifiPassword [128] ;         /* wifi password */
+   DWORD dwWifiSecurity ;              /* wifi security */
 } s_WifiConInfo ;
 
 typedef struct                         /* eeprom data structure definition */

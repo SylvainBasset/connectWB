@@ -27,37 +27,38 @@ RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 /* HtmlInfo.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
-#define  HTML_PAGE_STATUS        0
-#define  HTML_PAGE_CALENDAR      1
-#define  HTML_PAGE_WIFI          2
+#define HTML_PAGE_STATUS        0
+#define HTML_PAGE_CALENDAR      1
+#define HTML_PAGE_WIFI          2
 
-#define  HTML_CHARGE_SSI_FORCE              0
-#define  HTML_CHARGE_SSI_CALENDAR_OK        1
-#define  HTML_CHARGE_SSI_EVPLUGGED          2
-#define  HTML_CHARGE_SSI_STATE              3
-#define  HTML_CHARGE_SSI_CURRENT_MES        4
-#define  HTML_CHARGE_SSI_CURRENT_CAP        5
-#define  HTML_CHARGE_SSI_CURRENT_MIN        6
+#define HTML_CHARGE_SSI_FORCE             0
+#define HTML_CHARGE_SSI_CALENDAR_OK       1
+#define HTML_CHARGE_SSI_EVPLUGGED         2
+#define HTML_CHARGE_SSI_STATE             3
+#define HTML_CHARGE_SSI_CURRENT_MES       4
+#define HTML_CHARGE_SSI_CURRENT_CAP       5
+#define HTML_CHARGE_SSI_CURRENT_MIN       6
 
-#define  HTML_CALENDAR_SSI_DATETIME         0
-#define  HTML_CALENDAR_SSI_CAL_MONDAY       1
-#define  HTML_CALENDAR_SSI_CAL_TUESDAY      2
-#define  HTML_CALENDAR_SSI_CAL_WEDNESDAY    3
-#define  HTML_CALENDAR_SSI_CAL_THURSDAY     4
-#define  HTML_CALENDAR_SSI_CAL_FRIDAY       5
-#define  HTML_CALENDAR_SSI_CAL_SATURDAY     6
-#define  HTML_CALENDAR_SSI_CAL_SUNDAY       7
+#define HTML_CALENDAR_SSI_DATETIME        0
+#define HTML_CALENDAR_SSI_CAL_MONDAY      1
+#define HTML_CALENDAR_SSI_CAL_TUESDAY     2
+#define HTML_CALENDAR_SSI_CAL_WEDNESDAY   3
+#define HTML_CALENDAR_SSI_CAL_THURSDAY    4
+#define HTML_CALENDAR_SSI_CAL_FRIDAY      5
+#define HTML_CALENDAR_SSI_CAL_SATURDAY    6
+#define HTML_CALENDAR_SSI_CAL_SUNDAY      7
 
-#define  HTML_WIFI_SSI_WIFIHOME             0
-#define  HTML_WIFI_SSI_MAINTMODE            1
+#define HTML_WIFI_SSI_WIFIHOME            0
+#define HTML_WIFI_SSI_SECURITY            1
+#define HTML_WIFI_SSI_MAINTMODE           2
 
-#define  HTML_CHARGE_CGI_CURRENT_CAPMAX     0
-#define  HTML_CHARGE_CGI_CURRENT_MIN        1
+#define HTML_CHARGE_CGI_CURRENT_CAPMAX    0
+#define HTML_CHARGE_CGI_CURRENT_MIN       1
 
-#define HTML_CALENDAR_CGI_DATE              0
-#define HTML_CALENDAR_CGI_DAYSET            1
+#define HTML_CALENDAR_CGI_DATE            0
+#define HTML_CALENDAR_CGI_DAYSET          1
 
-#define HTML_WIFI_CGI_WIFI                  0
+#define HTML_WIFI_CGI_WIFI                0
 
 
 

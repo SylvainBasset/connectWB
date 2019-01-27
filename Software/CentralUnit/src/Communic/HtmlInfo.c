@@ -332,6 +332,23 @@ static void html_ProcessSsiWifi( DWORD i_dwParam2,
          pszOutput = html_AddToStr( pszOutput, &wStrSize, "</b>" ) ;
          break ;
 
+      case HTML_WIFI_SSI_SECURITY :
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, "<b>" ) ;
+         if ( g_sDataEeprom->sWifiConInfo.dwWifiSecurity == 0 )
+         {
+            pszOutput = html_AddToStr( pszOutput, &wStrSize, "None" ) ;
+         }
+         else if ( g_sDataEeprom->sWifiConInfo.dwWifiSecurity == 1 )
+         {
+            pszOutput = html_AddToStr( pszOutput, &wStrSize, "WEP" ) ;
+         }
+         else
+         {
+            pszOutput = html_AddToStr( pszOutput, &wStrSize, "WPA" ) ;
+         }
+         pszOutput = html_AddToStr( pszOutput, &wStrSize, "</b>" ) ;
+         break ;
+
       case HTML_WIFI_SSI_MAINTMODE :
          if ( cwifi_IsMaintMode() )
          {
@@ -504,28 +521,34 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
 {
    char szSsid[128] ;
    char szPwd[128] ;
+   BYTE bySecurity ;
    BYTE byIdxSsid ;
    BYTE byIdxPwd ;
    char C* pszValue ;
-   BOOL bSsid ;
+   BYTE byParam ;
+
+   szSsid[0] = '\0' ;
+   szPwd[0] = '\0' ;
+   bySecurity = 2 ;
 
    switch ( i_dwParam2 )
    {
       case HTML_WIFI_CGI_WIFI :
-         bSsid = TRUE ;
+    	 byParam = 0 ;
          byIdxSsid = 0 ;
          byIdxPwd = 0 ;
          pszValue = i_pszValue ;
+
          while ( ( *pszValue != 0 ) && ( *pszValue != '\r' ) && ( *pszValue != '\n' ) )
          {
             if ( *pszValue == ',' )
             {
                pszValue++ ;
-               bSsid = FALSE ;
+               byParam++ ;
                continue ;
             }
 
-            if ( bSsid )
+            if ( byParam == 0 )
             {
                if ( byIdxSsid < sizeof(szSsid) )
                {
@@ -533,13 +556,21 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
                   byIdxSsid++ ;
                }
             }
-            else
+            else if ( byParam == 1 )
             {
                if ( byIdxPwd < sizeof(szPwd) )
                {
                   szPwd[byIdxPwd] = *pszValue ;
                   byIdxPwd++ ;
                }
+            }
+            else
+            {
+               if ( ( *pszValue >= '0' ) && ( *pszValue <= '2' ) )
+               {
+                  bySecurity = *pszValue - '0' ;
+               }
+
             }
             pszValue++ ;
          }
@@ -549,6 +580,7 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
 
          sfrm_WriteWifiId( TRUE, szSsid ) ;
          sfrm_WriteWifiId( FALSE, szPwd ) ;
+         eep_write( (DWORD)&g_sDataEeprom->sWifiConInfo.dwWifiSecurity, (DWORD)bySecurity ) ;
          cwifi_SetMaintMode( FALSE ) ;
          break ;
 

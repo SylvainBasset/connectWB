@@ -24,8 +24,10 @@
       {
          let ElemSsid = document.getElementById("ssid");
          let ElemPwd = document.getElementById("pwd");
+         let ElemSecurity = document.getElementById("security");
 
-         Str = cgi + "0" + ":" + ElemSsid.value + "," + ElemPwd.value + suffix
+         Str = cgi + "0" + ":" + ElemSsid.value + "," + ElemPwd.value + "," +
+                                 ElemSecurity.value + suffix
 
          $.get(Str);
          sleep(500)
@@ -136,7 +138,9 @@
    <br><br>
 
    <p>Nom Wifi r&eacute;sident: <!--#input:2:0--> </p>
-   <p>Mode maintenance: <!--#input:2:1--> </p>
+   <p>S&eacute;curit&eacute;: <!--#input:2:1--> </p>
+   <p>Mode maintenance: <!--#input:2:2--> </p>
+
 
    <span class="marge">
       <p>Nouveau Wifi r&eacute;sident:</p>
@@ -144,6 +148,14 @@
       <br>
       <p>Mot de passe:</p>
       <input type="password" id="pwd" type="text" name="test" size="40"  maxlength="40">
+   </span>
+
+   <span class="marge">
+      <SELECT id="security" size="1">
+         <OPTION value="2">WPA</OPTION>
+         <OPTION value="1">WEP</OPTION>
+         <OPTION value="0">None</OPTION>
+      </SELECT>
    </span>
 
    <span class="marge">
