@@ -26,7 +26,10 @@ static void html_ProcessCgiCharge( DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue ) ;
 
+static void html_ReplaceUrlChar( CHAR * io_pszString, WORD i_wStrSize ) ;
 static CHAR * html_AddToStr( CHAR * o_pszString, WORD * io_pwStrSize, CHAR C* i_szStrToAdd ) ;
+
+
 
 /*----------------------------------------------------------------------------*/
 
@@ -578,8 +581,12 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
          szSsid[byIdxSsid] = 0 ;
          szPwd[byIdxPwd] = 0 ;
 
+         html_ReplaceUrlChar( szSsid, sizeof(szSsid) ) ;
          sfrm_WriteWifiId( TRUE, szSsid ) ;
+
+         html_ReplaceUrlChar( szPwd, sizeof(szPwd) ) ;
          sfrm_WriteWifiId( FALSE, szPwd ) ;
+
          eep_write( (DWORD)&g_sDataEeprom->sWifiConInfo.dwWifiSecurity, (DWORD)bySecurity ) ;
          cwifi_SetMaintMode( FALSE ) ;
          break ;
@@ -591,6 +598,65 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
 
 
 /*============================================================================*/
+/*----------------------------------------------------------------------------*/
+
+static void html_ReplaceUrlChar( CHAR * io_pszString, WORD i_wStrSize )
+{
+   WORD i ;
+   CHAR * pszStrRaw ;
+   CHAR * pszStrDecod ;
+   CHAR cDecodedChar ;
+   BYTE byDecodIdx ;
+
+   pszStrRaw = io_pszString ;
+   pszStrDecod = io_pszString ;
+
+   for ( i = 0 ; i < i_wStrSize ; ++i )
+   {
+      if ( *pszStrRaw == 0 )
+      {
+         break ;
+      }
+
+      if ( *pszStrRaw == '%' )
+      {
+         cDecodedChar = 0 ;
+
+         for ( byDecodIdx = 0 ; byDecodIdx < 2 ; byDecodIdx++ )
+         {
+            pszStrRaw++ ;
+            cDecodedChar *= 16 ;
+            if ( *pszStrRaw == 0 )
+            {
+               break ;
+            }
+            if ( *pszStrRaw <= '9' )
+            {
+               cDecodedChar += ( *pszStrRaw - '0' ) ;
+            }
+            else
+            {
+               cDecodedChar += ( *pszStrRaw - 'A' + 10 ) ;
+            }
+         }
+         *pszStrDecod = cDecodedChar ;
+
+         if ( *pszStrRaw == 0 )
+         {
+            break ;
+         }
+      }
+      else
+      {
+         *pszStrDecod = *pszStrRaw ;
+      }
+
+      pszStrRaw++ ;
+      pszStrDecod++ ;
+   }
+   *pszStrDecod = 0 ;
+}
+
 
 /*----------------------------------------------------------------------------*/
 

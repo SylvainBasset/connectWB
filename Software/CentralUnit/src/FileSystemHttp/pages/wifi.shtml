@@ -23,10 +23,16 @@
       function Send_SsidPwd()
       {
          let ElemSsid = document.getElementById("ssid");
+         let Ssid = ElemSsid.value
+         Ssid = Ssid.replace( /%/g, "%25" )
+
          let ElemPwd = document.getElementById("pwd");
+         let Pwd = ElemPwd.value
+         Pwd = Pwd.replace( /%/g, "%25" )
+
          let ElemSecurity = document.getElementById("security");
 
-         Str = cgi + "0" + ":" + ElemSsid.value + "," + ElemPwd.value + "," +
+         Str = cgi + "0" + ":" + Ssid + "," + Pwd + "," +
                                  ElemSecurity.value + suffix
 
          $.get(Str);
