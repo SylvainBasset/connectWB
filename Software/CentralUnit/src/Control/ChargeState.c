@@ -92,8 +92,11 @@ static DWORD l_dwTmpBlinkLedCharge ;
 
 void cstate_Init( void )
 {
-   l_Data.eForceState = CSTATE_FORCE_NONE ;
+   l_Data.eForceState = (e_cstateForceSt)g_sDataEeprom->sChargeStateData.dwForceState ;
+   l_Data.dwCurrentMinStop = g_sDataEeprom->sChargeStateData.dwCurrentMinStop ;
+
    l_Data.bEnabled = BYTE_MAX ;              /* force first update */
+
    cstate_HrdInitButton() ;
    cstate_HrdInitLed() ;
 }
@@ -103,7 +106,11 @@ void cstate_Init( void )
 
 void cstate_SetCurrentMinStop( DWORD i_dwCurrentMinStop )
 {
-   l_Data.dwCurrentMinStop = i_dwCurrentMinStop ;
+   if ( i_dwCurrentMinStop != l_Data.dwCurrentMinStop )
+   {
+      l_Data.dwCurrentMinStop = i_dwCurrentMinStop ;
+      eep_write( (DWORD)&g_sDataEeprom->sChargeStateData.dwCurrentMinStop, i_dwCurrentMinStop ) ;
+   }
 }
 
 
@@ -176,7 +183,7 @@ void cstate_TaskCyc( void )
       }
       else
       {
-    	  eForceState = cstate_GetNextForcedState( eForceState ) ;
+         eForceState = cstate_GetNextForcedState( eForceState ) ;
          l_Data.bEndOfCharge = FALSE ;
       }
    }
@@ -193,7 +200,11 @@ void cstate_TaskCyc( void )
       }
    }
 
-   l_Data.eForceState = eForceState ;
+   if ( l_Data.eForceState != eForceState )
+   {
+      l_Data.eForceState = eForceState ;
+      eep_write( (DWORD)&g_sDataEeprom->sChargeStateData.dwForceState, eForceState ) ;
+   }
 
    cstate_UpdateEnable() ;
 

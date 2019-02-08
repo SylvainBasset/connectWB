@@ -85,10 +85,17 @@ typedef struct                         /* eeprom strcuture for wifi SSID and pas
    DWORD dwWifiSecurity ;              /* wifi security */
 } s_WifiConInfo ;
 
+typedef struct
+{
+   DWORD dwForceState ;
+   DWORD dwCurrentMinStop ;
+} s_ChargeStateData ;
+
 typedef struct                         /* eeprom data structure definition */
 {
    s_CalData sCalData ;                /* calendar module eeprom data */
    s_WifiConInfo sWifiConInfo ;        /* wifi SSID and password */
+   s_ChargeStateData sChargeStateData ;
 } s_DataEeprom ;
 
                                        /* global for eeprom data access */
