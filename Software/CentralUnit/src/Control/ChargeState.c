@@ -57,10 +57,14 @@ typedef struct
 /*----------------------------------------------------------------------------*/
 
 static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceSt ) ;
-static void cstate_UpdateEnable( void ) ;
+static void cstate_UpdateForceState( e_cstateForceSt i_eForceState ) ;
+
+static BOOL cstate_GetEnableState( void ) ;
+static void cstate_UpdateEnable( BOOL i_bEnabled ) ;
+
 static e_cstateChargeSt cstate_DoGetChargeState( void ) ;
-static void cstate_UpdateLed( e_cstateChargeSt i_eChargeState ) ;
-static BOOL cstate_ButtonProcess( BOOL * o_bLongPress ) ;
+static void cstate_ProcessLed( e_cstateChargeSt i_eChargeState ) ;
+static BOOL cstate_ProcessButton( BOOL * o_bLongPress ) ;
 
 
 static void cstate_HrdInitButton( void ) ;
@@ -124,6 +128,17 @@ DWORD cstate_GetCurrentMinStop( void )
 
 /*----------------------------------------------------------------------------*/
 
+void cstate_ToggleForce( void )
+{
+   e_cstateForceSt eForceState ;
+
+   eForceState = cstate_GetNextForcedState( l_Data.eForceState ) ;
+   cstate_UpdateForceState( eForceState ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
 e_cstateForceSt cstate_GetForceState( void )
 {
    return l_Data.eForceState ;
@@ -145,6 +160,7 @@ BOOL cstate_IsEvPlugged( void )
    return l_Data.bEvPlugged ;
 }
 
+
 /*----------------------------------------------------------------------------*/
 /* periodic task                                                              */
 /*----------------------------------------------------------------------------*/
@@ -155,11 +171,13 @@ void cstate_TaskCyc( void )
    BOOL bLongPress ;
    BOOL bCharging ;
    BOOL bEvPlugged ;
+   BOOL bEnable ;
    e_cstateForceSt eForceState ;
    e_cstateChargeSt eChargeState ;
 
    l_Data.bWifiMaint = cwifi_IsMaintMode() ;
    l_Data.bWifiConnect = cwifi_IsConnected() ;
+
 
    bEvPlugged = ( coevse_GetPlugState() == COEVSE_EV_PLUGGED ) ;
 
@@ -172,8 +190,20 @@ void cstate_TaskCyc( void )
       }
    }
 
-   bPress = cstate_ButtonProcess( &bLongPress ) ;
    eForceState = l_Data.eForceState ;
+   bCharging = coevse_IsCharging() ;
+
+   if ( l_Data.bCharging != bCharging )
+   {
+      l_Data.bCharging = bCharging ;
+      if ( ! bCharging )
+      {
+    	   eForceState = CSTATE_FORCE_NONE ;
+         l_Data.bEndOfCharge = TRUE ;
+      }
+   }
+
+   bPress = cstate_ProcessButton( &bLongPress ) ;
 
    if ( bPress )
    {
@@ -188,29 +218,13 @@ void cstate_TaskCyc( void )
       }
    }
 
-   bCharging = coevse_IsCharging() ;
+   cstate_UpdateForceState( eForceState ) ;
 
-   if ( l_Data.bCharging != bCharging )
-   {
-      l_Data.bCharging = bCharging ;
-      if ( ! bCharging )
-      {
-    	  eForceState = CSTATE_FORCE_NONE ;
-         l_Data.bEndOfCharge = TRUE ;
-      }
-   }
-
-   if ( l_Data.eForceState != eForceState )
-   {
-      l_Data.eForceState = eForceState ;
-      eep_write( (DWORD)&g_sDataEeprom->sChargeStateData.dwForceState, eForceState ) ;
-   }
-
-   cstate_UpdateEnable() ;
+   bEnable = cstate_GetEnableState() ;
+   cstate_UpdateEnable( bEnable ) ;
 
    eChargeState = cstate_DoGetChargeState() ;
-
-   cstate_UpdateLed( eChargeState ) ;
+   cstate_ProcessLed( eChargeState ) ;
 }
 
 
@@ -218,15 +232,15 @@ void cstate_TaskCyc( void )
 
 /*----------------------------------------------------------------------------*/
 
-static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceSt )
+static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceState )
 {
    e_cstateForceSt eNextForceSt ;
 
-   if ( i_eForceSt == CSTATE_FORCE_NONE )
+   if ( i_eForceState == CSTATE_FORCE_NONE )
    {
       eNextForceSt = CSTATE_FORCE_AMPMIN ;
    }
-   else if ( i_eForceSt == CSTATE_FORCE_AMPMIN )
+   else if ( i_eForceState == CSTATE_FORCE_AMPMIN )
    {
       eNextForceSt = CSTATE_FORCE_ALL ;
    }
@@ -241,7 +255,19 @@ static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceSt )
 
 /*----------------------------------------------------------------------------*/
 
-static void cstate_UpdateEnable( void )
+static void cstate_UpdateForceState( e_cstateForceSt i_eForceState )
+{
+   if ( l_Data.eForceState != i_eForceState )
+   {
+      l_Data.eForceState = i_eForceState ;
+      eep_write( (DWORD)&g_sDataEeprom->sChargeStateData.dwForceState, i_eForceState ) ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static BOOL cstate_GetEnableState( void )
 {
    SDWORD sdwCurrent ;
    BOOL bEnabled ;
@@ -265,11 +291,19 @@ static void cstate_UpdateEnable( void )
    {
       bEnabled = FALSE ;
    }
+   return bEnabled ;
+}
 
-   if ( l_Data.bEnabled != bEnabled )
+
+
+/*----------------------------------------------------------------------------*/
+
+static void cstate_UpdateEnable( BOOL i_bEnabled )
+{
+   if ( l_Data.bEnabled != i_bEnabled )
    {
-      l_Data.bEnabled = bEnabled ;
-      coevse_SetEnable( bEnabled ) ;
+      l_Data.bEnabled = i_bEnabled ;
+      coevse_SetEnable( i_bEnabled ) ;
    }
 }
 
@@ -317,7 +351,7 @@ static e_cstateChargeSt cstate_DoGetChargeState( void )
 /* Update Led color/blink                                                     */
 /*----------------------------------------------------------------------------*/
 
-static void cstate_UpdateLed( e_cstateChargeSt i_eChargeState )
+static void cstate_ProcessLed( e_cstateChargeSt i_eChargeState )
 {
    e_cstateLedColor eWifiLedColor ;
    e_cstateLedColor eChargeLedColor ;
@@ -410,7 +444,7 @@ static void cstate_UpdateLed( e_cstateChargeSt i_eChargeState )
 /* Button read proces                                                         */
 /*----------------------------------------------------------------------------*/
 
-static BOOL cstate_ButtonProcess( BOOL * o_bLongPress )
+static BOOL cstate_ProcessButton( BOOL * o_bLongPress )
 {
    BOOL bPressEvt ;
    BOOL bButtonRaw ;

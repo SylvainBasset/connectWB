@@ -55,6 +55,7 @@ void cstate_Init( void ) ;
 void cstate_SetCurrentMinStop( DWORD i_dwCurrentMinStop ) ;
 DWORD cstate_GetCurrentMinStop( void ) ;
 
+void cstate_ToggleForce( void ) ;
 e_cstateForceSt cstate_GetForceState( void ) ;
 e_cstateChargeSt cstate_GetChargeState( void ) ;
 BOOL cstate_IsEvPlugged( void ) ;

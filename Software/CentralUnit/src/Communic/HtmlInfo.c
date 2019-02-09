@@ -428,6 +428,10 @@ static void html_ProcessCgiCharge( DWORD i_dwParam2, char C* i_pszValue )
          } ;
          break ;
 
+      case HTML_CHARGE_CGI_TOGGLE_FORCE :
+         cstate_ToggleForce() ;
+         break ;
+
       default :
          break ;
    }

@@ -41,6 +41,16 @@
          sleep(500)
          window.location.reload(true);
       }
+
+      function ToggleForce()
+      {
+         Str = cgi + "2" + ":" + suffix
+
+         $.get(Str);
+         sleep(500)
+         window.location.reload(true);
+      }
+
    </script>
 
    <style>
@@ -103,11 +113,19 @@
    </span>
 
    <br><br>
+
+   <span class="marge">
+      <input type="button" onclick="ToggleForce()" value="Toggle Force"/>
+   </span>
+
+   <br><br>
+
+<!----------------------------------------------------------------------------->
    <hr>
    <br>
 
    <p>
-      <div style="margin-left:20px">Courant mesur&eacute;: <b><!--#input:0:4--> A</b></div>
+      <div style="margin-left:20px">Courant de charge r&eacute;el: <b><!--#input:0:4--> mA</b></div>
       <br>
       <br>
       <div style="margin-left:20px">Courant maximum: <b><!--#input:0:5--> A</b></div>
@@ -172,13 +190,10 @@
       </div>
    </p>
 
-
    <br>
-
 
    </p>
    <br>
-
 
    </body>
 </html>

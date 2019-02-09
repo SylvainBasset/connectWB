@@ -54,6 +54,7 @@ RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 
 #define HTML_CHARGE_CGI_CURRENT_CAPMAX    0
 #define HTML_CHARGE_CGI_CURRENT_MIN       1
+#define HTML_CHARGE_CGI_TOGGLE_FORCE      2
 
 #define HTML_CALENDAR_CGI_DATE            0
 #define HTML_CALENDAR_CGI_DAYSET          1
