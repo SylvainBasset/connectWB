@@ -101,7 +101,7 @@ typedef struct                         /* eeprom data structure definition */
                                        /* global for eeprom data access */
 #define g_sDataEeprom    ((s_DataEeprom *) DATA_EEPROM_BASE )
 
-
+RESULT eep_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 void eep_write( DWORD i_dwAddress, DWORD i_dwValue ) ;
 
 

@@ -19,6 +19,65 @@
 #define EEP_BUSY_TIMEOUT   3000        /* eepreom operation timeout, sec */
 
 
+
+/*----------------------------------------------------------------------------*/
+
+RESULT eep_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
+{
+   DWORD dwEepAddr ;
+   BYTE byEepSize ;
+   BYTE byParamSize ;
+   DWORD dwEepVal ;
+   BYTE byShift ;
+   char C* pszChar ;
+   RESULT rRet ;
+
+   if ( i_bIsSsid )
+   {
+      dwEepAddr = (DWORD)&g_sDataEeprom->sWifiConInfo.szWifiSSID ;
+      byEepSize = sizeof(g_sDataEeprom->sWifiConInfo.szWifiSSID) ;
+   }
+   else
+   {
+      dwEepAddr = (DWORD)&g_sDataEeprom->sWifiConInfo.szWifiPassword ;
+      byEepSize = sizeof(g_sDataEeprom->sWifiConInfo.szWifiPassword) ;
+   }
+
+   byParamSize = strlen( i_szParam ) + 1 ;
+
+   if ( byParamSize <= byEepSize )
+   {
+      dwEepVal = 0 ;
+      byShift = 0 ;
+      pszChar = i_szParam ;
+      while( byParamSize != 0 )
+      {
+         dwEepVal |= ( *pszChar << byShift ) ;
+         byShift += 8 ;
+         pszChar++ ;
+         byParamSize-- ;
+         if ( byShift == 32 )
+         {
+            eep_write( dwEepAddr, dwEepVal ) ;
+            byShift = 0 ;
+            dwEepVal = 0 ;
+            dwEepAddr += 4 ;
+         }
+      }
+      if ( byShift != 0 )
+      {
+         eep_write( dwEepAddr, dwEepVal ) ;
+      }
+      rRet = OK ;
+   }
+   else
+   {
+      rRet = ERR ;
+   }
+   return rRet ;
+}
+
+
 /*----------------------------------------------------------------------------*/
 /* Eeprom writing operation                                                   */
 /*    - <i_dwAddress> address in eeprom                                       */

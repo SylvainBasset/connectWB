@@ -20,7 +20,6 @@ typedef void (*f_ScktGetFrame)( char * i_pszFrame ) ;
 typedef void (*f_ScktGetResExt)( char C* i_pszResExt, BOOL i_bLastCall ) ;
 
 void sfrm_Init( void ) ;
-RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -83,7 +82,7 @@ BOOL cwifi_IsConnected( void ) ;
 BOOL cwifi_IsSocketConnected( void ) ;
 BOOL cwifi_IsMaintMode( void ) ;
 
-void cwifi_AddExtCmd( char C* i_szStrCmd ) ;
+RESULT cwifi_AddExtCmd( char C* i_szStrCmd ) ;
 void cwifi_AddExtData( char C* i_szStrCmd ) ;
 void cwifi_AskFlushData( void ) ;
 void cwifi_TaskCyc( void ) ;
@@ -136,6 +135,7 @@ typedef struct
 
 
 void coevse_Init( void ) ;
+void coevse_RegisterScktFunc( f_ScktGetResExt i_fScktGetResExt ) ;
 
 void coevse_SetEnable( BOOL i_bEnable ) ;
 void coevse_SetCurrentCap( BYTE i_byCurrent ) ;
@@ -145,6 +145,7 @@ e_coevseEVPlugState coevse_GetPlugState( void ) ;
 BOOL coevse_IsCharging( void ) ;
 SDWORD coevse_GetCurrent( void ) ;
 s_coevseStatus coevse_GetStatus( void ) ;
+RESULT coevse_AddExtCmd( char C* i_szStrCmd ) ;
 
 void coevse_TaskCyc( void ) ;
 

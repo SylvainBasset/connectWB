@@ -26,35 +26,39 @@ typedef enum
    SFRM_ID_WIFI_SETSSID,
    SFRM_ID_WIFI_SETPWD,
    SFRM_ID_WIFI_EXITMAINT,
-   SFRM_ID_WIFI_GETDEVICE,
+   SFRM_ID_GETDEVICE,
    SFRM_ID_RAPI_BRIGE,
    SFRM_ID_LAST
 } e_sfrmFrameId ;
 
 typedef struct
 {
-   e_sfrmFrameId eFrameId ;
-   char FrmStr[4] ;
-   char FrmRes[5] ;
-   BOOL bExtCmd ;
+   e_sfrmFrameId eFrmId ;
+   char szCmd[4] ;
+   char szRes[5] ;
+   BOOL bWifimodule ;
+   BOOL bDelayRes ;
 } s_FrameDesc ;
+
+#define _D( Name, StrCmd, StrRes, Wifimodule, DelayRes ) \
+   { .eFrmId = SFRM_ID_##Name, .szCmd = StrCmd, .szRes = StrRes, \
+     .bWifimodule = Wifimodule, .bDelayRes = DelayRes }
 
 static s_FrameDesc const k_aFrameDesc [] =
 {
-   { .eFrameId = SFRM_ID_WIFI_BRIGE,     .FrmStr = "$01:", .FrmRes = "$81:", .bExtCmd = TRUE },
-   { .eFrameId = SFRM_ID_WIFI_SETSSID,   .FrmStr = "$02:", .FrmRes = "$82:", .bExtCmd = FALSE },
-   { .eFrameId = SFRM_ID_WIFI_SETPWD,    .FrmStr = "$03:", .FrmRes = "$83:", .bExtCmd = FALSE },
-   { .eFrameId = SFRM_ID_WIFI_EXITMAINT, .FrmStr = "$04:", .FrmRes = "$84:", .bExtCmd = FALSE },
-   { .eFrameId = SFRM_ID_WIFI_GETDEVICE, .FrmStr = "$05:", .FrmRes = "$85:", .bExtCmd = FALSE },
-   { .eFrameId = SFRM_ID_RAPI_BRIGE,     .FrmStr = "$10:", .FrmRes = "$90:", .bExtCmd = FALSE },
+   _D( WIFI_BRIGE,     "$01:", "$81:", TRUE,  TRUE ),
+   _D( WIFI_SETSSID,   "$02:", "$82:", FALSE, FALSE ),
+   _D( WIFI_SETPWD,    "$03:", "$83:", FALSE, FALSE ),
+   _D( WIFI_EXITMAINT, "$04:", "$84:", FALSE, FALSE ),
+   _D( GETDEVICE,      "$05:", "$85:", FALSE, FALSE ),
+   _D( RAPI_BRIGE,     "$10:", "$90:", FALSE, TRUE ),
 } ;
 
 
 /*----------------------------------------------------------------------------*/
 
 static void sfrm_ProcessFrame( char * i_szStrFrm ) ;
-static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg ) ;
-static RESULT sfrm_DoWriteWifiId( BOOL i_bIsSsid, char C* i_szParam ) ;
+static void sfrm_ExecCmd( char C* i_pszArg ) ;
 static void sfrm_ProcessResExt( char C* i_szStrFrm, BOOL i_bLastCall ) ;
 static void sfrm_SendRes( char C* i_szRes ) ;
 
@@ -69,15 +73,9 @@ static e_sfrmFrameId l_eFrmId ;
 void sfrm_Init( void )
 {
    cwifi_RegisterScktFunc( &sfrm_ProcessFrame, &sfrm_ProcessResExt ) ;
+   coevse_RegisterScktFunc( &sfrm_ProcessResExt ) ;
+
    l_eFrmId = SFRM_ID_NULL ;
-}
-
-
-/*----------------------------------------------------------------------------*/
-
-RESULT sfrm_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
-{
-   return sfrm_DoWriteWifiId( i_bIsSsid, i_szParam ) ;
 }
 
 
@@ -98,12 +96,12 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
    {
       for ( byIdx = 0 ; byIdx < ARRAY_SIZE(k_aFrameDesc) ; byIdx++ )
       {
-         if ( strncmp( i_szStrFrm, pFrmDesc->FrmStr, sizeof(pFrmDesc->FrmStr) ) == 0 )
+         if ( strncmp( i_szStrFrm, pFrmDesc->szCmd, sizeof(pFrmDesc->szCmd) ) == 0 )
          {
-            l_eFrmId = pFrmDesc->eFrameId ;
-            pszArg = i_szStrFrm + sizeof(pFrmDesc->FrmStr) ;
+            l_eFrmId = pFrmDesc->eFrmId ;
+            pszArg = i_szStrFrm + sizeof(pFrmDesc->szCmd) ;
 
-            if ( ! pFrmDesc->bExtCmd )
+            if ( ! pFrmDesc->bWifimodule )
             {
                pszChar = pszArg + strlen(pszArg) - 2 ;
                if ( ( ( *pszChar == '\n' ) || ( *pszChar == '\r' ) ) &&
@@ -116,12 +114,15 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
          }
          pFrmDesc++ ;
       }
-      sfrm_ExecCmd( l_eFrmId, pszArg ) ;
+      sfrm_ExecCmd( pszArg ) ;
 
-      cwifi_AddExtData( "at+s." ) ;
+      if ( ( ! pFrmDesc->bDelayRes ) || pFrmDesc->bWifimodule )     //SBA : pas besoin sortie direct data mode pour com openEVSE
+      {
+         cwifi_AddExtData( "at+s." ) ;
+      }
       cwifi_AskFlushData() ;
 
-      if ( !pFrmDesc->bExtCmd )
+      if ( ! pFrmDesc->bDelayRes )
       {
          l_eFrmId = SFRM_ID_NULL ;
       }
@@ -130,18 +131,23 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
 
 
 /*----------------------------------------------------------------------------*/
-static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
+static void sfrm_ExecCmd( char C* i_pszArg )
 {
    char C* pszName ;
+   RESULT rRet ;
 
-   switch ( i_eFrmId )
+   switch ( l_eFrmId )
    {
       case SFRM_ID_WIFI_BRIGE :
-         cwifi_AddExtCmd( i_pszArg ) ;
+         rRet = cwifi_AddExtCmd( i_pszArg ) ;
+         if ( rRet != OK )
+         {
+            l_eFrmId = SFRM_ID_NULL ;
+         }
          break ;
 
       case SFRM_ID_WIFI_SETSSID :
-         if ( sfrm_DoWriteWifiId( TRUE, i_pszArg ) == OK )
+         if ( eep_WriteWifiId( TRUE, i_pszArg ) == OK )
          {
             sfrm_SendRes( "OK\r\n" ) ;
          }
@@ -152,7 +158,7 @@ static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
          break ;
 
       case SFRM_ID_WIFI_SETPWD :
-         if ( sfrm_DoWriteWifiId( FALSE, i_pszArg ) == OK )
+         if ( eep_WriteWifiId( FALSE, i_pszArg ) == OK )
          {
             sfrm_SendRes( "OK\r\n" ) ;
          }
@@ -167,76 +173,22 @@ static void sfrm_ExecCmd( e_sfrmFrameId i_eFrmId, char C* i_pszArg )
          cwifi_SetMaintMode( FALSE ) ;
          break ;
 
-      case SFRM_ID_WIFI_GETDEVICE :
-         pszName = id_GetName() ;
+      case SFRM_ID_GETDEVICE :
+         pszName = id_GetName() ; //SBA vérifier pourquoi ca marche sans '\r\n' ??
          sfrm_SendRes( pszName ) ;
          break ;
 
       case SFRM_ID_RAPI_BRIGE :
-         //op
-         sfrm_SendRes( "cocolastico\r\n" ) ;
+         rRet = coevse_AddExtCmd( i_pszArg ) ;
+         if ( rRet != OK )
+         {
+            l_eFrmId = SFRM_ID_NULL ;
+         }
          break ;
 
       default :
          break ;
    }
-}
-
-
-/*----------------------------------------------------------------------------*/
-static RESULT sfrm_DoWriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
-{
-   DWORD dwEepAddr ;
-   BYTE byEepSize ;
-   BYTE byParamSize ;
-   DWORD dwEepVal ;
-   BYTE byShift ;
-   char C* pszChar ;
-   RESULT rRet ;
-
-   if ( i_bIsSsid )
-   {
-      dwEepAddr = (DWORD)&g_sDataEeprom->sWifiConInfo.szWifiSSID ;
-      byEepSize = sizeof(g_sDataEeprom->sWifiConInfo.szWifiSSID) ;
-   }
-   else
-   {
-      dwEepAddr = (DWORD)&g_sDataEeprom->sWifiConInfo.szWifiPassword ;
-      byEepSize = sizeof(g_sDataEeprom->sWifiConInfo.szWifiPassword) ;
-   }
-
-   byParamSize = strlen( i_szParam ) + 1 ;
-
-   if ( byParamSize <= byEepSize )
-   {
-      dwEepVal = 0 ;
-      byShift = 0 ;
-      pszChar = i_szParam ;
-      while( byParamSize != 0 )
-      {
-         dwEepVal |= ( *pszChar << byShift ) ;
-         byShift += 8 ;
-         pszChar++ ;
-         byParamSize-- ;
-         if ( byShift == 32 )
-         {
-            eep_write( dwEepAddr, dwEepVal ) ;
-            byShift = 0 ;
-            dwEepVal = 0 ;
-            dwEepAddr += 4 ;
-         }
-      }
-      if ( byShift != 0 )
-      {
-         eep_write( dwEepAddr, dwEepVal ) ;
-      }
-      rRet = OK ;
-   }
-   else
-   {
-      rRet = ERR ;
-   }
-   return rRet ;
 }
 
 
@@ -265,20 +217,23 @@ static void sfrm_SendRes( char C* i_szParam )
    char * pszRes ;
    BYTE byResSize ;
 
-   pFrmDesc = &k_aFrameDesc[ ( l_eFrmId - SFRM_ID_FIRST ) ] ;
+   if ( l_eFrmId != SFRM_ID_NULL )
+   {
+      pFrmDesc = &k_aFrameDesc[ ( l_eFrmId - SFRM_ID_FIRST ) ] ;
 
-   pszRes = szRes ;
-   byResSize = sizeof(szRes) ;
+      pszRes = szRes ;
+      byResSize = sizeof(szRes) ;
 
-   strncpy( pszRes, pFrmDesc->FrmRes, byResSize ) ;
-   pszRes += strlen( pFrmDesc->FrmRes ) ;
-   byResSize -= strlen( pFrmDesc->FrmRes ) ;
+      strncpy( pszRes, pFrmDesc->szRes, byResSize ) ;
+      pszRes += strlen( pFrmDesc->szRes ) ;
+      byResSize -= strlen( pFrmDesc->szRes ) ;
 
-   strncpy( pszRes, i_szParam, byResSize ) ;
+      strncpy( pszRes, i_szParam, byResSize ) ;
 
-      /* Note : force the end of string */
+         /* Note : force the end of string */
 
-   szRes[ sizeof(szRes)-1 ] = '\0' ;
+      szRes[ sizeof(szRes)-1 ] = '\0' ;
 
-   cwifi_AddExtData( szRes ) ;
+      cwifi_AddExtData( szRes ) ;
+   }
 }

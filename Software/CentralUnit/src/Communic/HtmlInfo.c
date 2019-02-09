@@ -586,10 +586,10 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
          szPwd[byIdxPwd] = 0 ;
 
          html_ReplaceUrlChar( szSsid, sizeof(szSsid) ) ;
-         sfrm_WriteWifiId( TRUE, szSsid ) ;
+         eep_WriteWifiId( TRUE, szSsid ) ;
 
          html_ReplaceUrlChar( szPwd, sizeof(szPwd) ) ;
-         sfrm_WriteWifiId( FALSE, szPwd ) ;
+         eep_WriteWifiId( FALSE, szPwd ) ;
 
          eep_write( (DWORD)&g_sDataEeprom->sWifiConInfo.dwWifiSecurity, (DWORD)bySecurity ) ;
          cwifi_SetMaintMode( FALSE ) ;

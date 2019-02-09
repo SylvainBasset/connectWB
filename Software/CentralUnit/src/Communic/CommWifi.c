@@ -315,9 +315,9 @@ BOOL cwifi_IsMaintMode( void )
 
 /*----------------------------------------------------------------------------*/
 
-void cwifi_AddExtCmd( char C* i_szStrCmd )
+RESULT cwifi_AddExtCmd( char C* i_szStrCmd )
 {
-   cwifi_AddCmdFifo( CWIFI_CMD_EXT, i_szStrCmd ) ;
+   return cwifi_AddCmdFifo( CWIFI_CMD_EXT, i_szStrCmd ) ;
 }
 
 
@@ -1159,7 +1159,7 @@ static RESULT cwifi_CmdCallBackExt( char C* i_pszProcData )
 
    if ( l_fScktGetResExt != NULL )
    {
-      (*l_fScktGetResExt)(i_pszProcData, bLastCall) ;
+      (*l_fScktGetResExt)( i_pszProcData, bLastCall ) ;
    }
 
    return OK ;
