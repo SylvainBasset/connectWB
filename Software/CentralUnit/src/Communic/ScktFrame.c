@@ -28,6 +28,7 @@ typedef enum
    SFRM_ID_WIFI_EXITMAINT,
    SFRM_ID_GETDEVICE,
    SFRM_ID_RAPI_BRIGE,
+   SFRM_ID_RAPI_CHARGEINFO,
    SFRM_ID_LAST
 } e_sfrmFrameId ;
 
@@ -46,12 +47,13 @@ typedef struct
 
 static s_FrameDesc const k_aFrameDesc [] =
 {
-   _D( WIFI_BRIGE,     "$01:", "$81:", TRUE,  TRUE ),
-   _D( WIFI_SETSSID,   "$02:", "$82:", FALSE, FALSE ),
-   _D( WIFI_SETPWD,    "$03:", "$83:", FALSE, FALSE ),
-   _D( WIFI_EXITMAINT, "$04:", "$84:", FALSE, FALSE ),
-   _D( GETDEVICE,      "$05:", "$85:", FALSE, FALSE ),
-   _D( RAPI_BRIGE,     "$10:", "$90:", FALSE, TRUE ),
+   _D( WIFI_BRIGE,      "$01:", "$81:", TRUE,  TRUE ),
+   _D( WIFI_SETSSID,    "$02:", "$82:", FALSE, FALSE ),
+   _D( WIFI_SETPWD,     "$03:", "$83:", FALSE, FALSE ),
+   _D( WIFI_EXITMAINT,  "$04:", "$84:", FALSE, FALSE ),
+   _D( GETDEVICE,       "$05:", "$85:", FALSE, FALSE ),
+   _D( RAPI_BRIGE,      "$10:", "$90:", FALSE, TRUE ),
+   _D( RAPI_CHARGEINFO, "$11:", "$91:", FALSE, FALSE ),
 } ;
 
 
@@ -133,6 +135,7 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
 /*----------------------------------------------------------------------------*/
 static void sfrm_ExecCmd( char C* i_pszArg )
 {
+   char szChargeInfo [48] ;
    char C* pszName ;
    RESULT rRet ;
 
@@ -184,6 +187,11 @@ static void sfrm_ExecCmd( char C* i_pszArg )
          {
             l_eFrmId = SFRM_ID_NULL ;
          }
+         break ;
+
+      case SFRM_ID_RAPI_CHARGEINFO :
+         coevse_FmtInfo( szChargeInfo, sizeof(szChargeInfo) ) ;
+         sfrm_SendRes( szChargeInfo ) ;
          break ;
 
       default :

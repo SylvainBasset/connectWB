@@ -270,6 +270,16 @@ DWORD coevse_GetEnergy( void )
 
 
 /*----------------------------------------------------------------------------*/
+
+void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize )
+{
+   snprintf( o_pszInfo, i_wSize, "%li, %li, %lu", l_Status.sdwChargeCurrent,
+                                                  l_Status.sdwChargeVoltage,
+                                                  l_Status.dwCurWh ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
 /* Get OpenEVSE status                                                        */
 /*----------------------------------------------------------------------------*/
 
@@ -537,7 +547,6 @@ static void coevse_AnalyseRes( void )
 
       if ( pFunc != NULL )
       {
-
          (*pFunc)( pszDataRes ) ;
       }
 

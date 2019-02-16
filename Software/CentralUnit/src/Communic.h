@@ -148,6 +148,7 @@ BOOL coevse_IsCharging( void ) ;
 SDWORD coevse_GetCurrent( void ) ;
 SDWORD coevse_GetVoltage( void ) ;
 DWORD coevse_GetEnergy( void ) ;
+void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize ) ;
 s_coevseStatus coevse_GetStatus( void ) ;
 
 RESULT coevse_AddExtCmd( char C* i_szStrCmd ) ;
