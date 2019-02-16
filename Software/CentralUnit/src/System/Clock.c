@@ -36,8 +36,8 @@
 
 #define LSE_FREQ           32768llu    /* LSE clock frequency */
 
-#define CLK_ASYNC_PREDIV   64llu       /* RTC asynchronous prediv */
-#define CLK_SYNC_PREDIV    512llu      /* RTC synchronous prediv */
+#define CLK_ASYNC_PREDIV   63llu       /* RTC asynchronous prediv */
+#define CLK_SYNC_PREDIV    511llu      /* RTC synchronous prediv */
 
 RTC_InitTypeDef const k_sRtcInit =     /* HAL RTC initialisation constants */
 {

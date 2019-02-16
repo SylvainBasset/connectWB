@@ -105,7 +105,7 @@
 #define WIFI_RESET_GPIO                GPIOC
 #define WIFI_RESET_AF                  0
 
-#define USER_BP                        GPIO_PIN_13
+#define USER_BP_PIN                    GPIO_PIN_13
 #define USER_BP_GPIO                   GPIOC
 #define USER_BP_AF                     0
 

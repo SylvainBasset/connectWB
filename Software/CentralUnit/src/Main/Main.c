@@ -109,9 +109,9 @@ int main( void )
 
 
    HAL_Init() ;                        /* STM32L0xx HAL library initialization */
-   clk_Init() ;
-
    GPIO_CLK_ENABLE() ;
+
+   clk_Init() ;
 
    cal_Init() ;
    main_SetInitDate() ;
@@ -131,18 +131,18 @@ int main( void )
 
 
    GPIO_InitTypeDef sGpioInit ;
-   sGpioInit.Pin = USER_BP ;
+   sGpioInit.Pin = USER_BP_PIN ;
    sGpioInit.Mode = GPIO_MODE_INPUT ;
    sGpioInit.Pull = GPIO_NOPULL ;
    sGpioInit.Speed = GPIO_SPEED_FAST ;
    sGpioInit.Alternate = USER_BP_AF ;
-   HAL_GPIO_Init( WIFI_RESET_GPIO, &sGpioInit ) ;
+   HAL_GPIO_Init( USER_BP_GPIO, &sGpioInit ) ;
 
    byTaskPerCnt = 0 ;
 
    while ( TRUE )                      /* Infinite loop */
    {
-      if ( HAL_GPIO_ReadPin( USER_BP_GPIO, USER_BP) == GPIO_PIN_RESET )
+      if ( HAL_GPIO_ReadPin( USER_BP_GPIO, USER_BP_PIN) == GPIO_PIN_RESET )
       {
          if ( l_bBpState == FALSE )
          {
