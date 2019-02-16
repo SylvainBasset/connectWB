@@ -27,7 +27,7 @@
          Str = cgi + "0" + ":" + ElemCurrentMin.value + suffix
 
          $.get(Str);
-         sleep(500)
+         sleep(1000)
          window.location.reload(true);
       }
 
@@ -38,7 +38,7 @@
          Str = cgi + "1" + ":" + ElemCurrentCapMax.value + suffix
 
          $.get(Str);
-         sleep(500)
+         sleep(1000)
          window.location.reload(true);
       }
 
@@ -47,7 +47,7 @@
          Str = cgi + "2" + ":" + suffix
 
          $.get(Str);
-         sleep(500)
+         sleep(1000)
          window.location.reload(true);
       }
 
@@ -112,13 +112,14 @@
       </p>
    </span>
 
-   <br><br>
+   <br>
 
    <span class="marge">
       <input type="button" onclick="ToggleForce()" value="Toggle Force"/>
    </span>
 
-   <br><br>
+   <br><br><br>
+
 
 <!----------------------------------------------------------------------------->
    <hr>
@@ -127,8 +128,20 @@
    <p>
       <div style="margin-left:20px">Courant de charge r&eacute;el: <b><!--#input:0:4--> mA</b></div>
       <br>
+      <div style="margin-left:20px">Tension mesur&eacute;e: <b><!--#input:0:5--> mV</b></div>
       <br>
-      <div style="margin-left:20px">Courant maximum: <b><!--#input:0:5--> A</b></div>
+      <div style="margin-left:20px">Energie consomm&eacute;e: <b><!--#input:0:6--> Wh</b></div>
+      <br>
+   </p>
+   <br>
+
+
+<!----------------------------------------------------------------------------->
+   <hr>
+   <br>
+
+   <p>
+      <div style="margin-left:20px">Courant maximum: <b><!--#input:0:7--> A</b></div>
       <br>
       <div style="margin-left:40px">Nouveau r&eacute;glage:
          <span style="margin-left:20px">
@@ -144,10 +157,6 @@
                <OPTION value="14">14 Amp</OPTION>
                <OPTION value="15">15 Amp</OPTION>
                <OPTION value="16">16 Amp</OPTION>
-               <OPTION value="17">17 Amp</OPTION>
-               <OPTION value="18">18 Amp</OPTION>
-               <OPTION value="19">19 Amp</OPTION>
-               <OPTION value="20">20 Amp</OPTION>
             </SELECT>
             <span class="marge">
                <input type="button" onclick="Send_CurrentCapMax()" value="OK"/>
@@ -156,7 +165,7 @@
       </div>
       <br>
       <br>
-      <div style="margin-left:20px">Courant minimum avant arr&ecirc;t: <b><!--#input:0:6--> A</b></div>
+      <div style="margin-left:20px">Courant minimum avant arr&ecirc;t: <b><!--#input:0:8--> A</b></div>
       <br>
       <div style="margin-left:40px">Nouveau r&eacute;glage:
          <span style="margin-left:20px">
@@ -178,10 +187,6 @@
                <OPTION value="14">14 Amp</OPTION>
                <OPTION value="15">15 Amp</OPTION>
                <OPTION value="16">16 Amp</OPTION>
-               <OPTION value="17">17 Amp</OPTION>
-               <OPTION value="18">18 Amp</OPTION>
-               <OPTION value="19">19 Amp</OPTION>
-               <OPTION value="20">20 Amp</OPTION>
             </SELECT>
             <span class="marge">
                <input type="button" onclick="Send_CurrentMin()" value="OK"/>
@@ -189,7 +194,6 @@
          </span>
       </div>
    </p>
-
    <br>
 
    </p>

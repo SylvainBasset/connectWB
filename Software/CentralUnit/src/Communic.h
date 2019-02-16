@@ -35,8 +35,10 @@ void sfrm_Init( void ) ;
 #define HTML_CHARGE_SSI_EVPLUGGED         2
 #define HTML_CHARGE_SSI_STATE             3
 #define HTML_CHARGE_SSI_CURRENT_MES       4
-#define HTML_CHARGE_SSI_CURRENT_CAP       5
-#define HTML_CHARGE_SSI_CURRENT_MIN       6
+#define HTML_CHARGE_SSI_VOLTAGE_MES       5
+#define HTML_CHARGE_SSI_ENERGY_MES        6
+#define HTML_CHARGE_SSI_CURRENT_CAP       7
+#define HTML_CHARGE_SSI_CURRENT_MIN       8
 
 #define HTML_CALENDAR_SSI_DATETIME        0
 #define HTML_CALENDAR_SSI_CAL_MONDAY      1
@@ -119,7 +121,7 @@ typedef struct
 {
    e_coevseEVPlugState eEvPlugState ;
    DWORD dwCurrentCapMin ;
-   DWORD dwCurrentCapMax ;
+   DWORD dwCurrentCap ;
    SDWORD sdwChargeVoltage ;
    SDWORD sdwChargeCurrent ;
    DWORD dwCurWh ;
@@ -130,7 +132,7 @@ typedef struct
    DWORD dwStuckRelayTripCnt ;
 } s_coevseStatus ; //SBA: renommer en Data
 
-#define COEVSE_CURRENT_CAPMAX_MAX   20
+#define COEVSE_CURRENT_CAPMAX_MAX   16
 #define COEVSE_CURRENT_CAPMAX_MIN    6
 
 
@@ -144,7 +146,10 @@ DWORD coevse_GetCurrentCap( void ) ;
 e_coevseEVPlugState coevse_GetPlugState( void ) ;
 BOOL coevse_IsCharging( void ) ;
 SDWORD coevse_GetCurrent( void ) ;
+SDWORD coevse_GetVoltage( void ) ;
+DWORD coevse_GetEnergy( void ) ;
 s_coevseStatus coevse_GetStatus( void ) ;
+
 RESULT coevse_AddExtCmd( char C* i_szStrCmd ) ;
 
 void coevse_TaskCyc( void ) ;

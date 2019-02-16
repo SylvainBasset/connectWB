@@ -45,7 +45,7 @@ typedef void (*f_ResultCallback)( char C* i_pszDataRes ) ;
    Op(   DISABLE,       Disable,       "$FD",    "^26\r" ) \
    Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d", NULL )    \
    Opg(  ISEVCONNECT,   IsEvConnect,   "$G0",    "^53\r" ) \
-   Opg(  GETCURRENTCAP, GetCurrentCap, "$GC",    "^20\r" ) \
+   Opg(  GETCURRENTCAP, GetCurrentCap, "$GE",    "^26\r" ) \
    Opg(  GETFAULT,      GetFault,      "$GF",    "^25\r" ) \
    Opg(  GETCHARGPARAM, GetChargParam, "$GG",    "^24\r" ) \
    Opg(  GETENERGYCNT,  GetEneryCnt,   "$GU",    "^36\r" ) \
@@ -204,7 +204,7 @@ void coevse_SetCurrentCap( BYTE i_byCurrent )
 
 DWORD coevse_GetCurrentCap( void )
 {
-   return l_Status.dwCurrentCapMax ;
+   return l_Status.dwCurrentCap ;
 }
 
 
@@ -240,12 +240,32 @@ BOOL coevse_IsCharging( void )
 
 
 /*----------------------------------------------------------------------------*/
-/* Get if EV charging                                                        */
+/* Get charge current (measured), mA                                          */
 /*----------------------------------------------------------------------------*/
 
 SDWORD coevse_GetCurrent( void )
 {
    return l_Status.sdwChargeCurrent ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Get charge voltage (measured), mV                                          */
+/*----------------------------------------------------------------------------*/
+
+SDWORD coevse_GetVoltage( void )
+{
+   return l_Status.sdwChargeVoltage ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Get charge energy consumption, Wh                                          */
+/*----------------------------------------------------------------------------*/
+
+DWORD coevse_GetEnergy( void )
+{
+   return l_Status.dwCurWh ;
 }
 
 
@@ -634,18 +654,12 @@ static void coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
    CHAR C* pszNext ;
 
    pszStr = i_pszDataRes ;
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
-   if ( pszStr != pszNext )
-   {
-      pszStr = pszNext ;
-      l_Status.dwCurrentCapMin = sdwValue ;
-   }
 
    pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.dwCurrentCapMax = sdwValue ;
+      l_Status.dwCurrentCap = sdwValue ;
    }
 }
 
@@ -720,7 +734,7 @@ static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.dwCurWh = sdwValue ;
+      l_Status.dwCurWh = ( sdwValue / ( 60 * 60 ) ) ;
    }
 
    pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;

@@ -47,7 +47,7 @@ typedef enum
 } e_cstateForceSt ;              /* forced charge status */
 
 
-#define CSTATE_CURRENT_MIN_MAX   20
+#define CSTATE_CURRENT_MIN_MAX   16
 #define CSTATE_CURRENT_MIN_MIN    0
 
 void cstate_Init( void ) ;

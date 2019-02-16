@@ -176,6 +176,14 @@ static void html_ProcessSsiCharge( DWORD i_dwParam2,
          snprintf( o_pszOutput, i_wStrSize, "%lu", dwCurrent ) ;
          break ;
 
+      case HTML_CHARGE_SSI_VOLTAGE_MES :
+         snprintf( o_pszOutput, i_wStrSize, "%li", coevse_GetVoltage() ) ;
+         break ;
+
+      case HTML_CHARGE_SSI_ENERGY_MES :
+         snprintf( o_pszOutput, i_wStrSize, "%lu", coevse_GetEnergy() ) ;
+         break ;
+
       case HTML_CHARGE_SSI_CURRENT_CAP :
          snprintf( o_pszOutput, i_wStrSize, "%lu", coevse_GetCurrentCap() ) ;
          break ;

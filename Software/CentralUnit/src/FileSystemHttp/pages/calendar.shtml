@@ -32,7 +32,7 @@
                + ElemYear.value + "," + ElemHour.value + "," + ElemMin.value + suffix
 
          $.get(Str);
-         sleep(500)
+         sleep(1000)
          window.location.reload(true);
       }
 
@@ -49,7 +49,7 @@
                ElemHourEnd.value   + "," + ElemMinEnd.value + suffix
 
          $.get(Str);
-         sleep(500)
+         sleep(1000)
          window.location.reload(true);
       }
    </script>
