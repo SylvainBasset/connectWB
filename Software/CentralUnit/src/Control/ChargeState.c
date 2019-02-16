@@ -24,7 +24,7 @@
 
 #define CSTATE_LED_BLINK               500
 
-#define CSTATE_
+#define CSTATE_ENDOFCHARGE_DELAY       180   /* delai before taking End of charge in account, sec */
 
 typedef enum
 {
@@ -78,6 +78,8 @@ static void cstate_HrdSetColorLedCharge( e_cstateLedColor i_eLedColor ) ;
 /*----------------------------------------------------------------------------*/
 
 s_cstateData l_Data ;
+
+static DWORD l_dwTmpEndOfCharge ;
 
 static DWORD l_dwTmpButtonFilt ;
 static DWORD l_dwTmpButtonLongPress ;
@@ -187,6 +189,7 @@ void cstate_TaskCyc( void )
       if ( bEvPlugged )
       {
          l_Data.bEndOfCharge = FALSE ;
+         l_dwTmpEndOfCharge = 0 ;
       }
    }
 
@@ -196,11 +199,24 @@ void cstate_TaskCyc( void )
    if ( l_Data.bCharging != bCharging )
    {
       l_Data.bCharging = bCharging ;
-      if ( ! bCharging )
+
+      if ( l_Data.bEnabled )
       {
-    	   eForceState = CSTATE_FORCE_NONE ;
-         l_Data.bEndOfCharge = TRUE ;
+         if ( ! bCharging )
+         {
+            tim_StartSecTmp( &l_dwTmpEndOfCharge ) ;
+         }
+         else
+         {
+            l_dwTmpEndOfCharge = 0 ;
+         }
       }
+   }
+
+   if ( tim_IsEndSecTmp( &l_dwTmpEndOfCharge, CSTATE_ENDOFCHARGE_DELAY ) )
+   {
+      eForceState = CSTATE_FORCE_NONE ;
+      l_Data.bEndOfCharge = TRUE ;
    }
 
    bPress = cstate_ProcessButton( &bLongPress ) ;
@@ -215,6 +231,7 @@ void cstate_TaskCyc( void )
       {
          eForceState = cstate_GetNextForcedState( eForceState ) ;
          l_Data.bEndOfCharge = FALSE ;
+         l_dwTmpEndOfCharge = 0 ;
       }
    }
 
