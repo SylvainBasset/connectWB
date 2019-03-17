@@ -11,6 +11,7 @@
 #include "Define.h"
 #include "Communic.h"
 #include "Communic/l_Communic.h"
+#include "Control.h"
 #include "System.h"
 #include "System/Hard.h"
 
@@ -215,7 +216,7 @@ static char C* cwifi_RSplit( char C* i_pszStr, char C* i_pszDelim ) ;
 static void cwifi_ResetVar( void ) ;
 
 static void cwifi_HrdInit( void ) ;
-static void cwifi_HrdModuleReset( void ) ;
+static void cwifi_HrdSetResetModule( BOOL i_bReset );
 
 
 /*----------------------------------------------------------------------------*/
@@ -244,7 +245,6 @@ static s_CmdFifo l_CmdFifo ;
 static s_DataBuf l_DataBuf ;
 
 
-
 /*----------------------------------------------------------------------------*/
 /* Module initialization                                                      */
 /*----------------------------------------------------------------------------*/
@@ -252,7 +252,21 @@ static s_DataBuf l_DataBuf ;
 void cwifi_Init( void )
 {
    cwifi_HrdInit() ;
-   cwifi_HrdModuleReset() ;
+   cwifi_HrdSetResetModule( TRUE ) ;
+   cwifi_HrdSetResetModule( FALSE ) ;
+   cwifi_ResetVar() ;
+   l_bMaintMode = FALSE ;
+   l_bConfigDone = FALSE ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+
+void cwifi_EnterSaveMode( void )
+{
+   cwifi_HrdSetResetModule( TRUE ) ;
    cwifi_ResetVar() ;
    l_bMaintMode = FALSE ;
    l_bConfigDone = FALSE ;
@@ -1237,22 +1251,27 @@ static void cwifi_HrdInit( void )
 /* Wifi module reset                                                          */
 /*----------------------------------------------------------------------------*/
 
-static void cwifi_HrdModuleReset( void )
+static void cwifi_HrdSetResetModule( BOOL i_bReset )
 {
    DWORD dwTmp ;
-                                       /* set reset pin to 0 */
-   HAL_GPIO_WritePin( WIFI_RESET_GPIO, WIFI_RESET_PIN, GPIO_PIN_RESET ) ;
-   tim_StartMsTmp( &dwTmp ) ;
-   while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_RESET_DURATION ) ) ;
 
-   uwifi_Init() ;
-   uwifi_SetErrorDetection( FALSE ) ;
+   if ( i_bReset )
+   {                                    /* set reset pin to 0 */
+      HAL_GPIO_WritePin( WIFI_RESET_GPIO, WIFI_RESET_PIN, GPIO_PIN_RESET ) ;
+      tim_StartMsTmp( &dwTmp ) ;
+      while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_RESET_DURATION ) ) ;
+   }
+   else
+   {
+      uwifi_Init() ;
+      uwifi_SetErrorDetection( FALSE ) ;
 
-   HAL_GPIO_WritePin( WIFI_RESET_GPIO, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
-   tim_StartMsTmp( &dwTmp ) ;          /* set power-up tempo */
-   while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_PWRUP_DURATION ) ) ;
+      HAL_GPIO_WritePin( WIFI_RESET_GPIO, WIFI_RESET_PIN, GPIO_PIN_SET ) ;
+      tim_StartMsTmp( &dwTmp ) ;          /* set power-up tempo */
+      while ( ! tim_IsEndMsTmp( &dwTmp, CWIFI_PWRUP_DURATION ) ) ;
 
-   uwifi_SetErrorDetection( TRUE ) ;
+      uwifi_SetErrorDetection( TRUE ) ;
+   }
 }
 
 

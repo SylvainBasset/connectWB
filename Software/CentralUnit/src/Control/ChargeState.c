@@ -109,6 +109,17 @@ void cstate_Init( void )
 
 
 /*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+
+void cstate_EnterSaveMode( void )
+{
+   cstate_HrdSetColorLedWifi( CSTATE_LED_OFF ) ;
+   cstate_HrdSetColorLedCharge( CSTATE_LED_OFF ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
 
 void cstate_SetCurrentMinStop( DWORD i_dwCurrentMinStop )
 {

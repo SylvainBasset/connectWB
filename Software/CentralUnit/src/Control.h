@@ -13,6 +13,15 @@
 
 
 /*----------------------------------------------------------------------------*/
+/* SysLed.c                                                                    */
+/*----------------------------------------------------------------------------*/
+
+void sysled_Init( void ) ;
+void sysled_EnterSaveMode( void ) ;
+void sysled_TaskCyc( void ) ;
+
+
+/*----------------------------------------------------------------------------*/
 /* ChargeCalendar.c                                                           */
 /*----------------------------------------------------------------------------*/
 
@@ -51,6 +60,7 @@ typedef enum
 #define CSTATE_CURRENT_MIN_MIN    0
 
 void cstate_Init( void ) ;
+void cstate_EnterSaveMode( void ) ;
 
 void cstate_SetCurrentMinStop( DWORD i_dwCurrentMinStop ) ;
 DWORD cstate_GetCurrentMinStop( void ) ;

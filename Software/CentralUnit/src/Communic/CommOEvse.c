@@ -21,7 +21,13 @@
 
 #define COEVSE_BAUDRATE     115200llu  /* baudrate (bits per second) value  */
 
-#define COEVSE_TIMEOUT           100   /* communication timeout, ms */
+#define COEVSE_TIMEOUT           200   /* communication timeout, ms */
+
+   /* Note : communication timeout would be higher than main.c duration */
+   /* to set save mode (MAIN_SAVEMODE_PIN_DUR). Otherwise, in case of   */
+   /* power-down, a communication error may be throwed (depending on    */
+   /* retries numbers) before the power save mode is effective.         */
+
 #define COEVSE_GETSTATE_PER     1000   /* OpenEVSE status read period */
 #define COEVSE_HRD_START_DUR    8000   /* OpenEVSE hardware startup duration */
 #define COEVSE_MAXRETRY            4   /* maximum number of retry before error */

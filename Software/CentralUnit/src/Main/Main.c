@@ -21,33 +21,12 @@
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
+#define MAIN_SAVEMODE_PIN_DUR  100         /* ms */
+
 #define TIMSYSLED_FREQ_DIV    1000llu  /* set counter incr frequency to 1 ms */
 #define TIMSYSLED_PERIOD      500llu   /* set period to 500 ms*/
 
-                                       /* timer initialisation constant */
-TIM_Base_InitTypeDef const k_sTimSysLedInit =
-{
-   .Prescaler     = ( HSYS_CLK / TIMSYSLED_FREQ_DIV ) - 1lu,
-   .Period        = TIMSYSLED_PERIOD - 1,
-   .ClockDivision = 0,
-   .CounterMode   = TIM_COUNTERMODE_UP,
-} ;
-                                       /* sysled timer set init handle macro */
-#define SET_TIMSYSLED_HANDLE_INIT( handle )                 \
-   handle.Instance = TIMSYSLED ;                            \
-   handle.State = HAL_TIM_STATE_READY ;                     \
-   memcpy( &handle.Init, &k_sTimSysLedInit, sizeof(handle.Init) )
-
-                                       /* system led gpio constant */
-GPIO_InitTypeDef const k_sSysLedGpioInit =
-{
-   .Pin = SYSLED_PIN,
-   .Mode = GPIO_MODE_OUTPUT_PP,
-   .Pull = GPIO_PULLUP,
-   .Speed = GPIO_SPEED_FAST,
-} ;
-
-#define TASK_PER_LOOP  1000                        //SBA: doit �tre multiple de toutes les periodes
+#define TASK_PER_LOOP    1000                        //SBA: doit �tre multiple de toutes les periodes
 
 #define CLK_TASK_PER     1000//
 #define CLK_TASK_ORDER      0
@@ -60,6 +39,9 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
 
 #define COEVSE_TASK_PER    10
 #define COEVSE_TASK_ORDER   0
+
+#define SYSLED_TASK_PER       10
+#define SYSLED_TASK_ORDER      0
 
 #define TASK_CALL( prefixlow, prefixup )                                         \
    if ( ( byTaskPerCnt % prefixup##_TASK_PER ) == prefixup##_TASK_ORDER )    \
@@ -76,16 +58,8 @@ GPIO_InitTypeDef const k_sSysLedGpioInit =
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
-static void main_SetInitDate( void ) ;
-static void main_LedInit( void ) ;
-static void main_LedOn( void ) ;
-
-
-/*----------------------------------------------------------------------------*/
-/* variables                                                                  */
-/*----------------------------------------------------------------------------*/
-
-static BOOL l_bBpState ;
+static void main_SaveModeInit( void ) ;
+static void main_EnterSaveMode( void ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -96,7 +70,7 @@ int main( void )
 {
    DWORD dwTaskTmp ;
    BYTE byTaskPerCnt ;
-
+   DWORD dwTmpSaveMode ;
 
       /* Note: The call to HAL_Init() perform these oprations:               */
       /* - Configure the Flash prefetch, Flash preread and Buffer caches     */
@@ -112,9 +86,7 @@ int main( void )
    GPIO_CLK_ENABLE() ;
 
    clk_Init() ;
-
    cal_Init() ;
-   main_SetInitDate() ;
 
    cstate_Init() ;
    cwifi_Init() ;
@@ -122,39 +94,27 @@ int main( void )
    html_Init() ;
 
    coevse_Init() ;
-   //coevse_SetEnable( TRUE ) ;
-   //coevse_SetEnable( FALSE ) ;
+   sysled_Init() ;
 
-   main_LedInit() ;                    /* Configure system LED */
-   main_LedOn() ;                      /* Turn on system LED */
-
-
-
-   GPIO_InitTypeDef sGpioInit ;
-   sGpioInit.Pin = USER_BP_PIN ;
-   sGpioInit.Mode = GPIO_MODE_INPUT ;
-   sGpioInit.Pull = GPIO_NOPULL ;
-   sGpioInit.Speed = GPIO_SPEED_FAST ;
-   sGpioInit.Alternate = USER_BP_AF ;
-   HAL_GPIO_Init( USER_BP_GPIO, &sGpioInit ) ;
+   main_SaveModeInit() ;               /* Configure powermode pin */
 
    byTaskPerCnt = 0 ;
+   tim_StartMsTmp( &dwTaskTmp ) ;
 
    while ( TRUE )                      /* Infinite loop */
    {
-      if ( HAL_GPIO_ReadPin( USER_BP_GPIO, USER_BP_PIN) == GPIO_PIN_RESET )
+      if ( HAL_GPIO_ReadPin( MAIN_SAVEMODE_GPIO, MAIN_SAVEMODE_PIN) == GPIO_PIN_RESET )
       {
-         if ( l_bBpState == FALSE )
+         if ( dwTmpSaveMode == 0 ) //
          {
-            l_bBpState = TRUE ;
-            cwifi_SetMaintMode( TRUE ) ;
+            tim_StartMsTmp( &dwTmpSaveMode ) ;
          }
-      }
-      else
-      {
-         if ( l_bBpState == TRUE )
+         else
          {
-            l_bBpState = FALSE ;
+            if ( tim_IsEndMsTmp( &dwTmpSaveMode, MAIN_SAVEMODE_PIN_DUR ) )
+            {
+               main_EnterSaveMode() ;
+            }
          }
       }
 
@@ -162,9 +122,10 @@ int main( void )
       TASK_CALL( cstate, CSTATE ) ;
       TASK_CALL( cwifi, CWIFI ) ;
       TASK_CALL( coevse, COEVSE ) ;
+      TASK_CALL( sysled, SYSLED ) ;
 
-      tim_StartMsTmp( &dwTaskTmp ) ;
       while ( ! tim_IsEndMsTmp( &dwTaskTmp, 1 ) ) ;
+      tim_StartMsTmp( &dwTaskTmp ) ;
 
       byTaskPerCnt = ( byTaskPerCnt + 1 ) % TASK_PER_LOOP ;
    }
@@ -174,110 +135,28 @@ int main( void )
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-/* System led initialization                                                  */
-/*----------------------------------------------------------------------------*/
 
-static void main_LedInit( void )
+static void main_SaveModeInit( void )
 {
    GPIO_InitTypeDef sGpioInit ;
-   TIM_HandleTypeDef sTimSysLed ;
 
-      /* Note : it is not necessary to keep the System LED timer */
-      /* handle <hTimSysLed> as global variable, because it is   */
-      /* not reused after timer initialization.                  */
-
-                                       /* configure SYSLED_PIN pin as output push-pull */
-
-   memcpy( &sGpioInit, &k_sSysLedGpioInit, sizeof(sGpioInit) ) ;
-   HAL_GPIO_Init( SYSLED_GPIO, &sGpioInit ) ;
-
-
-   TIMSYSLED_CLK_ENABLE() ;            /* enable clock for system led timer */
-
-   SET_TIMSYSLED_HANDLE_INIT( sTimSysLed ) ;
-                                       /* set timer configuration */
-   if ( HAL_TIM_Base_Init( &sTimSysLed ) != HAL_OK )
-   {
-	   ERR_FATAL() ;
-   }
-                                       /* set the TIMx priority */
-   HAL_NVIC_SetPriority( TIMSYSLED_IRQn, 3, 0 ) ;
-                                       /* enable the TIMx global Interrupt */
-   HAL_NVIC_EnableIRQ( TIMSYSLED_IRQn ) ;
-                                       /* start timer and enble IT */
-   HAL_TIM_Base_Start_IT( &sTimSysLed ) ;
+   sGpioInit.Pin = MAIN_SAVEMODE_PIN ;
+   sGpioInit.Mode = GPIO_MODE_INPUT ;
+   sGpioInit.Pull = GPIO_PULLDOWN ;
+   sGpioInit.Speed = GPIO_SPEED_FAST ;
+   sGpioInit.Alternate = MAIN_SAVEMODE_AF ;
+   HAL_GPIO_Init( MAIN_SAVEMODE_GPIO, &sGpioInit ) ;
 }
 
-
 /*----------------------------------------------------------------------------*/
-static void main_SetInitDate( void )
+
+static void main_EnterSaveMode( void )
 {
-   BYTE i ;
-   s_Time TimeStart ;
-   s_Time TimeEnd ;
+   cwifi_EnterSaveMode() ;
+   cstate_EnterSaveMode() ;
+   sysled_EnterSaveMode() ;
 
-   for ( i = 0 ; i < 7 ;i++ )
-   {
-      TimeStart.byHours = 0 ;
-      TimeStart.byMinutes = 0 ;
-      TimeStart.bySeconds = 0 ;
-      TimeEnd.byHours = 0 ;
-      TimeEnd.byMinutes = 0 ;
-      TimeEnd.bySeconds = 0 ;
-      cal_SetDayVals( i, &TimeStart, &TimeEnd ) ;
-   }
+   while ( HAL_GPIO_ReadPin( MAIN_SAVEMODE_GPIO, MAIN_SAVEMODE_PIN) == GPIO_PIN_RESET ) ;
 
-   TimeStart.byHours = 10 ;
-   TimeStart.byMinutes = 42 ;
-   TimeStart.bySeconds = 14 ;
-   TimeEnd.byHours = 15 ;
-   TimeEnd.byMinutes = 15 ;
-   TimeEnd.bySeconds = 00 ;
-   cal_SetDayVals( 1, &TimeStart, &TimeEnd ) ;
-
-   TimeStart.byHours = 11 ;
-   TimeStart.byMinutes = 10 ;
-   TimeStart.bySeconds = 14 ;
-   TimeEnd.byHours = 17 ;
-   TimeEnd.byMinutes = 23 ;
-   TimeEnd.bySeconds = 00 ;
-   cal_SetDayVals( 5, &TimeEnd, &TimeStart ) ;
-
-
-
-
-
-   //s_DateTime sSetDT ;
-   //
-   //sSetDT.byYear = 01 ;
-   //sSetDT.byMonth = 01 ;
-   //sSetDT.byDays = 01 ;
-   //sSetDT.byHours = 00 ;
-   //sSetDT.byMinutes = 00 ;
-   //sSetDT.bySeconds = 00 ;
-   //clk_SetDateTime( &sSetDT ) ; //SBA rejouer SetDateTime plusieurs fois car erreur syst�me
-}
-
-
-/*----------------------------------------------------------------------------*/
-/* Set system led On                                                          */
-/*----------------------------------------------------------------------------*/
-
-static void main_LedOn( void )
-{
-                                       /* activate system LED pin */
-   HAL_GPIO_WritePin( SYSLED_GPIO, SYSLED_PIN, GPIO_PIN_SET ) ;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/* IRQ system LED Timer                                                       */
-/*----------------------------------------------------------------------------*/
-
-void TIMSYSLED_IRQHandler( void )
-{
-                                       /* toggle system LED pin */
-   HAL_GPIO_TogglePin( SYSLED_GPIO, SYSLED_PIN ) ;
-
-   TIMSYSLED->SR = ~TIM_IT_UPDATE ;    /* IRQ acknowledgment */
+   NVIC_SystemReset() ;
 }
