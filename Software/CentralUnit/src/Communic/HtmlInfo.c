@@ -14,6 +14,19 @@
 #include "System.h"
 
 
+/*----------------------------------------------------------------------------*/
+
+#define HTML_COL_RED     "<FONT COLOR=\"#C00000\">"
+#define HTML_COL_BLUE    "<FONT COLOR=\"#0000C0\">"
+#define HTML_COL_GREEN   "<FONT COLOR=\"#00C000\">"
+
+#define HTML_COL_END     "</FONT>"
+
+
+
+
+
+/*----------------------------------------------------------------------------*/
 
 static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize ) ;
 static void html_ProcessSsiCharge( DWORD i_dwParam2,
@@ -131,30 +144,37 @@ static void html_ProcessSsiCharge( DWORD i_dwParam2,
          switch ( eChargeState )
          {
             case CSTATE_OFF :
-               html_AddToStr( o_pszOutput, &wStrSize, "En arr&ecirc;t" ) ;
+               if ( clk_IsDateTimeLost() )
+               {
+                  html_AddToStr( o_pszOutput, &wStrSize,
+                                 HTML_COL_RED "Date/heure perdue" HTML_COL_END ) ;
+               }
+               else
+               {
+                  html_AddToStr( o_pszOutput, &wStrSize, "En arr&ecirc;t" ) ;
+               }
                break ;
 
-            case CSTATE_FORCE_AMPMIN_WAIT_VE :
-            case CSTATE_FORCE_ALL_WAIT_VE :
+            case CSTATE_FORCE_WAIT :
                html_AddToStr( o_pszOutput, &wStrSize,
-                              "<FONT COLOR=\"#0000C0\">Forc&eacute;, en attente VE</FONT>" ) ;
+                              HTML_COL_BLUE "Forc&eacute;, en attente VE" HTML_COL_END ) ;
                break ;
 
-            case CSTATE_DATE_TIME_LOST :
-               html_AddToStr( o_pszOutput, &wStrSize,
-                              "<FONT COLOR=\"#C00000\">Date/heure perdue</FONT>" ) ;
-               break ;
-
-            case CSTATE_WAIT_CALENDAR :
-               html_AddToStr( o_pszOutput, &wStrSize, "Attente heure de charge" ) ;
+            case CSTATE_ON_WAIT :
+               html_AddToStr( o_pszOutput, &wStrSize, "Attente VE" ) ;
                break ;
 
             case CSTATE_CHARGING :
-               html_AddToStr( o_pszOutput, &wStrSize, "<FONT COLOR=\"#00C000\">En charge</FONT>" ) ;
+               html_AddToStr( o_pszOutput, &wStrSize,
+                              HTML_COL_GREEN "En charge" HTML_COL_END ) ;
                break ;
 
-            case CSTATE_END_OF_CHARGE :
-               html_AddToStr( o_pszOutput, &wStrSize, "Charge terminée" ) ;
+            case CSTATE_EOC_LOWCUR :
+               html_AddToStr( o_pszOutput, &wStrSize, "Fin de charge par courant min" ) ;
+               break ;
+
+            case CSTATE_EOC :
+               html_AddToStr( o_pszOutput, &wStrSize, "Fin de charge" ) ;
                break ;
 
             default :
