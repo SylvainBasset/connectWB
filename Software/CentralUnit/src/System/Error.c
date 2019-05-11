@@ -33,10 +33,37 @@ void err_FatalError( void )
                                        /* system Led on */
    HAL_GPIO_WritePin( SYSLED_GPIO, SYSLED_PIN, GPIO_PIN_SET ) ;
 
+
+   sGpioInit.Pin = CSTATE_LEDCH_RED_PIN ;
+   sGpioInit.Mode = GPIO_MODE_OUTPUT_PP ;
+   sGpioInit.Pull = GPIO_NOPULL ;
+   sGpioInit.Speed = GPIO_SPEED_FREQ_HIGH ;
+   sGpioInit.Alternate = CSTATE_LEDCH_RED_AF ;
+   HAL_GPIO_Init( CSTATE_LEDCH_RED_GPIO, &sGpioInit ) ;
+
+   sGpioInit.Pin = CSTATE_LEDCH_BLUE_PIN ;
+   sGpioInit.Alternate = CSTATE_LEDCH_BLUE_AF ;
+   HAL_GPIO_Init( CSTATE_LEDCH_BLUE_GPIO, &sGpioInit ) ;
+
+   sGpioInit.Pin = CSTATE_LEDCH_GREEN_PIN ;
+   sGpioInit.Alternate = CSTATE_LEDCH_GREEN_AF ;
+   HAL_GPIO_Init( CSTATE_LEDCH_GREEN_GPIO, &sGpioInit ) ;
+
+   sGpioInit.Pin = CSTATE_LEDCH_COMMON_PIN ;
+   sGpioInit.Alternate = CSTATE_LEDCH_COMMON_AF ;
+   HAL_GPIO_Init( CSTATE_LEDCH_COMMON_GPIO, &sGpioInit ) ;
+
+   HAL_GPIO_WritePin( CSTATE_LEDCH_COMMON_GPIO, CSTATE_LEDCH_COMMON_PIN, GPIO_PIN_RESET ) ;
+   HAL_GPIO_WritePin( CSTATE_LEDCH_RED_GPIO, CSTATE_LEDCH_RED_PIN, GPIO_PIN_SET ) ;
+   HAL_GPIO_WritePin( CSTATE_LEDCH_BLUE_GPIO, CSTATE_LEDCH_BLUE_PIN, GPIO_PIN_RESET ) ;
+   HAL_GPIO_WritePin( CSTATE_LEDCH_GREEN_GPIO, CSTATE_LEDCH_GREEN_PIN, GPIO_PIN_RESET ) ;
+
+
    while( TRUE )                       /* infinite loop */
    {
-      HAL_GPIO_TogglePin( SYSLED_GPIO, SYSLED_PIN ) ;
       HAL_Delay( 50 ) ;                /* 50 ms delay */
+      HAL_GPIO_TogglePin( SYSLED_GPIO, SYSLED_PIN ) ;
+      HAL_GPIO_TogglePin( CSTATE_LEDCH_COMMON_GPIO, CSTATE_LEDCH_COMMON_PIN ) ;
    }
 }
 

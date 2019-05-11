@@ -86,7 +86,7 @@ static void html_ProcessSsiCharge( DWORD i_dwParam2,
    e_cstateForceSt eForceStatus ;
    WORD wStrSize ;
    e_cstateChargeSt eChargeState ;
-   e_coevseEVPlugState ePlugState ;
+   e_coevseEvseState ePlugState ;
    DWORD dwCurrent ;
    SDWORD sdwCurrent ;
 
@@ -124,12 +124,12 @@ static void html_ProcessSsiCharge( DWORD i_dwParam2,
          break ;
 
       case HTML_CHARGE_SSI_EVPLUGGED :
-         ePlugState = coevse_GetPlugState() ;
-         if ( ePlugState == COEVSE_EV_PLUGGED )
+         ePlugState = coevse_GetEvseState() ;
+         if ( ( ePlugState == COEVSE_STATE_CONNECTED ) || ( ePlugState == COEVSE_STATE_CHARGING ) )
          {
             html_AddToStr( o_pszOutput, &wStrSize, "<FONT COLOR=\"#00C000\">Oui</FONT>" ) ;
          }
-         else if ( ePlugState == COEVSE_EV_UNKNOWN )
+         else if ( ePlugState == COEVSE_STATE_UNKNOWN )
          {
             html_AddToStr( o_pszOutput, &wStrSize, "???" ) ;
          }
@@ -171,10 +171,6 @@ static void html_ProcessSsiCharge( DWORD i_dwParam2,
 
             case CSTATE_EOC_LOWCUR :
                html_AddToStr( o_pszOutput, &wStrSize, "Fin de charge par courant min" ) ;
-               break ;
-
-            case CSTATE_EOC :
-               html_AddToStr( o_pszOutput, &wStrSize, "Fin de charge" ) ;
                break ;
 
             default :
@@ -449,8 +445,8 @@ static void html_ProcessCgiCharge( DWORD i_dwParam2, char C* i_pszValue )
          byNbScan = sscanf( i_pszValue, "%hu", &wCurrentMin ) ;
 
          if ( ( byNbScan == 1 ) &&
-              ( wCurrentMin >= CSTATE_CURRENT_MIN_MIN ) &&
-              ( wCurrentMin <= CSTATE_CURRENT_MIN_MAX ) )
+              ( wCurrentMin >= CSTATE_CURRENT_MINSTOP_MIN ) &&
+              ( wCurrentMin <= CSTATE_CURRENT_MINSTOP_MAX ) )
          {
             cstate_SetCurrentMinStop( wCurrentMin ) ;
          } ;

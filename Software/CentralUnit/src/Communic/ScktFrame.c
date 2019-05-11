@@ -9,6 +9,7 @@
 
 
 #include "Define.h"
+#include "Control.h"
 #include "Communic.h"
 #include "System.h"
 #include "Main.h"
@@ -29,6 +30,8 @@ typedef enum
    SFRM_ID_GETDEVICE,
    SFRM_ID_RAPI_BRIGE,
    SFRM_ID_RAPI_CHARGEINFO,
+   SFRM_ID_CHARGE_HISTSTATE,
+   SFRM_ID_RESET,
    SFRM_ID_LAST
 } e_sfrmFrameId ;
 
@@ -47,13 +50,15 @@ typedef struct
 
 static s_FrameDesc const k_aFrameDesc [] =
 {
-   _D( WIFI_BRIGE,      "$01:", "$81:", TRUE,  TRUE ),
-   _D( WIFI_SETSSID,    "$02:", "$82:", FALSE, FALSE ),
-   _D( WIFI_SETPWD,     "$03:", "$83:", FALSE, FALSE ),
-   _D( WIFI_EXITMAINT,  "$04:", "$84:", FALSE, FALSE ),
-   _D( GETDEVICE,       "$05:", "$85:", FALSE, FALSE ),
-   _D( RAPI_BRIGE,      "$10:", "$90:", FALSE, TRUE ),
-   _D( RAPI_CHARGEINFO, "$11:", "$91:", FALSE, FALSE ),
+   _D( WIFI_BRIGE,       "$01:", "$81:", TRUE,  TRUE ),
+   _D( WIFI_SETSSID,     "$02:", "$82:", FALSE, FALSE ),
+   _D( WIFI_SETPWD,      "$03:", "$83:", FALSE, FALSE ),
+   _D( WIFI_EXITMAINT,   "$04:", "$84:", FALSE, FALSE ),
+   _D( GETDEVICE,        "$05:", "$85:", FALSE, FALSE ),
+   _D( RAPI_BRIGE,       "$10:", "$90:", FALSE, TRUE ),
+   _D( RAPI_CHARGEINFO,  "$11:", "$91:", FALSE, FALSE ),
+   _D( CHARGE_HISTSTATE, "$12:", "$92:", FALSE, FALSE ),
+   _D( RESET,            "$7F:", "$FF:", FALSE, FALSE ),
 } ;
 
 
@@ -90,43 +95,55 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
    s_FrameDesc C* pFrmDesc ;
    char * pszArg ;
    char * pszChar ;
+   e_sfrmFrameId eFrmId ;
 
    pFrmDesc = &k_aFrameDesc[0] ;
    pszArg = NULL ;
 
-   if ( l_eFrmId == SFRM_ID_NULL )
+   eFrmId = SFRM_ID_NULL ;
+
+   for ( byIdx = 0 ; byIdx < ARRAY_SIZE(k_aFrameDesc) ; byIdx++ )
    {
-      for ( byIdx = 0 ; byIdx < ARRAY_SIZE(k_aFrameDesc) ; byIdx++ )
+      if ( strncmp( i_szStrFrm, pFrmDesc->szCmd, sizeof(pFrmDesc->szCmd) ) == 0 )
       {
-         if ( strncmp( i_szStrFrm, pFrmDesc->szCmd, sizeof(pFrmDesc->szCmd) ) == 0 )
+         eFrmId = pFrmDesc->eFrmId ;
+         pszArg = i_szStrFrm + sizeof(pFrmDesc->szCmd) ;
+
+         if ( ! pFrmDesc->bWifimodule )
          {
-            l_eFrmId = pFrmDesc->eFrmId ;
-            pszArg = i_szStrFrm + sizeof(pFrmDesc->szCmd) ;
-
-            if ( ! pFrmDesc->bWifimodule )
+            pszChar = pszArg + strlen(pszArg) - 2 ;
+            if ( ( ( *pszChar == '\n' ) || ( *pszChar == '\r' ) ) &&
+                 ( ( *( pszChar + 1 ) == '\n' ) || ( *( pszChar + 1 ) == '\r' ) ) )
             {
-               pszChar = pszArg + strlen(pszArg) - 2 ;
-               if ( ( ( *pszChar == '\n' ) || ( *pszChar == '\r' ) ) &&
-                    ( ( *( pszChar + 1 ) == '\n' ) || ( *( pszChar + 1 ) == '\r' ) ) )
-               {
-                  *pszChar = 0 ;
-               }
+               *pszChar = 0 ;
             }
-            break ;
          }
-         pFrmDesc++ ;
+         break ;
       }
-      sfrm_ExecCmd( pszArg ) ;
+      pFrmDesc++ ;
+   }
 
-      if ( ( ! pFrmDesc->bDelayRes ) || pFrmDesc->bWifimodule )     //SBA : pas besoin sortie direct data mode pour com openEVSE
+   if ( eFrmId == SFRM_ID_RESET )
+   {
+      l_eFrmId = SFRM_ID_NULL ;
+   }
+   else
+   {
+      if ( ( eFrmId != SFRM_ID_NULL ) && ( l_eFrmId == SFRM_ID_NULL ) )
       {
-         cwifi_AddExtData( "at+s." ) ;
-      }
-      cwifi_AskFlushData() ;
+         l_eFrmId = eFrmId ;
+         sfrm_ExecCmd( pszArg ) ;
 
-      if ( ! pFrmDesc->bDelayRes )
-      {
-         l_eFrmId = SFRM_ID_NULL ;
+         if ( ( ! pFrmDesc->bDelayRes ) || pFrmDesc->bWifimodule )     //SBA : pas besoin sortie direct data mode pour com openEVSE
+         {
+            cwifi_AddExtData( "at+s." ) ;
+         }
+         cwifi_AskFlushData() ;
+
+         if ( ! pFrmDesc->bDelayRes )
+         {
+            l_eFrmId = SFRM_ID_NULL ;
+         }
       }
    }
 }
@@ -135,7 +152,7 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
 /*----------------------------------------------------------------------------*/
 static void sfrm_ExecCmd( char C* i_pszArg )
 {
-   char szChargeInfo [48] ;
+   char szStrInfo [48] ;
    char C* pszName ;
    RESULT rRet ;
 
@@ -183,6 +200,7 @@ static void sfrm_ExecCmd( char C* i_pszArg )
 
       case SFRM_ID_RAPI_BRIGE :
          rRet = coevse_AddExtCmd( i_pszArg ) ;
+         rRet = OK ;
          if ( rRet != OK )
          {
             l_eFrmId = SFRM_ID_NULL ;
@@ -190,8 +208,13 @@ static void sfrm_ExecCmd( char C* i_pszArg )
          break ;
 
       case SFRM_ID_RAPI_CHARGEINFO :
-         coevse_FmtInfo( szChargeInfo, sizeof(szChargeInfo) ) ;
-         sfrm_SendRes( szChargeInfo ) ;
+         coevse_FmtInfo( szStrInfo, sizeof(szStrInfo) ) ;
+         sfrm_SendRes( szStrInfo ) ;
+         break ;
+
+      case SFRM_ID_CHARGE_HISTSTATE :
+         cstate_GetHistState( szStrInfo, sizeof(szStrInfo) ) ;
+         sfrm_SendRes( szStrInfo ) ;
          break ;
 
       default :

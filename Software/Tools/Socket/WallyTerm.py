@@ -83,8 +83,10 @@ if __name__ == "__main__" :
    DeviceIp = None
 
    parser = OptionParser()
-   parser.add_option("-i", "--ip", dest="DeviceIp", help="specify Ip address")
-   parser.add_option("-l", "--log", dest="LogFile", help="specify log file")
+   parser.add_option( "-i", "--ip", dest="DeviceIp", help="specify Ip address" )
+   parser.add_option( "-l", "--log", dest="LogFile", help="specify log file" )
+   parser.add_option( "-f", "--force", dest="Force", action="store_true",
+                      help="force connection, event if bad response" )
 
    (options, args) = parser.parse_args()
 
@@ -102,7 +104,7 @@ if __name__ == "__main__" :
       #if DeviceIp is not xxx.xxx.xxx.xxx:
       #   print "socket.py <IpAdress>"
       #   sys.exit(0)
-      SockWB.Connect( DeviceIp )
+      SockWB.Connect( DeviceIp, Force=options.Force )
    else :
       DeviceIp = SockWB.SearchAndConnect()
 

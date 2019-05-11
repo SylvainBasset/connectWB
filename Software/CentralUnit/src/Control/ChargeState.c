@@ -24,7 +24,7 @@
 
 #define CSTATE_LED_BLINK               500
 
-#define CSTATE_ENDOFCHARGE_DELAY       180   /* delai before taking End of charge in account, sec */
+#define CSTATE_ENDOFCHARGE_DELAY       30   /* delai before taking End of charge in account, sec */
 
 typedef enum
 {
@@ -58,6 +58,7 @@ typedef struct
 /*----------------------------------------------------------------------------*/
 
 static void cstate_ProcessState( BOOL i_bToogleForce ) ;
+static BOOL cstate_CheckEoc( void ) ;
 static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceState ) ;
 static void cstate_UpdateForceState( e_cstateForceSt i_eForceState ) ;
 
@@ -75,6 +76,9 @@ static void cstate_HrdSetColorLedCharge( e_cstateLedColor i_eLedColor ) ;
 /*----------------------------------------------------------------------------*/
 
 s_cstateData l_Data ;
+
+e_cstateChargeSt l_aeHistState [10] ;
+BYTE l_byHistStateIdx ;
 
 static DWORD l_dwTmpEndOfCharge ;
 static SDWORD l_sdwPrevCurrent ;
@@ -101,12 +105,13 @@ void cstate_Init( void )
 
    l_sdwPrevCurrent = SDWORD_MAX ;
    l_Data.bEnabled = BYTE_MAX ;              /* force first update */
+
    l_Data.eChargeState = CSTATE_OFF ;
+   l_aeHistState[l_byHistStateIdx] = CSTATE_OFF ;
+   l_byHistStateIdx = NEXTIDX( l_byHistStateIdx, l_aeHistState ) ;
 
    cstate_HrdInitButton() ;
    cstate_HrdInitLed() ;
-
-   tim_StartSecTmp( &l_dwTmpEndOfCharge ) ;
 }
 
 
@@ -170,9 +175,33 @@ e_cstateChargeSt cstate_GetChargeState( void )
 
 /*----------------------------------------------------------------------------*/
 
-BOOL cstate_IsEvPlugged( void )
+void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize )
 {
-   return l_Data.bEvPlugged ;
+   BYTE byIdxOut ;
+   CHAR * pszOut ;
+   WORD wSize ;
+
+   byIdxOut = l_byHistStateIdx ;
+   pszOut = o_pszHistState ;
+   wSize = i_wSize ;
+
+   do
+   {
+      if ( wSize >= 2 )
+      {
+         *pszOut++ = '0' + (BYTE) l_aeHistState[byIdxOut] ;
+         *pszOut++= ' ' ;
+         wSize-- ;
+      }
+      else
+      {
+         ERR_FATAL() ;
+      }
+
+      byIdxOut = NEXTIDX( byIdxOut, l_aeHistState ) ;
+   } while ( byIdxOut != l_byHistStateIdx ) ;
+
+   *pszOut = 0 ;
 }
 
 
@@ -190,19 +219,6 @@ void cstate_TaskCyc( void )
 
    l_Data.bWifiMaint = cwifi_IsMaintMode() ;
    l_Data.bWifiConnect = cwifi_IsConnected() ;
-
-
-   //bEvPlugged = ( coevse_GetPlugState() == COEVSE_EV_PLUGGED ) ;
-   //
-   //if ( l_Data.bEvPlugged != bEvPlugged )
-   //{
-   //   l_Data.bEvPlugged = bEvPlugged ;
-   //   if ( bEvPlugged )
-   //   {
-   //      l_Data.bEndOfCharge = FALSE ;
-   //      l_dwTmpEndOfCharge = 0 ;
-   //   }
-   //}
 
    bPress = cstate_ProcessButton( &bLongPress ) ;
 
@@ -228,12 +244,9 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
 {
    e_cstateChargeSt eNextChargeState ;
    e_cstateForceSt eForceState ;
-   SDWORD sdwCurrent ;
    BOOL bForce ;
    BOOL bCal ;
    BOOL bCharge ;
-   BOOL bEoc ;
-   BOOL bEocLowCur ;
    BOOL bEnabled ;
 
    if ( i_bToogleForce )
@@ -247,26 +260,11 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
 
    bForce = ( eForceState != CSTATE_FORCE_NONE ) ;
    bCal = ( ! clk_IsDateTimeLost() ) && cal_IsChargeEnable() ;
+   bCharge = ( coevse_GetEvseState() == COEVSE_STATE_CHARGING ) ;
 
-   sdwCurrent = coevse_GetCurrent() ;
-   bCharge = ( sdwCurrent > 0 ) ;
-   bEoc = FALSE ;
-   bEocLowCur = FALSE ;
-
-   if ( tim_IsEndSecTmp( &l_dwTmpEndOfCharge, CSTATE_ENDOFCHARGE_DELAY ) )
+   if ( l_Data.eChargeState != CSTATE_CHARGING )
    {
-      tim_StartSecTmp( &l_dwTmpEndOfCharge ) ;
-      if ( ( sdwCurrent == 0 ) && ( l_sdwPrevCurrent == 0 ) )
-      {
-         bEoc = TRUE ;
-      }
-      if ( ( sdwCurrent == 0 ) &&  ( sdwCurrent < l_Data.dwCurrentMinStop  ) &&
-           ( l_sdwPrevCurrent == 0 ) && ( l_sdwPrevCurrent < l_Data.dwCurrentMinStop ) )
-      {
-         bEocLowCur = TRUE ;
-      }
-
-      l_sdwPrevCurrent = sdwCurrent ;
+      l_sdwPrevCurrent = SDWORD_MAX ;
    }
 
    eNextChargeState = CSTATE_NULL ;
@@ -292,6 +290,7 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
          }
          else if ( bCharge )
          {
+            tim_StartSecTmp( &l_dwTmpEndOfCharge ) ;
             eNextChargeState = CSTATE_CHARGING ;
          }
          bEnabled = TRUE ;
@@ -300,27 +299,35 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
       case CSTATE_ON_WAIT :
          if ( bForce )
          {
-            eNextChargeState = CSTATE_OFF ;
+            eNextChargeState = CSTATE_FORCE_WAIT ;
          }
          else if ( ! bCal )
          {
-            eNextChargeState = CSTATE_FORCE_WAIT ;
+            eNextChargeState = CSTATE_OFF ;
          }
          else if ( bCharge )
          {
+            tim_StartSecTmp( &l_dwTmpEndOfCharge ) ;
             eNextChargeState = CSTATE_CHARGING ;
          }
          bEnabled = TRUE ;
          break ;
 
       case CSTATE_CHARGING :
-         if ( bEoc || ( ( l_Data.eForceState != CSTATE_FORCE_ALL ) && ( ! bCal ) ) )
+         if ( ! bCharge )
          {
-            eNextChargeState = CSTATE_EOC ;
+            eNextChargeState = CSTATE_ON_WAIT ;
+            eForceState = CSTATE_FORCE_NONE ;
          }
-         else if ( ( ! bForce ) && bEocLowCur )
+         else if ( ( l_Data.eForceState != CSTATE_FORCE_ALL ) && ( ! bCal ) )
+         {
+            eNextChargeState = CSTATE_OFF ;
+            eForceState = CSTATE_FORCE_NONE ;
+         }
+         else if ( ( l_Data.eForceState == CSTATE_FORCE_NONE ) && cstate_CheckEoc() )
          {
             eNextChargeState = CSTATE_EOC_LOWCUR ;
+            eForceState = CSTATE_FORCE_NONE ;
          }
          bEnabled = TRUE ;
          break ;
@@ -332,14 +339,9 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
          }
          else if ( ! bCal )
          {
-            eNextChargeState = CSTATE_EOC ;
+            eNextChargeState = CSTATE_OFF ;
          }
-         eForceState = CSTATE_FORCE_NONE ;
-         break ;
-
-      case CSTATE_EOC :
-         eNextChargeState = CSTATE_EOC ;
-         eForceState = CSTATE_FORCE_NONE ;
+         bEnabled = FALSE ;
          break ;
 
       default :
@@ -358,7 +360,36 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
    if ( eNextChargeState != CSTATE_NULL )
    {
       l_Data.eChargeState = eNextChargeState ;
+      l_aeHistState[l_byHistStateIdx] = eNextChargeState ;
+      l_byHistStateIdx = NEXTIDX( l_byHistStateIdx, l_aeHistState ) ;
    }
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static BOOL cstate_CheckEoc( void )
+{
+	BOOL bEocLowCur ;
+   SDWORD sdwCurrent ;
+
+   bEocLowCur = FALSE ;
+
+   if ( tim_IsEndSecTmp( &l_dwTmpEndOfCharge, CSTATE_ENDOFCHARGE_DELAY ) )
+   {
+      tim_StartSecTmp( &l_dwTmpEndOfCharge ) ;
+
+      sdwCurrent = coevse_GetCurrent() ;
+
+      if ( ( sdwCurrent < ( l_Data.dwCurrentMinStop * 1000 )  ) &&
+           ( l_sdwPrevCurrent < ( l_Data.dwCurrentMinStop * 1000 ) ) )
+      {
+         bEocLowCur = TRUE ;
+      }
+      l_sdwPrevCurrent = sdwCurrent ;
+   }
+
+   return bEocLowCur ;
 }
 
 
@@ -445,9 +476,7 @@ static void cstate_ProcessLed( void )
    switch( l_Data.eChargeState )
    {
       case CSTATE_OFF :
-
       case CSTATE_EOC_LOWCUR :
-      case CSTATE_EOC :
          if ( clk_IsDateTimeLost() )
          {
             eChargeLedColor = CSTATE_LED_RED_BLINK ;
@@ -459,7 +488,7 @@ static void cstate_ProcessLed( void )
          break ;
 
       case CSTATE_FORCE_WAIT :
-         if ( l_Data.eForceState != CSTATE_FORCE_AMPMIN )
+         if ( l_Data.eForceState == CSTATE_FORCE_AMPMIN )
          {
             eChargeLedColor = CSTATE_LED_BLUE_BLINK ;
          }

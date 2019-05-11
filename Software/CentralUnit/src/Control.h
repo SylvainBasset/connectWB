@@ -45,7 +45,6 @@ typedef enum
    CSTATE_ON_WAIT,
    CSTATE_CHARGING,
    CSTATE_EOC_LOWCUR,
-   CSTATE_EOC,
 } e_cstateChargeSt ;
 
 typedef enum
@@ -55,9 +54,8 @@ typedef enum
    CSTATE_FORCE_ALL,
 } e_cstateForceSt ;              /* forced charge status */
 
-
-#define CSTATE_CURRENT_MIN_MAX   16
-#define CSTATE_CURRENT_MIN_MIN    0
+#define CSTATE_CURRENT_MINSTOP_MIN    0
+#define CSTATE_CURRENT_MINSTOP_MAX   16
 
 void cstate_Init( void ) ;
 void cstate_EnterSaveMode( void ) ;
@@ -68,7 +66,9 @@ DWORD cstate_GetCurrentMinStop( void ) ;
 void cstate_ToggleForce( void ) ;
 e_cstateForceSt cstate_GetForceState( void ) ;
 e_cstateChargeSt cstate_GetChargeState( void ) ;
-BOOL cstate_IsEvPlugged( void ) ;
+
+void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize ) ;
+
 void cstate_TaskCyc( void ) ;
 
 

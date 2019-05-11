@@ -46,11 +46,13 @@ static char const k_szStrReset [] = "$FR^30\r" ;
 typedef void (*f_ResultCallback)( char C* i_pszDataRes ) ;
 
 //SBA: mettre les checksum dans le tableau
+//----------------------------------------
+
 #define LIST_CMD( Op, Opg ) \
    Op(   ENABLE,        Enable,        "$FE",    "^27\r" ) \
    Op(   DISABLE,       Disable,       "$FD",    "^26\r" ) \
    Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d", NULL )    \
-   Opg(  ISEVCONNECT,   IsEvConnect,   "$G0",    "^53\r" ) \
+   Opg(  GETEVSESTATE,  GetEVSEState,  "$GS",    NULL ) \
    Opg(  GETCURRENTCAP, GetCurrentCap, "$GE",    "^26\r" ) \
    Opg(  GETFAULT,      GetFault,      "$GF",    "^25\r" ) \
    Opg(  GETCHARGPARAM, GetChargParam, "$GG",    "^24\r" ) \
@@ -105,6 +107,22 @@ typedef struct
 } s_coevseResult ;
 
 
+typedef struct
+{
+   e_coevseEvseState eEvseState ;
+   DWORD dwCurrentCapMin ;
+   DWORD dwCurrentCap ;
+   SDWORD sdwChargeVoltage ;
+   SDWORD sdwChargeCurrent ;
+   DWORD dwCurWh ;
+   DWORD dwAccWh ;
+
+   DWORD dwErrGfiTripCnt ;
+   DWORD dwNoGndTripCnt ;
+   DWORD dwStuckRelayTripCnt ;
+} s_coevseData ;
+
+
 /*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
@@ -148,7 +166,7 @@ static s_coevseResult l_Result ;
 static s_coevseResult l_Async ;
 
 static DWORD l_dwGetStateTmp ;
-static s_coevseStatus l_Status ;
+static s_coevseData l_Status ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -218,31 +236,11 @@ DWORD coevse_GetCurrentCap( void )
 /* Get if EV is plugged                                                       */
 /*----------------------------------------------------------------------------*/
 
-e_coevseEVPlugState coevse_GetPlugState( void )
+e_coevseEvseState coevse_GetEvseState( void )
 {
-   return l_Status.eEvPlugState ;
+   return l_Status.eEvseState ;
 }
 
-
-/*----------------------------------------------------------------------------*/
-/* Get if EV charging                                                        */
-/*----------------------------------------------------------------------------*/
-
-BOOL coevse_IsCharging( void )
-{
-   BOOL bRet ;
-
-   if ( l_Status.sdwChargeCurrent > 0 )
-   {
-      bRet = TRUE ;
-   }
-   else
-   {
-      bRet = FALSE ;
-   }
-
-   return bRet ;
-}
 
 
 /*----------------------------------------------------------------------------*/
@@ -282,16 +280,6 @@ void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize )
    snprintf( o_pszInfo, i_wSize, "%li, %li, %lu", l_Status.sdwChargeCurrent,
                                                   l_Status.sdwChargeVoltage,
                                                   l_Status.dwCurWh ) ;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/* Get OpenEVSE status                                                        */
-/*----------------------------------------------------------------------------*/
-
-s_coevseStatus coevse_GetStatus( void )
-{
-   return l_Status ;
 }
 
 
@@ -350,7 +338,7 @@ void coevse_TaskCyc( void )
       {
          tim_StartMsTmp( &l_dwGetStateTmp ) ;
 
-         coevse_AddCmdFifo( COEVSE_CMD_ISEVCONNECT, NULL, 0 ) ;
+         coevse_AddCmdFifo( COEVSE_CMD_GETEVSESTATE, NULL, 0 ) ;
          coevse_AddCmdFifo( COEVSE_CMD_GETCURRENTCAP, NULL, 0 ) ;
          coevse_AddCmdFifo( COEVSE_CMD_GETFAULT, NULL, 0 ) ;
          coevse_AddCmdFifo( COEVSE_CMD_GETCHARGPARAM, NULL, 0 ) ;
@@ -643,19 +631,27 @@ static void coevse_CmdEnd( void )
 
 /*----------------------------------------------------------------------------*/
 
-static void coevse_CmdresultIsEvConnect( char C* i_pszDataRes )
+static void coevse_CmdresultGetEVSEState( char C* i_pszDataRes )
 {
    if ( i_pszDataRes[1] == '1' )
    {
-      l_Status.eEvPlugState = COEVSE_EV_PLUGGED ;
+      l_Status.eEvseState = COEVSE_STATE_NOTCONNECTED ;
    }
    else if ( i_pszDataRes[1] == '2' )
    {
-      l_Status.eEvPlugState = COEVSE_EV_UNKNOWN ;
+      l_Status.eEvseState = COEVSE_STATE_CONNECTED ;
+   }
+   else if ( i_pszDataRes[1] == '3' )
+   {
+      l_Status.eEvseState = COEVSE_STATE_CHARGING ;
+   }
+   else if ( i_pszDataRes[1] == '4' )
+   {
+      l_Status.eEvseState = COEVSE_STATE_CHARGING ;
    }
    else
    {
-      l_Status.eEvPlugState = COEVSE_EV_UNPLUGGED ;
+      l_Status.eEvseState = COEVSE_STATE_UNKNOWN;
    }
 }
 
@@ -692,14 +688,14 @@ static void coevse_CmdresultGetChargParam( char C* i_pszDataRes )
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.sdwChargeVoltage = sdwValue ;
+      l_Status.sdwChargeCurrent = sdwValue ;
    }
 
    pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
-      l_Status.sdwChargeCurrent = sdwValue ;
+      l_Status.sdwChargeVoltage = sdwValue ;
    }
 }
 

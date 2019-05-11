@@ -113,25 +113,11 @@ BYTE uwifi_GetError( BOOL i_bReset ) ;
 
 typedef enum
 {
-   COEVSE_EV_PLUGGED,
-   COEVSE_EV_UNPLUGGED,
-   COEVSE_EV_UNKNOWN,
-} e_coevseEVPlugState ;
-
-typedef struct
-{
-   e_coevseEVPlugState eEvPlugState ;
-   DWORD dwCurrentCapMin ;
-   DWORD dwCurrentCap ;
-   SDWORD sdwChargeVoltage ;
-   SDWORD sdwChargeCurrent ;
-   DWORD dwCurWh ;
-   DWORD dwAccWh ;
-
-   DWORD dwErrGfiTripCnt ;
-   DWORD dwNoGndTripCnt ;
-   DWORD dwStuckRelayTripCnt ;
-} s_coevseStatus ; //SBA: renommer en Data
+   COEVSE_STATE_UNKNOWN = 0,
+   COEVSE_STATE_NOTCONNECTED,
+   COEVSE_STATE_CONNECTED,
+   COEVSE_STATE_CHARGING,
+} e_coevseEvseState ;
 
 #define COEVSE_CURRENT_CAPMAX_MAX   16
 #define COEVSE_CURRENT_CAPMAX_MIN    6
@@ -144,13 +130,11 @@ void coevse_SetEnable( BOOL i_bEnable ) ;
 void coevse_SetCurrentCap( BYTE i_byCurrent ) ;
 DWORD coevse_GetCurrentCap( void ) ;
 
-e_coevseEVPlugState coevse_GetPlugState( void ) ;
-BOOL coevse_IsCharging( void ) ;
+e_coevseEvseState coevse_GetEvseState( void ) ;
 SDWORD coevse_GetCurrent( void ) ;
 SDWORD coevse_GetVoltage( void ) ;
 DWORD coevse_GetEnergy( void ) ;
 void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize ) ;
-s_coevseStatus coevse_GetStatus( void ) ;
 
 RESULT coevse_AddExtCmd( char C* i_szStrCmd ) ;
 

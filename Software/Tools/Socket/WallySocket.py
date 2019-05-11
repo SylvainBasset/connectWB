@@ -24,12 +24,12 @@ class cSocketWB :
 
 
    #---------------------------------------------------------------------------#
-   def Connect( self, DeviceIp, Port=None ):
+   def Connect( self, DeviceIp, Force=False, Port=None ):
       if Port == None :
          Port = DEFAULT_PORT
       sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       sckt.connect((DeviceIp, Port))
-      if not self.IsCorrectDevice( sckt ):
+      if ( not Force and not self.IsCorrectDevice( sckt )  ):
          raise ValueError( "unknown device")
       self.socket = sckt
       self.socket.setblocking(0)
@@ -71,7 +71,7 @@ class cSocketWB :
          print Ip,
 
          sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-         sckt.settimeout(0.5)
+         sckt.settimeout(5)
          try :
             sckt.connect( ( Ip, DEFAULT_PORT ) )
             if self.IsCorrectDevice( sckt ):
