@@ -31,6 +31,7 @@ typedef enum
    SFRM_ID_RAPI_BRIGE,
    SFRM_ID_RAPI_CHARGEINFO,
    SFRM_ID_CHARGE_HISTSTATE,
+   SFRM_ID_CHARGE_ADCVAL,
    SFRM_ID_RESET,
    SFRM_ID_LAST
 } e_sfrmFrameId ;
@@ -58,6 +59,7 @@ static s_FrameDesc const k_aFrameDesc [] =
    _D( RAPI_BRIGE,       "$10:", "$90:", FALSE, TRUE ),
    _D( RAPI_CHARGEINFO,  "$11:", "$91:", FALSE, FALSE ),
    _D( CHARGE_HISTSTATE, "$12:", "$92:", FALSE, FALSE ),
+   _D( CHARGE_ADCVAL,    "$13:", "$93:", FALSE, FALSE ),
    _D( RESET,            "$7F:", "$FF:", FALSE, FALSE ),
 } ;
 
@@ -214,6 +216,11 @@ static void sfrm_ExecCmd( char C* i_pszArg )
 
       case SFRM_ID_CHARGE_HISTSTATE :
          cstate_GetHistState( szStrInfo, sizeof(szStrInfo) ) ;
+         sfrm_SendRes( szStrInfo ) ;
+         break ;
+
+      case SFRM_ID_CHARGE_ADCVAL :
+         cstate_GetAdcVal( szStrInfo, sizeof(szStrInfo) );
          sfrm_SendRes( szStrInfo ) ;
          break ;
 

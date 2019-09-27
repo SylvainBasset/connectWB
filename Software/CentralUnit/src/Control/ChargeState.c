@@ -16,6 +16,30 @@
 
 
 /*----------------------------------------------------------------------------*/
+/* Description:                                                               */
+/* This module manage the enable/disable state of EVSE.                       */
+/* The enable/disable state is computed the FSM located in                    */
+/* cstate_ProcessState(), given the following entries :                       */
+/*  - Calendard state : Given by cal_IsChargeEnable() to check if a regular   */
+/*    enable is currently allowed by the calendar.                            */
+/*  - Charge force : 3 types of force are managed by the module :             */
+/*  - Actual charging status, with consumed current, provided by commEVSE.c   */
+/*    module                                                                  */
+/*                                                                            */
+/* Three forcing levels are available :                                       */
+/*    . CSTATE_FORCE_NONE : no force. Charge is allowed only if it set in     */
+/*      calendar, and the consumed current is above the theshold limit        */
+/*      (l_Data.dwCurrentMinStop)                                             */
+/*    . CSTATE_FORCE_AMPMIN : Ampere min forceed, Charge is allowed only      */
+/*      if it set in  calendar, the actual consumed current is not checked    */
+/*    . CSTATE_FORCE_ALL : Charge is allowed in any circumstances.            */
+/* These 3 levels can be switched by a short press on the CSTATE_BUTTON.      */
+/* The 'color' of the charge state led can indicable the current forcing      */
+/* level, when no vehicule is charging :                                      */
+/*    - a                                                                     */
+/*----------------------------------------------------------------------------*/
+
+/*----------------------------------------------------------------------------*/
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
@@ -24,7 +48,11 @@
 
 #define CSTATE_LED_BLINK               500
 
-#define CSTATE_ENDOFCHARGE_DELAY       30   /* delai before taking End of charge in account, sec */
+#define CSTATE_ENDOFCHARGE_DELAY        30   /* delai before taking End of charge in account, sec */
+
+#define CSTATE_ADC_EV_CONNECT_TH      1184
+
+#define CSTATE_PLUGING_DELAY            30   /* delai for OPENEVSE enable at pluging, sec */
 
 typedef enum
 {
@@ -41,8 +69,6 @@ typedef enum
 typedef struct
 {
    BOOL bWifiMaint ;
-   BOOL bWifiConnect ;
-
    BOOL bEnabled ;
    BOOL bEvPlugged ;
    BOOL bCharging ;
@@ -50,6 +76,12 @@ typedef struct
    DWORD dwCurrentMinStop ;
    e_cstateForceSt eForceState ;
    e_cstateChargeSt eChargeState ;
+   WORD awAdcValues [16] ;
+   WORD wAdcValuesIdx ;
+   WORD wAdcMoy ;
+   BOOL bEvConnected ;
+   BOOL bPrevEvConnected ;
+   DWORD dwTmpPluging ;
 } s_cstateData ;
 
 
@@ -64,7 +96,9 @@ static void cstate_UpdateForceState( e_cstateForceSt i_eForceState ) ;
 
 static void cstate_ProcessLed( void ) ;
 static BOOL cstate_ProcessButton( BOOL * o_bLongPress ) ;
+static WORD cstate_ProcessAdc( void ) ;
 
+static void cstate_HrdInitCPLine( void ) ;
 static void cstate_HrdInitButton( void ) ;
 static void cstate_HrdInitLed( void ) ;
 static void cstate_HrdSetColorLedWifi( e_cstateLedColor i_eLedColor ) ;
@@ -110,6 +144,7 @@ void cstate_Init( void )
    l_aeHistState[l_byHistStateIdx] = CSTATE_OFF ;
    l_byHistStateIdx = NEXTIDX( l_byHistStateIdx, l_aeHistState ) ;
 
+   cstate_HrdInitCPLine() ;
    cstate_HrdInitButton() ;
    cstate_HrdInitLed() ;
 }
@@ -206,6 +241,16 @@ void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize )
 
 
 /*----------------------------------------------------------------------------*/
+
+WORD cstate_GetAdcVal( CHAR * o_pszAdcVal, WORD i_wSize )
+{
+   snprintf( o_pszAdcVal, i_wSize, "%u", l_Data.wAdcMoy ) ;
+
+   return l_Data.wAdcMoy ;
+}
+
+
+/*----------------------------------------------------------------------------*/
 /* periodic task                                                              */
 /*----------------------------------------------------------------------------*/
 
@@ -218,7 +263,21 @@ void cstate_TaskCyc( void )
    //BOOL bEvPlugged ;
 
    l_Data.bWifiMaint = cwifi_IsMaintMode() ;
-   l_Data.bWifiConnect = cwifi_IsConnected() ;
+
+   l_Data.wAdcMoy = cstate_ProcessAdc() ;
+
+   if ( l_Data.wAdcMoy < CSTATE_ADC_EV_CONNECT_TH )
+   {
+      if ( ! l_Data.bEvConnected )
+      {
+         l_Data.bEvConnected = TRUE ;
+         tim_StartSecTmp( &l_Data.dwTmpPluging ) ;
+      }
+   }
+   else
+   {
+      l_Data.bEvConnected = FALSE ;
+   }
 
    bPress = cstate_ProcessButton( &bLongPress ) ;
 
@@ -280,7 +339,15 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
          {
             eNextChargeState = CSTATE_ON_WAIT ;
          }
-         bEnabled = FALSE ;
+
+         if ( tim_GetRemainSecTmp( &l_Data.dwTmpPluging, CSTATE_PLUGING_DELAY ) != 0 )
+         {
+            bEnabled = TRUE ;
+         }
+         else
+         {
+            bEnabled = FALSE ;
+         }
          break ;
 
       case CSTATE_FORCE_WAIT :
@@ -441,7 +508,7 @@ static void cstate_ProcessLed( void )
    {
       eWifiLedColor = CSTATE_LED_BLUE_BLINK ;
    }
-   else if ( l_Data.bWifiConnect )
+   else if ( cwifi_IsConnected() )
    {
       eWifiLedColor = CSTATE_LED_BLUE ;
    }
@@ -579,6 +646,64 @@ static BOOL cstate_ProcessButton( BOOL * o_bLongPress )
    }
 
    return bPressEvt ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+
+static WORD cstate_ProcessAdc( void )
+{
+   BYTE i ;
+   WORD wAdcMoy ;
+
+   if ( ISSET( ADC_CSTATE->ISR, ADC_ISR_ADRDY ) )
+   {
+      ADC_CSTATE->CR |= ADC_CR_ADSTART ;
+   }
+
+   l_Data.awAdcValues[l_Data.wAdcValuesIdx] = ADC_CSTATE->DR ;
+   l_Data.wAdcValuesIdx = NEXTIDX( l_Data.wAdcValuesIdx, l_Data.awAdcValues ) ;
+
+   wAdcMoy = 0 ;
+   for ( i = 0 ; i < ARRAY_SIZE( l_Data.awAdcValues ) ; i++ )
+   {
+      wAdcMoy += l_Data.awAdcValues[i] ;
+   }
+   wAdcMoy = wAdcMoy / ARRAY_SIZE( l_Data.awAdcValues ) ;
+
+   return wAdcMoy ;
+}
+
+
+
+/*----------------------------------------------------------------------------*/
+/* Hardware initialization for CP line                                        */
+/*----------------------------------------------------------------------------*/
+
+static void cstate_HrdInitCPLine( void )
+{
+   GPIO_InitTypeDef sGpioInit ;
+
+   sGpioInit.Pin = CSTATE_CP_LINE_PIN ;
+   sGpioInit.Mode = GPIO_MODE_ANALOG ;
+   sGpioInit.Pull = GPIO_NOPULL ;
+   sGpioInit.Speed = GPIO_SPEED_FREQ_HIGH ;
+   sGpioInit.Alternate = CSTATE_CP_LINE_AF ;
+   HAL_GPIO_Init( CSTATE_CP_LINE_GPIO, &sGpioInit ) ;
+
+   ADC_CSTATE_CLK_ENABLE() ;
+
+   ADC_CSTATE->CFGR2 = ADC_CFGR2_CKMODE_0 ;
+   ADC_CSTATE->SMPR = ADC_SMPR_SMPR_0 | ADC_SMPR_SMPR_1 | ADC_SMPR_SMPR_2 ;
+
+   __SYSCFG_CLK_ENABLE() ;
+   SYSCFG->CFGR3 = SYSCFG_CFGR3_ENBUF_SENSOR_ADC | SYSCFG_CFGR3_ENBUF_VREFINT_ADC ;
+
+   ADC_CSTATE->CHSELR = ADC_CHSELR_CHSEL6 ;
+
+   ADC1_COMMON->CCR = ADC_CCR_PRESC_2 ;
+
+   ADC_CSTATE->CR = ADC_CR_ADEN ;
 }
 
 

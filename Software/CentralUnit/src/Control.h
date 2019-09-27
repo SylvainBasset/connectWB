@@ -68,6 +68,7 @@ e_cstateForceSt cstate_GetForceState( void ) ;
 e_cstateChargeSt cstate_GetChargeState( void ) ;
 
 void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize ) ;
+WORD cstate_GetAdcVal( CHAR * o_pszAdcVal, WORD i_wSize ) ;
 
 void cstate_TaskCyc( void ) ;
 

@@ -30,6 +30,10 @@
 #define CSTATE_LEDWIFI_BLUE_GPIO       GPIOA
 #define CSTATE_LEDWIFI_BLUE_AF         0
 
+#define CSTATE_CP_LINE_PIN             GPIO_PIN_6
+#define CSTATE_CP_LINE_GPIO            GPIOA
+#define CSTATE_CP_LINE_AF              0
+
 #define CSTATE_LEDWIFI_GREEN_PIN       GPIO_PIN_4
 #define CSTATE_LEDWIFI_GREEN_GPIO      GPIOA
 #define CSTATE_LEDWIFI_GREEN_AF        0
@@ -177,6 +181,19 @@
 
 #define UOEVSE_IRQn                LPUART1_IRQn
 #define UOEVSE_IRQHandler          LPUART1_IRQHandler
+
+
+/*----------------------------------------------------------------------------*/
+/* definitions for Adc (ChargeState)                                            */
+/*----------------------------------------------------------------------------*/
+
+#define ADC_CSTATE                 ADC1
+#define ADC_CSTATE_CLK_ENABLE()    __ADC1_CLK_ENABLE()
+#define ADC_CSTATE_CLK_DISABLE()   __ADC1_CLK_DISABLE()
+
+#define ADC_CSTATE_FORCE_RESET()       __ADC1_FORCE_RESET()
+#define ADC_CSTATE_RELEASE_RESET()     __ADC1_RELEASE_RESET()
+
 
 
 /*----------------------------------------------------------------------------*/
