@@ -1,8 +1,5 @@
 
 
-Software/\.metadata/\.log
-Software/\.metadata/version\.ini
-
 Documentation/soft ST/
 Documentation/OpenEVSE/instructables/
 Documentation/OpenEVSE/instructable_true/
@@ -13,3 +10,7 @@ Software/Tools/Socket/\./LastIp\.dat
 *.pyc
 
 
+
+
+
+Software/\.metadata/

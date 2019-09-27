@@ -6,14 +6,14 @@ Wallybox is a connected EVSE (electrical vehicle supply equipment), allowing Wif
 It involves a basic [OpenEVSE](https://www.openevse.com/) part for vehicle charging, and a NUCLEO-L053R8 board + X-NUCLEO-IDW01M1 daughter board for connectivity.
 
 
-
+                     (central unit)
                      _______________                  ______________
                     |               | (serial Tx-Rx) |              |
                     | NUCLEO-L053R8 | <------------> |   OpenEVSE   | ====> EV Charging
                     |_______________|                |______________|
-                             ^
-                             | (serial Tx-Rx)
-                     ________v______
+                            ^
+                            | (serial Tx-Rx)
+                     _______v_______
      home    (Wifi) |               |
      network <----> |    IDW01M1    |
                     |_______________|
