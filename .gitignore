@@ -1,17 +1,16 @@
 
-Software/\.metadata/\.plugins/org\.eclipse\.core\.resources/\.history/
-Software/\.metadata/\.plugins/org\.eclipse\.cdt\.core/
 
 Software/\.metadata/\.log
-
-Software/\.metadata/\.plugins/org\.eclipse\.cdt\.ui/
-
-Software/\.metadata/\.plugins/org\.eclipse\.core\.resources/
-
-Software/\.metadata/\.plugins/org\.eclipse\.e4\.workbench/
-
 Software/\.metadata/version\.ini
+Software/\.metadata/\.plugins/
 
 Documentation/soft ST/
+Documentation/OpenEVSE/instructables/
+Documentation/OpenEVSE/instructable_true/
+Documentation/OpenEVSE/open_evse-stable/
 
 Software/Tools/Socket/\./LastIp\.dat
+
+*.pyc
+
+
