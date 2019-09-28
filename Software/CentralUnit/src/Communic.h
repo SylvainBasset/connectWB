@@ -1,11 +1,28 @@
 /******************************************************************************/
-/*                                                                            */
 /*                                 Communic.h                                 */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:    8 apr. 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   communications header
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 08 apr. 2018, creation
+*/
 
 
 #ifndef __COMMUNIC_H                   /* to prevent recursive inclusion */
@@ -111,7 +128,7 @@ BYTE uwifi_GetError( BOOL i_bReset ) ;
 /* CommOEvse.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
-typedef enum
+typedef enum                                    /* EVSE state */
 {
    COEVSE_STATE_UNKNOWN = 0,
    COEVSE_STATE_NOTCONNECTED,
@@ -119,12 +136,12 @@ typedef enum
    COEVSE_STATE_CHARGING,
 } e_coevseEvseState ;
 
-#define COEVSE_CURRENT_CAPMAX_MAX   16
-#define COEVSE_CURRENT_CAPMAX_MIN    6
+#define COEVSE_CURRENT_CAPMAX_MAX   16			/* maximum current capacity */
+#define COEVSE_CURRENT_CAPMAX_MIN    6			/* minimum current capacity */
 
 
 void coevse_Init( void ) ;
-void coevse_RegisterScktFunc( f_ScktGetResExt i_fScktGetResExt ) ;
+void coevse_RegisterRetScktFunc( f_ScktGetResExt i_fScktGetResExt ) ;
 
 void coevse_SetEnable( BOOL i_bEnable ) ;
 void coevse_SetCurrentCap( BYTE i_byCurrent ) ;

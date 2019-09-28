@@ -1,11 +1,55 @@
 /******************************************************************************/
-/*                                                                            */
 /*                                 CommOEvse.c                                */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:   04 oct. 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   OpenEVSE communication module
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 04 oct. 2018, creation
+   @brief
+   Implement communication with openEVSE module.
+
+   Entries points are provided to the application for basic settings
+   (e.g. coevse_SetCurrentCap() ). These entries points involes a
+   reduced set of RAPI commmands desbribed by e_CmdId.
+
+   It is possible to send data directly to the module with coevse_AddExtCmd()
+   (bridge mode, COEVSE_CMD_EXTCMD command id)
+
+   Asked RAPI commands are stored in FIFO (l_CmdFifo). Once this FIFO is not
+   empty, and the communication is free (l_eCmd == COEVSE_CMD_NONE), the
+   command out of the FIFO is sent.
+
+   At RAPI command sending, a timeout of COEVSE_TIMEOUT ms is started. If the
+   response is wrong (bad CRC) or the timeout is over, the command is sent
+   again, with a maximum of COEVSE_MAXRETRY reties.
+
+   The cyclic task perform verification of charging metrics by sending
+   COEVSE_CMD_GETEVSESTATE,
+   COEVSE_CMD_GETCURRENTCAP,
+   COEVSE_CMD_GETFAULT,
+   COEVSE_CMD_GETCHARGPARAM,
+   COEVSE_CMD_GETENERGYCNT,
+   every COEVSE_GETSTATE_PER seconds
+
+   Responses from these commands is stored by coevse_Cmdresult...() callbacks
+*/
 
 
 #include "Define.h"
@@ -32,7 +76,7 @@
 #define COEVSE_HRD_START_DUR    8000   /* OpenEVSE hardware startup duration */
 #define COEVSE_MAXRETRY            4   /* maximum number of retry before error */
 
-#define COEVSE_MAX_CMD_LEN        29
+#define COEVSE_MAX_CMD_LEN        29   /* maximum size for RAPI command */
 
                                        /* disable/suspend transmit channel DMA */
 #define COEVSE_DISABLE_DMA_TX()     ( UOEVSE_DMA_TX->CCR &= ~DMA_CCR_EN )
@@ -45,8 +89,22 @@ static char const k_szStrReset [] = "$FR^30\r" ;
 
 typedef void (*f_ResultCallback)( char C* i_pszDataRes ) ;
 
-//SBA: mettre les checksum dans le tableau
-//----------------------------------------
+//SBA: GETEVSESTATE needs its constant checksum
+//---------------------------------------------
+
+   /* Note : LIST_CMD() defines the CRC value (<szChecksum> field of         */
+   /* s_CmdDesc struct) when the command does not contain variables elements.*/
+   /* At each cmd sending, <szChecksum> field is analysed: if the adresse    */
+   /* is not NULL, the pointed CRC value is taken insted of computing the    */
+   /* whole CRC.                                                             */
+   /* In brief :                                                             */
+   /* if the command is const (no param) -> fill the CRC value (optimistion) */
+   /* if the command is variable -> keep the filed at NULL to compute CRC    */
+
+   /* Note :                                                            */
+   /* Macro Op = macro for command without callback                     */
+   /* Macro Opg = macro for command with callback (coevse_Cmdresult...) */
+
 
 #define LIST_CMD( Op, Opg ) \
    Op(   ENABLE,        Enable,        "$FE",    "^27\r" ) \
@@ -60,65 +118,63 @@ typedef void (*f_ResultCallback)( char C* i_pszDataRes ) ;
    Opg(  GETVERSION,    GetVersion,    "$GV",    "^35\r" ) \
    Opg(  EXTCMD,        ExtCmd,        NULL,     NULL ) \
 
-typedef enum
+typedef enum                           /* reduced set of used RAPI commands */
 {
    COEVSE_CMD_NONE = 0,
    LIST_CMD( COEVSE_CMD_ENUM, COEVSE_CMD_ENUM )
    COEVSE_CMD_LAST,
 } e_CmdId ;
-
+                                       /* prototypes declaration for commands callbacks */
 LIST_CMD( COEVSE_CMD_NULL, COEVSE_CMD_CALLBACK )
 
-typedef struct
+typedef struct                         /* RAPI command const data */
 {
-   e_CmdId eCmdId ;
-   f_ResultCallback fResultCallback ;
-   char C* szFmtCmd ;
-   char C* szChecksum ;
-
+   e_CmdId eCmdId ;                    /* command Id, COEVSE_CMD_... */
+   f_ResultCallback fResultCallback ;  /* callback, NULL if no callback */
+   char C* szFmtCmd ;                  /* command string */
+   char C* szChecksum ;                /* checksum value, NULL for dynamic computation*/
 } s_CmdDesc ;
 
-static s_CmdDesc const k_aCmdDesc [] =
+static s_CmdDesc const k_aCmdDesc [] = /* list of API commands const data */
 {
    LIST_CMD( COEVSE_CMD_DESC, COEVSE_CMD_DESC_G )
 } ;
 
-typedef struct
+typedef struct                         /* one element of command FIFO */
 {
-   e_CmdId eCmdId ;
-   WORD wParam [6] ;
-   BYTE byNbParam ;
+   e_CmdId eCmdId ;                    /* command ID */
+   WORD wParam [6] ;                   /* command params */
+   BYTE byNbParam ;                    /* nb params */
 } s_CmdFifoData ;
 
-typedef struct
+typedef struct                         /* command FIFO */
 {
-   BYTE byIdxIn ;
-   BYTE byIdxOut ;
-   s_CmdFifoData aCmdData [8] ;
+   BYTE byIdxIn ;                      /* input index */
+   BYTE byIdxOut ;                     /* output index */
+   s_CmdFifoData aCmdData [8] ;        /* element data */
 } s_CmdFifo ;
 
 
-typedef struct
+typedef struct                         /* response of RAPI commmand */
 {
-   BYTE abyDataRes [32+1] ;
-   BYTE byResIdx ;
-   BOOL bError ;
-   BOOL bWaitResponse ;
+   BYTE abyDataRes [32+1] ;            /* response data */
+   BYTE byResIdx ;                     /* response data index (reponse length) */
+   BOOL bError ;                       /* Uart module error */
+   BOOL bWaitResponse ;                /* pending response reception indicator */
 } s_coevseResult ;
 
 
-typedef struct
+typedef struct                         /* module data */
 {
-   e_coevseEvseState eEvseState ;
-   DWORD dwCurrentCapMin ;
-   DWORD dwCurrentCap ;
-   SDWORD sdwChargeVoltage ;
-   SDWORD sdwChargeCurrent ;
-   DWORD dwCurWh ;
-   DWORD dwAccWh ;
+   e_coevseEvseState eEvseState ;      /* current openEVSE state */
+   DWORD dwCurrentCap ;                /* charing current maximum capacity in A */
+   SDWORD sdwChargeVoltage ;           /* charing voltage in mV */
+   SDWORD sdwChargeCurrent ;           /* charing current in mA */
+   DWORD dwCurWh ;                     /* energy compuption of this charging session in Wh */
+   DWORD dwAccWh ;                     /* energy compuption of all charging session in Wh */
 
-   DWORD dwErrGfiTripCnt ;
-   DWORD dwNoGndTripCnt ;
+   DWORD dwErrGfiTripCnt ;             /* Gfi error counter */
+   DWORD dwNoGndTripCnt ;              /* Gournd error counter */
    DWORD dwStuckRelayTripCnt ;
 } s_coevseData ;
 
@@ -150,16 +206,20 @@ static void coevse_HrdSendCmd( char C* i_pszStrCmd, BYTE i_bySize ) ;
 /* variables                                                                  */
 /*----------------------------------------------------------------------------*/
 
-static e_CmdId l_eCmd ;
-static char l_szExtCmdStr[32] ;
+static e_CmdId l_eCmd ;                /* current sending command, COEVSE_CMD_NONE if no command */
+                                       /* external command string */
+static char l_szExtCmdStr [ COEVSE_MAX_CMD_LEN + 1 ] ;
+                                       /* addresse of callback function for external command result */
 static f_ScktGetResExt l_fScktGetResExt ;
 
-static s_CmdFifo l_CmdFifo ;
-static char l_szStrCmdBuffer [64] ;
+static s_CmdFifo l_CmdFifo ;           /* command FIFO */
+                                       /* Buffer for sending command (must be
+                                          declared in static bescause of use of DMA) */
+static char l_szStrCmdBuffer [ COEVSE_MAX_CMD_LEN + 1 ] ;
 
-static BYTE l_byNbRetry ;
-static DWORD l_dwCmdTimeout ;
-static BOOL l_bHardStarted ;
+static BYTE l_byNbRetry ;              /* current retry number */
+static DWORD l_dwCmdTimeout ;          /* timeout temporisation */
+static BOOL l_bOpenEvseRdy ;           /* hardware openEVSE ready state */
 static DWORD l_dwTmpStart ;
 
 static s_coevseResult l_Result ;
@@ -178,15 +238,17 @@ void coevse_Init( void )
    coevse_HrdInit() ;
 
    coevse_HrdSendCmd( k_szStrReset, sizeof(k_szStrReset) ) ;
-   l_bHardStarted = FALSE ;
+   l_bOpenEvseRdy = FALSE ;
 
    tim_StartMsTmp( &l_dwTmpStart ) ;
 }
 
 
 /*----------------------------------------------------------------------------*/
+/* Registering callback function for external function result                 */
+/*----------------------------------------------------------------------------*/
 
-void coevse_RegisterScktFunc( f_ScktGetResExt i_fScktGetResExt )
+void coevse_RegisterRetScktFunc( f_ScktGetResExt i_fScktGetResExt )
 {
    l_fScktGetResExt = i_fScktGetResExt ;
 }
@@ -274,6 +336,8 @@ DWORD coevse_GetEnergy( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Format charge informations                                                 */
+/*----------------------------------------------------------------------------*/
 
 void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize )
 {
@@ -284,14 +348,21 @@ void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize )
 
 
 /*----------------------------------------------------------------------------*/
+/* Add external RAPI command (bridge)                                         */
+/*----------------------------------------------------------------------------*/
 
 RESULT coevse_AddExtCmd( char C* i_szStrCmd )
 {
    RESULT rRet ;
-
-   if ( ( i_szStrCmd[0] == '$' ) && ( strlen( i_szStrCmd ) < COEVSE_MAX_CMD_LEN ) )
-   {
-      strncpy( l_szExtCmdStr, i_szStrCmd, sizeof( l_szExtCmdStr ) - 1 ) ;
+                                       /* allowed only if no other external cmd */
+                                       /* in FIFO, and command is valid */
+   if ( ( l_szExtCmdStr[0] == 0 ) &&
+        ( i_szStrCmd[0] == '$' ) &&
+        ( strlen( i_szStrCmd ) < ( sizeof( l_szExtCmdStr ) - 1 ) ) )
+   {                                   /* copy into external command string. */
+                                       /* The strlen in condition guarantee that */
+                                       /* there will be NULL at the end */
+      strncpy( l_szExtCmdStr, i_szStrCmd, sizeof( l_szExtCmdStr ) ) ;
 
       coevse_AddCmdFifo( COEVSE_CMD_EXTCMD, NULL, 0 ) ;
       rRet = OK ;
@@ -311,18 +382,18 @@ RESULT coevse_AddExtCmd( char C* i_szStrCmd )
 
 void coevse_TaskCyc( void )
 {
-   if ( l_bHardStarted )
+   if ( l_bOpenEvseRdy )
    {
-      if ( coevse_IsNeedSend() )
+      if ( coevse_IsNeedSend() )       /* if sending is ready */
       {
-         coevse_SendCmdFifo() ;
+         coevse_SendCmdFifo() ;        /* send next command in FIFO */
          tim_StartMsTmp( &l_dwCmdTimeout ) ;
       }
 
-      if ( l_eCmd != COEVSE_CMD_NONE )
-      {
+      if ( l_eCmd != COEVSE_CMD_NONE ) /* if command is still pending */
+      {                                /* if response has arrived */
          if ( ! l_Result.bWaitResponse )
-         {
+         {                             /* treat the response */
             HAL_NVIC_DisableIRQ( UOEVSE_IRQn ) ;
             coevse_AnalyseRes() ;
             HAL_NVIC_EnableIRQ( UOEVSE_IRQn ) ;
@@ -330,11 +401,11 @@ void coevse_TaskCyc( void )
 
          if ( tim_IsEndMsTmp( &l_dwCmdTimeout, COEVSE_TIMEOUT ) )
          {
-            coevse_CmdSetErr() ;
+            coevse_CmdSetErr() ;       /* timeout error */
          }
       }
-
-      if ( l_bHardStarted && tim_IsEndMsTmp( &l_dwGetStateTmp, COEVSE_GETSTATE_PER ) )
+                                       /* verification of charging metrics temporisation */
+      if ( l_bOpenEvseRdy && tim_IsEndMsTmp( &l_dwGetStateTmp, COEVSE_GETSTATE_PER ) )
       {
          tim_StartMsTmp( &l_dwGetStateTmp ) ;
 
@@ -349,7 +420,7 @@ void coevse_TaskCyc( void )
    {
       if ( tim_IsEndMsTmp( &l_dwTmpStart, COEVSE_HRD_START_DUR ) )
       {
-         l_bHardStarted = TRUE ;
+         l_bOpenEvseRdy = TRUE ;       /* openEVSE hardware is ready */
                                        /* get version once openEVSE is ready */
          coevse_AddCmdFifo( COEVSE_CMD_GETVERSION, NULL, 0 ) ;
          tim_StartMsTmp( &l_dwGetStateTmp ) ;
@@ -360,6 +431,8 @@ void coevse_TaskCyc( void )
 
 /*============================================================================*/
 
+/*----------------------------------------------------------------------------*/
+/* Test if sending is needed                                                  */
 /*----------------------------------------------------------------------------*/
 
 static BOOL coevse_IsNeedSend( void )
@@ -374,6 +447,8 @@ static BOOL coevse_IsNeedSend( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Add command in FIFO                                                        */
+/*----------------------------------------------------------------------------*/
 
 static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbParam )
 {
@@ -383,21 +458,20 @@ static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbP
    BYTE byIdx ;
 
    byCurIdxIn = l_CmdFifo.byIdxIn ;
-
+                                       /* caculate next input index */
    byNextIdxIn = NEXTIDX( byCurIdxIn, l_CmdFifo.aCmdData ) ;
    l_CmdFifo.byIdxIn = byNextIdxIn ;
-
+                                       /* if the FIFO overflows */
    if ( byNextIdxIn == l_CmdFifo.byIdxOut )
-   {                                   // last element is lost
-      //l_CmdFifo.byIdxOut = NEXTIDX( l_CmdFifo.byIdxOut, l_CmdFifo.aDataItems ) ;
+   {
       ERR_FATAL() ;
    }
-
+                                       /* fill the new element */
    pCmdData = &l_CmdFifo.aCmdData[byCurIdxIn] ;
    pCmdData->eCmdId = i_eCmdId ;
    pCmdData->byNbParam = i_byNbParam ;
 
-   if ( i_awParams != NULL )
+   if ( i_awParams != NULL )           /* fill parameters if needed */
    {
       for ( byIdx = 0 ; byIdx < i_byNbParam ; byIdx++ )
       {
@@ -407,6 +481,8 @@ static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbP
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Send next command in FIFO                                                  */
 /*----------------------------------------------------------------------------*/
 
 static void coevse_SendCmdFifo( void )
@@ -427,41 +503,45 @@ static void coevse_SendCmdFifo( void )
    byIdxOut = l_CmdFifo.byIdxOut ;
 
    pFifoData = &l_CmdFifo.aCmdData[byIdxOut] ;
+                                       /* caculate next output index */
    byIdxOut = NEXTIDX( byIdxOut, l_CmdFifo.aCmdData ) ;
 
-
+                                       /* remaining size of command string */
    byStrRemSize = sizeof(l_szStrCmdBuffer) ;
 
-   eCmd = pFifoData->eCmdId ;
+   eCmd = pFifoData->eCmdId ;          /* get command descriptor */
    byCmdIdx = eCmd - ( COEVSE_CMD_NONE + 1 ) ;
    pCmdDesc = &k_aCmdDesc[byCmdIdx] ;
 
-   if ( eCmd == COEVSE_CMD_EXTCMD )
-   {
-      pszStrCmd = strncpy( l_szStrCmdBuffer, l_szExtCmdStr, sizeof(l_szStrCmdBuffer) - 1 ) ;
+   if ( eCmd == COEVSE_CMD_EXTCMD )    /* in cas of external command */
+   {                                   /* copy from external command string */
+                                       /* NULL terminasion is garanteed since the 2 buffers */
+                                       /* share the same size and l_szExtCmdStr is NULL terminated*/
+      pszStrCmd = strncpy( l_szStrCmdBuffer, l_szExtCmdStr, sizeof(l_szStrCmdBuffer) ) ;
       wExtCmdLen = strlen( l_szStrCmdBuffer ) ;
+                                       /* new end of string pnt */
       pszStrCmd = &l_szStrCmdBuffer[wExtCmdLen] ;
-      byStrRemSize -= wExtCmdLen ;
+      byStrRemSize -= wExtCmdLen ;     /* new remaining size */
+
+      l_szExtCmdStr[0] = 0 ;           /* external cmd string is free */
    }
    else
    {
       awPar = &pFifoData->wParam[0] ;
 
       pszFmtCmd = pCmdDesc->szFmtCmd ;
-
+                                       /* format command with parameters */
       byFmtSize = snprintf( l_szStrCmdBuffer, byStrRemSize, pszFmtCmd,
-                           awPar[0], awPar[1], awPar[2], awPar[3], awPar[4], awPar[5] ) ;
+                            awPar[0], awPar[1], awPar[2], awPar[3], awPar[4], awPar[5] ) ;
+                                       /* new end of string pnt */
       pszStrCmd = &l_szStrCmdBuffer[byFmtSize] ;
-      byStrRemSize -= byFmtSize ;
+      byStrRemSize -= byFmtSize ;      /* new remaining size */
    }
 
-   if ( byStrRemSize < 4 )
-   {
-      ERR_FATAL() ;
-   }
+   ERR_FATAL_IF( byStrRemSize < 4 ) ;  /* if no size for checksum */
 
    if ( pCmdDesc->szChecksum == NULL )
-   {
+   {                                   /* compute checksum and add it at the end of the string */
       coevse_GetChecksum( szChecksum, sizeof(szChecksum), l_szStrCmdBuffer ) ;
       *pszStrCmd = '^' ;
       pszStrCmd++ ;
@@ -474,15 +554,17 @@ static void coevse_SendCmdFifo( void )
       *pszStrCmd = '\0' ;
    }
    else
-   {
-      strncpy( pszStrCmd, pCmdDesc->szChecksum, byStrRemSize ) ;
+   {                                   /* add static checksum */
+      strlcpy( pszStrCmd, pCmdDesc->szChecksum, byStrRemSize ) ;
    }
 
-   coevse_CmdStart( eCmd ) ;
+   coevse_CmdStart( eCmd ) ;           /* start command transmission */
    coevse_HrdSendCmd( l_szStrCmdBuffer, strlen( l_szStrCmdBuffer )  ) ;
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Analyse response                                                           */
 /*----------------------------------------------------------------------------*/
 
 static void coevse_AnalyseRes( void )
@@ -497,7 +579,7 @@ static void coevse_AnalyseRes( void )
 
    rRes = OK ;
 
-   if ( rRes == OK )
+   if ( rRes == OK )                   /* verify checksum */
    {
       szResult = (char*) l_Result.abyDataRes ;
       byResSize = l_Result.byResIdx ;
@@ -511,7 +593,7 @@ static void coevse_AnalyseRes( void )
       }
    }
 
-   if ( rRes == OK )
+   if ( rRes == OK )                   /* verify command OK/KO response */
    {
       if ( l_eCmd != COEVSE_CMD_EXTCMD )
       {
@@ -525,45 +607,46 @@ static void coevse_AnalyseRes( void )
       }
    }
 
-   if ( rRes == OK )
+   if ( rRes == OK )                   /* call callback if defined */
    {
       byCmdIdx = l_eCmd - ( COEVSE_CMD_NONE + 1 ) ;
       pFunc = k_aCmdDesc[byCmdIdx].fResultCallback ;
 
       if ( l_eCmd == COEVSE_CMD_EXTCMD )
       {
-         pszDataRes = &szResult[0] ;
+         pszDataRes = &szResult[0] ;   /* in case of external we need the whole response */
       }
       else
       {
-         pszDataRes = &szResult[3] ;
+         pszDataRes = &szResult[3] ;   /* in other cases, only the data after "OK " is needed */
       }
 
       if ( pFunc != NULL )
       {
          (*pFunc)( pszDataRes ) ;
       }
-
+                                       /* save next output FIFO index*/
       l_CmdFifo.byIdxOut = NEXTIDX( l_CmdFifo.byIdxOut, l_CmdFifo.aCmdData ) ;
       l_byNbRetry = 0 ;
       coevse_CmdEnd() ;
    }
    else
    {
-      coevse_CmdSetErr() ;
+      coevse_CmdSetErr() ;             /* there is an error */
    }
 }
 
 
 /*----------------------------------------------------------------------------*/
-
-static void coevse_GetChecksum( char * o_sChecksum, BYTE i_bySizeMax,
+/* Compute checksum and store it in string                                    */
+/*----------------------------------------------------------------------------*/
+static void coevse_GetChecksum( char * o_sChecksum, BYTE i_byStrSize,
                                 char C* i_szData )
 {
    BYTE byXor ;
    char C* pszData ;
-
-   if ( ( o_sChecksum == NULL ) || ( i_bySizeMax < 3 ) )
+                                       /* if string is null or too small */
+   if ( ( o_sChecksum == NULL ) || ( i_byStrSize < 3 ) )
    {
       ERR_FATAL() ;
    }
@@ -577,10 +660,12 @@ static void coevse_GetChecksum( char * o_sChecksum, BYTE i_bySizeMax,
       pszData++ ;
    }
 
-   snprintf( o_sChecksum, i_bySizeMax, "%02X", byXor ) ;
+   snprintf( o_sChecksum, i_byStrSize, "%02X", byXor ) ;
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* error treatment                                                            */
 /*----------------------------------------------------------------------------*/
 
 static void coevse_CmdSetErr( void )
@@ -591,10 +676,16 @@ static void coevse_CmdSetErr( void )
    }
    l_byNbRetry++ ;
 
-   coevse_CmdEnd() ;
+   coevse_CmdEnd() ;                /* stop the sending to retry an other one */
+
+   /* note : the output index of command FIFO is incremented only if the     */
+   /* response valid (see coevse_AnalyseRes() ). So at this point the output */
+   /* index remain the same, and the next retry send the same command        */
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Start command sending                                                      */
 /*----------------------------------------------------------------------------*/
 
 static void coevse_CmdStart( e_CmdId i_eCmdId )
@@ -611,6 +702,8 @@ static void coevse_CmdStart( e_CmdId i_eCmdId )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* End command sending                                                        */
 /*----------------------------------------------------------------------------*/
 
 static void coevse_CmdEnd( void )
@@ -629,6 +722,8 @@ static void coevse_CmdEnd( void )
 
 /*============================================================================*/
 
+/*----------------------------------------------------------------------------*/
+/* COEVSE_CMD_GETEVSESTATE command callback (update EVSE state)               */
 /*----------------------------------------------------------------------------*/
 
 static void coevse_CmdresultGetEVSEState( char C* i_pszDataRes )
@@ -657,6 +752,8 @@ static void coevse_CmdresultGetEVSEState( char C* i_pszDataRes )
 
 
 /*----------------------------------------------------------------------------*/
+/* COEVSE_CMD_GETCURRENTCAP command callback (read current cap)               */
+/*----------------------------------------------------------------------------*/
 
 static void coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
 {
@@ -665,41 +762,19 @@ static void coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
    CHAR C* pszNext ;
 
    pszStr = i_pszDataRes ;
-
+                                       /* convert next digit to integer */
    pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
-   if ( pszStr != pszNext )
+
+   if ( pszStr != pszNext )            /* if conversion succeded */
    {
-      pszStr = pszNext ;
+      pszStr = pszNext ;               /* store current cap */
       l_Status.dwCurrentCap = sdwValue ;
    }
 }
 
 
 /*----------------------------------------------------------------------------*/
-
-static void coevse_CmdresultGetChargParam( char C* i_pszDataRes )
-{
-   SDWORD sdwValue ;
-   CHAR C* pszStr ;
-   CHAR C* pszNext ;
-
-   pszStr = i_pszDataRes ;
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
-   if ( pszStr != pszNext )
-   {
-      pszStr = pszNext ;
-      l_Status.sdwChargeCurrent = sdwValue ;
-   }
-
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
-   if ( pszStr != pszNext )
-   {
-      pszStr = pszNext ;
-      l_Status.sdwChargeVoltage = sdwValue ;
-   }
-}
-
-
+/* COEVSE_CMD_GETFAULT command callback (read faults counter)                 */
 /*----------------------------------------------------------------------------*/
 
 static void coevse_CmdresultGetFault( char C* i_pszDataRes )
@@ -709,20 +784,21 @@ static void coevse_CmdresultGetFault( char C* i_pszDataRes )
    CHAR C* pszNext ;
 
    pszStr = i_pszDataRes ;
+                                          /* convert next hexa to integer */
    pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
       l_Status.dwErrGfiTripCnt = dwValue ;
    }
-
+                                       /* convert next hexa to integer */
    pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
       l_Status.dwNoGndTripCnt = dwValue ;
    }
-
+                                       /* convert next hexa to integer */
    pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
    if ( pszStr != pszNext )
    {
@@ -733,6 +809,36 @@ static void coevse_CmdresultGetFault( char C* i_pszDataRes )
 
 
 /*----------------------------------------------------------------------------*/
+/* COEVSE_CMD_GETCHARGPARAM command callback (read charge param)              */
+/*----------------------------------------------------------------------------*/
+
+static void coevse_CmdresultGetChargParam( char C* i_pszDataRes )
+{
+   SDWORD sdwValue ;
+   CHAR C* pszStr ;
+   CHAR C* pszNext ;
+
+   pszStr = i_pszDataRes ;
+                                       /* convert next digit to integer */
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.sdwChargeCurrent = sdwValue ;
+   }
+                                       /* convert next digit to integer */
+   pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
+   if ( pszStr != pszNext )
+   {
+      pszStr = pszNext ;
+      l_Status.sdwChargeVoltage = sdwValue ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* COEVSE_CMD_GETENERGYCNT command callback                                   */
+/*----------------------------------------------------------------------------*/
 
 static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
 {
@@ -741,13 +847,14 @@ static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
    CHAR C* pszNext ;
 
    pszStr = i_pszDataRes ;
+                                       /* convert next digit to integer */
    pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
       l_Status.dwCurWh = ( sdwValue / ( 60 * 60 ) ) ;
    }
-
+                                       /* convert next digit to integer */
    pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
@@ -758,6 +865,8 @@ static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
 
 
 /*----------------------------------------------------------------------------*/
+/* COEVSE_CMD_GETVERSION command callback                                     */
+/*----------------------------------------------------------------------------*/
 
 static void coevse_CmdresultGetVersion( char C* i_pszDataRes )
 {
@@ -766,16 +875,20 @@ static void coevse_CmdresultGetVersion( char C* i_pszDataRes )
 
 
 /*----------------------------------------------------------------------------*/
+/* COEVSE_CMD_EXTCMD command callback                                         */
+/*----------------------------------------------------------------------------*/
 
 static void coevse_CmdresultExtCmd( char C* i_pszDataRes )
 {
    if ( l_fScktGetResExt != NULL )
-   {
+   {                                   /* post to ScktFrame module */
       (*l_fScktGetResExt)( i_pszDataRes, TRUE ) ;
    }
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* convert next digit to integer                                              */
 /*----------------------------------------------------------------------------*/
 
 static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
@@ -793,7 +906,7 @@ static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
    dwValue = 0 ;
    pszStr = i_pszStr ;
    pszEnd = i_pszStr ;
-
+                                       /* loop while there are no digit */
    while( ! ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) )
    {
       if ( ( *pszStr == '\0' ) || ( *pszStr == '^' ) )
@@ -801,23 +914,24 @@ static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
          bEndOfString = TRUE ;
          break ;
       }
-      if ( *pszStr == '-' )
+      if ( *pszStr == '-' )            /* check negative sign */
       {
          bNeg ^= TRUE ;
       }
       pszStr++ ;
    }
-
+                                       /* loop until last digit */
    if ( ! bEndOfString )
    {
       while( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
       {
          byVal = ( *pszStr - '0' ) ;
-
+                                       /* if maximum is reached */
          if ( ( dwValue > ( i_dwMax - byVal ) / 10 ) )
          {
             dwValue = i_dwMax ;
-            while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) && ( *pszStr != 0 ) ) ) //SBA à tester
+                                       /* set pszStr directely to the end of the number */
+            while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) && ( *pszStr != 0 ) ) )
             {
                pszStr++ ;
             }
@@ -832,7 +946,7 @@ static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
 
    if ( o_psdwValue != NULL )
    {
-      if ( bNeg )
+      if ( bNeg )                      /* adjust sign */
       {
          if ( i_bIsSigned )
          {
@@ -854,6 +968,8 @@ static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
 
 
 /*----------------------------------------------------------------------------*/
+/* convert next hexa to integer                                               */
+/*----------------------------------------------------------------------------*/
 
 static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue )
 {
@@ -866,7 +982,7 @@ static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue )
    dwValue = 0 ;
    pszStr = i_pszStr ;
    pszEnd = i_pszStr ;
-
+                                       /* loop while there are no digit */
    while( ! ( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) ||
               ( ( *pszStr >= 'A' ) && ( *pszStr <= 'F' ) ) ) )
    {
@@ -879,24 +995,22 @@ static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue )
    }
 
    if ( ! bEndOfString )
-   {
-   while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) ||
-          ( ( *pszStr >= 'A' ) && ( *pszStr <= 'F' ) ) )
-      {
-                                             //Vérifier si pas débordement
-
-         dwValue *= 16 ;
-         if ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
+   {                                   /* loop until last digit */
+      while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) ||
+             ( ( *pszStr >= 'A' ) && ( *pszStr <= 'F' ) ) )
          {
-            dwValue += ( *pszStr - '0' ) ;
+            dwValue *= 16 ;
+            if ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
+            {
+               dwValue += ( *pszStr - '0' ) ;
+            }
+            else
+            {
+               dwValue += ( *pszStr - 'A' ) + 10 ;
+            }
+            pszStr++ ;
          }
-         else
-         {
-            dwValue += ( *pszStr - 'A' ) + 10 ;
-         }
-         pszStr++ ;
-      }
-      pszEnd = pszStr ;
+         pszEnd = pszStr ;
    }
 
    if ( o_pdwValue != NULL )
@@ -998,7 +1112,7 @@ void UOEVSE_IRQHandler( void )
    byData = UOEVSE->RDR ;
 
    byResIdx = l_Result.byResIdx ;
-
+                                       /* check error presence */
    if ( ( ISSET( UOEVSE->ISR, USART_ISR_ORE ) ) ||
         ( byResIdx > sizeof(l_Result.abyDataRes) - 1 ) )
    {
@@ -1013,7 +1127,7 @@ void UOEVSE_IRQHandler( void )
          l_Result.abyDataRes[byResIdx] = byData ;
          l_Result.byResIdx = byResIdx + 1 ;
 
-         if ( byData == '\r' )
+         if ( byData == '\r' )         /* check the end of response */
          {
             l_Result.bWaitResponse = FALSE ;
          }

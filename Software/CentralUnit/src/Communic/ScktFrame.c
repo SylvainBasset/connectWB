@@ -82,7 +82,7 @@ static e_sfrmFrameId l_eFrmId ;
 void sfrm_Init( void )
 {
    cwifi_RegisterScktFunc( &sfrm_ProcessFrame, &sfrm_ProcessResExt ) ;
-   coevse_RegisterScktFunc( &sfrm_ProcessResExt ) ;
+   coevse_RegisterRetScktFunc( &sfrm_ProcessResExt ) ;
 
    l_eFrmId = SFRM_ID_NULL ;
 }
