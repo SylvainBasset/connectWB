@@ -38,9 +38,9 @@
 /*----------------------------------------------------------------------------*/
 
                                        /* table of starting times in second */
-DWORD l_adwTimeSecStart [ NB_DAYS_WEEK ] ;
+static DWORD l_adwTimeSecStart [ NB_DAYS_WEEK ] ;
                                        /* table of ending times in second */
-DWORD l_adwTimeSecEnd [ NB_DAYS_WEEK ] ;
+static DWORD l_adwTimeSecEnd [ NB_DAYS_WEEK ] ;
 
 
 /*----------------------------------------------------------------------------*/

@@ -109,10 +109,10 @@ static void cstate_HrdSetColorLedCharge( e_cstateLedColor i_eLedColor ) ;
 /* Variables                                                                  */
 /*----------------------------------------------------------------------------*/
 
-s_cstateData l_Data ;
+static s_cstateData l_Data ;
 
-e_cstateChargeSt l_aeHistState [10] ;
-BYTE l_byHistStateIdx ;
+static e_cstateChargeSt l_aeHistState [10] ;
+static BYTE l_byHistStateIdx ;
 
 static DWORD l_dwTmpEndOfCharge ;
 static SDWORD l_sdwPrevCurrent ;

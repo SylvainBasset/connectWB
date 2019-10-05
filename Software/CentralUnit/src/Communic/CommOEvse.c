@@ -210,7 +210,7 @@ static e_CmdId l_eCmd ;                /* current sending command, COEVSE_CMD_NO
                                        /* external command string */
 static char l_szExtCmdStr [ COEVSE_MAX_CMD_LEN + 1 ] ;
                                        /* addresse of callback function for external command result */
-static f_ScktGetResExt l_fScktGetResExt ;
+static f_PostResProc l_fPostResProc ;
 
 static s_CmdFifo l_CmdFifo ;           /* command FIFO */
                                        /* Buffer for sending command (must be
@@ -248,9 +248,9 @@ void coevse_Init( void )
 /* Registering callback function for external function result                 */
 /*----------------------------------------------------------------------------*/
 
-void coevse_RegisterRetScktFunc( f_ScktGetResExt i_fScktGetResExt )
+void coevse_RegisterRetScktFunc( f_PostResProc i_fPostResProc )
 {
-   l_fScktGetResExt = i_fScktGetResExt ;
+   l_fPostResProc = i_fPostResProc ;
 }
 
 
@@ -285,7 +285,7 @@ void coevse_SetCurrentCap( BYTE i_byCurrent )
 
 
 /*----------------------------------------------------------------------------*/
-/* Get current capacity                                                       */
+/* Get current capacity (A)                                                   */
 /*----------------------------------------------------------------------------*/
 
 DWORD coevse_GetCurrentCap( void )
@@ -880,13 +880,13 @@ static void coevse_CmdresultGetVersion( char C* i_pszDataRes )
 
 static void coevse_CmdresultExtCmd( char C* i_pszDataRes )
 {
-   if ( l_fScktGetResExt != NULL )
+   if ( l_fPostResProc != NULL )
    {                                   /* post to ScktFrame module */
-      (*l_fScktGetResExt)( i_pszDataRes, TRUE ) ;
+      (*l_fPostResProc)( i_pszDataRes, TRUE ) ;
    }
 }
 
-
+//SBA : place these function in a convAcsiiInt file
 /*----------------------------------------------------------------------------*/
 /* convert next digit to integer                                              */
 /*----------------------------------------------------------------------------*/

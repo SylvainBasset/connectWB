@@ -1,11 +1,92 @@
 /******************************************************************************/
-/*                                                                            */
 /*                                  CommWifi.c                                */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:   07 apr. 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   Wifi communication module
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 07 apr. 2018, creation
+   @brief
+   Implement communication with IDW01M1 wifi daughter board.
+
+   Communication is done by AT frames throught the UartWifi module.
+   Frames are terminated by '\r\n' characters.
+   There are 2 kind of AT frames:
+
+   - Commands : In this case this moduile is the initiator, it sends
+   a command, and wait for WIFI module responce. the response format
+   is 'OK' or 'ERROR' (depnding of command traitement) maybe followed
+   by data (depending on the AT command). This module use a reduced
+   set of command, described by LIST_CMD() macro.
+   The result (string) may be stored in l_szResp... static variable (if the
+   command isdescribed by Opr()), or even treated by a cwifi_CmdCallBack...
+   callbacks Opf() macro) which can handle command's response. Some command
+   may not request responses from the wifi module (see last argument of LIST_CMD()
+   structure).
+   Commands are sent by calling cwifi_AddCmdFifo(). They are stored in FIFO
+   (l_CmdFifo). If FIFO contain at least 1 element and the command sending is
+   ready (Wifi module ready and no pending command) the last FIFO command is
+   sent.
+   When a response is required, a timeout duration of CWIFI_CMD_TIMEOUT ms
+   is verifiée.
+
+   - Wind message : these frame are sent asynchonously by the module,
+   to describe an event. Only Wind event described by LIST_WIND() macro are
+   treated. The wind data (string) may be stored in l_szWind... static variables
+   (if the command is described by Opr()), or even treated by a
+   cwifi_CmdCallBack... callbacks (Opf() macro)) which can handle command's
+   response.
+   The LIST_WIND() can also define varaible adresse (see n-1 arg) and a value
+   (last arg). If the addresse is not NULL, the pointed variable is loaded with
+   the value at each corresponding Wind event.
+
+   At system initialisation, the wifi module is reseted. Then it may need time
+   to initialize. Once initialized (booleans l_bPowerOn,... set by the reception
+   of wind commands), wifi configuration is sent to the module
+   (see cwifi_ConnectFSM()), and the module wait for the connection (booelan l_bWifiUp)
+
+   The system can connect to a home wifi (standard mode) or create a standalone wifi
+   (maintenance mode). The type of connection can be set by cwifi_SetMaintMode().
+
+   Once a connection is established, it is possible to send and receive data via
+   sockets. Socket (data) mode is activated by sending a CWIFI_C_CMDTODATA command
+   ("AT+S."). In data mode, all charaters wrote to the UART are sent to the socket.
+   To leave data mode, the string "at+s." followed by a silence (~100ms) must be sent.
+
+   Socket data are stored in the buffer l_DataBuf by calling buffercwifi_AddExtData()
+   Then, cwifi_AskFlushData() is used to flush data into socket.
+   The caller must add the "at+s." before flushing in order to return to command mode.
+   In any case, if no data are sent during CWIFI_DATAMODE_TIMEOUT ms, the module returns
+   to command mode.
+
+   To wind message are used for HTTP control :
+
+   - CGI message, which act as a wind message but using "+GCI:" prefix, are used to
+   monitor item modification on the HTTP page. Two identifier, following the prefix,
+   and separated by ":" are used to identify the modified item. These informations
+   are given to HtmlInfo.c module.
+
+   - wind INPUT message are used to send dynamic information to the HTML server.
+   This message is followed by two identifier, separated by ":" (like CGI), but
+   without the final '\r\n'. In this case, data is asked to HtmlInfo.c (given the
+   identifiers) and immedialtly sent to the UART with the final '\r\n'.
+*/
 
 
 #include "Define.h"
@@ -20,64 +101,71 @@
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define CWIFI_SEND_TIMEOUT       100         /* ms */
 
-#define CWIFI_RESET_DURATION     200         /* wifi module reset duration (ms) */
-#define CWIFI_PWRUP_DURATION       1         /* duration to wait after reset release (ms) */
 
-#define CWIFI_CMD_TIMEOUT      30000         /* ms */
-#define CWIFI_DATAMODE_TIMEOUT 30000         /* ms */
+#define CWIFI_RESET_DURATION      200        /* wifi module reset duration (ms) */
+#define CWIFI_PWRUP_DURATION        1        /* duration to wait after reset release (ms) */
 
-#define CWIFI_MAINT_TIMEOUT      300         /* sec */
+#define CWIFI_CMD_TIMEOUT       30000        /* timeout temporisation to receive response
+                                                from command (ms) */
+#define CWIFI_DATAMODE_TIMEOUT  30000        /* timeout temporisation to exit data mode if no
+                                                data is sent (ms) */
+#define CWIFI_MAINT_TIMEOUT       300        /* maintenance mode activation duration (sec) */
 
-#define CWIFI_SCAN_PERIOD         60         /* sec */
+#define CWIFI_SCAN_PERIOD          60        /* Wifi neightbourg detection period, sec */
 
-#define CWIFI_WIND_PREFIX       "+WIND:"
-#define CWIFI_CGI_PREFIX        "+CGI:"
+#define CWIFI_INPUT_SEND_TIMEOUT  100        /* timeout temporisation for UART transmission for
+                                                INPUT callaback (ms) */
 
-#define CWIFI_RESP_OK           "OK\r\n"
-#define CWIFI_RESP_ERR          "ERROR"
+#define CWIFI_WIND_PREFIX        "+WIND:"    /* WIND message prefix */
+#define CWIFI_CGI_PREFIX         "+CGI:"     /* CGI message prefix */
 
+#define CWIFI_RESP_OK            "OK\r\n"    /* valid response */
+#define CWIFI_RESP_ERR           "ERROR"     /* error response */
+
+                                             /* SSID name in maintenance mode */
 #define CWIFI_MAINT_SSID         "WallyBox_Maint"
-#define CWIFI_MAINT_PWD          "73757065727061737465717565"  //"superpasteque"
+                                             /* password for maintenance mode : "superpasteque" */
+#define CWIFI_MAINT_PWD          "73757065727061737465717565"
+
 
 typedef RESULT (*f_WindCallback)( char C* i_pszProcessData, BOOL i_bPendingData ) ;
 
 typedef RESULT (*f_CmdCallback)( char C* i_pszProcessData ) ;
 
-typedef struct
+typedef struct                               /* Wind description */
 {
-   char szWindNum [4] ;
-   BOOL * pbVar ;
-   BOOL bValue ;
-   char * pszStrContent ;
-   WORD wContentSize ;
+   char szWindNum [4] ;                      /* name string */
+   BOOL * pbVar ;                            /* addr of boolaan to modify, NULL if no boolean */
+   BOOL bValue ;                             /* value assigned if pbVar != NULL (TRUE or FALSE) */
+   char * pszStrContent ;                    /* addr of the string to store content (NULL if not needed) */
+   WORD wContentSize ;                       /* callback address */
    f_WindCallback fCallback ;
 } s_WindDesc ;
 
-typedef struct
+typedef struct                               /* command description */
 {
-   char szCmdFmt [32] ;        // formatteur commande
-   BOOL bIsResult ;
-   char * pszStrContent ;      // adresse chaine pour r�ception r�sultat
-   WORD wContentSize ;
-   f_CmdCallback fCallback ;
+   char szCmdFmt [32] ;                      /* command format string */
+   BOOL bIsResult ;                          /* requested response indicator */
+   char * pszStrContent ;                    /* addr of the string to store response content (NULL if not needed) */
+   WORD wContentSize ;                       /* maximum size for content string */
+   f_CmdCallback fCallback ;                 /* callback address */
 } s_CmdDesc ;
 
-typedef enum
+typedef enum                                 /* command processing status */
 {
-   CWIFI_CMDST_NONE,
-   CWIFI_CMDST_PROCESSING,
-   CWIFI_CMDST_END_OK,
-   CWIFI_CMDST_END_ERR,
+   CWIFI_CMDST_NONE,                         /* no command processing */
+   CWIFI_CMDST_PROCESSING,                   /* a command sending is in progress (waiting for response) */
+   CWIFI_CMDST_END_OK,                       /* command (and response) is done without error (transcient state) */
+   CWIFI_CMDST_END_ERR,                      /* command (and response) is done with error (transcient state) */
 } e_CmdStatus ;
 
-typedef enum
+typedef enum                                 /* Wifi module state */
 {
-   CWIFI_STATE_OFF = 0,
-   CWIFI_STATE_IDLE,
-   CWIFI_STATE_CONNECTING,
-   CWIFI_STATE_CONNECTED,
+   CWIFI_STATE_OFF = 0,                      /* Off : hardware is not started */
+   CWIFI_STATE_IDLE,                         /* Idle : configuration is processing */
+   CWIFI_STATE_CONNECTING,                   /* Waiting for wifi connexion (home wifi or stand-alone AP) */
+   CWIFI_STATE_CONNECTED,                    /* connection done (at least once) */
 } e_WifiState ;
 
 
@@ -85,6 +173,7 @@ typedef enum
 /* Wind table definition                                                      */
 /*----------------------------------------------------------------------------*/
 
+                                             /* boolean for wind states */
 static BOOL l_bPowerOn ;
 static BOOL l_bConsoleRdy ;
 static BOOL l_bHrdStarted ;
@@ -93,9 +182,10 @@ static BOOL l_bSocketConnected ;
 static BOOL l_bDataMode ;
 
 
-static char l_szWindWifiUpIp[32] ;
-static char l_szWindSocketConIp[16] ;
+static char l_szWindWifiUpIp[32] ;           /* device current IP */
+static char l_szWindSocketConIp[16] ;        /* IP for connected socket */
 
+                                             /* general macro for handled wind messages */
 #define LIST_WIND( Op, Opr, Opf ) \
    Op(  CONSOLE_RDY, ConsoleRdy,  "0:",  &l_bConsoleRdy,      TRUE )  \
    Opf( POWER_ON,    PowerOn,     "1:",  &l_bPowerOn,         TRUE )  \
@@ -109,15 +199,16 @@ static char l_szWindSocketConIp[16] ;
    Op(  SOCKETDIS,   SocketDis,   "62:", &l_bSocketConnected, FALSE ) \
    Opf( SOCKETDATA,  SocketData,  "64:", NULL,                0 )
 
-typedef enum //v�rifier d�callage avec 0
+typedef enum                                 /* Wind identifiers (not used for now) */
 {
    CWIFI_WIND_NONE = 0,
    LIST_WIND( CWIFI_W_ENUM, CWIFI_W_ENUM, CWIFI_W_ENUM )
    CWIFI_WIND_LAST
 } e_WindId ;
-
+                                             /* Wind callback definition */
 LIST_WIND( CWIFI_W_NULL, CWIFI_W_NULL, CWIFI_W_CALLBACK )
 
+                                             /* list of wind descriptor */
 static s_WindDesc const k_aWindDesc [] =
 {
    LIST_WIND( CWIFI_W_OPER, CWIFI_W_OPER_R, CWIFI_W_OPER_F )
@@ -128,9 +219,10 @@ static s_WindDesc const k_aWindDesc [] =
 /* Commands/responses table definition                                        */
 /*----------------------------------------------------------------------------*/
 
-static char l_szRespPing [1] ;      //SBA temp
-static char l_szRespGCfg [1] ;      //SBA temp
+static char l_szRespPing [1] ;               /* ping result (not used for now)  */
+static char l_szRespGCfg [1] ;               /* Conf getter result  (not used for now)  */
 
+                                             /* general macro for handled commands */
 #define LIST_CMD( Op, Opr, Opf )                            \
    Op(  AT,        At,        "AT\r",               TRUE )  \
    Op(  SCFG,      SCfg,      "AT+S.SCFG=%s,%s\r",  TRUE )  \
@@ -146,49 +238,50 @@ static char l_szRespGCfg [1] ;      //SBA temp
    Op(  SCAN,      Scan,      "AT+S.SCAN=a,m,%s\r", TRUE ) \
    Opf( EXT,       Ext,       "",                   TRUE ) \
 
-typedef enum
+typedef enum                                 /* Command identifiers */
 {
    CWIFI_CMD_NONE = 0,
    LIST_CMD( CWIFI_C_ENUM, CWIFI_C_ENUM, CWIFI_C_ENUM )
    CWIFI_CMD_LAST,
 } e_CmdId ;
-
+                                             /* Responses (from command) callback definition */
 LIST_CMD( CWIFI_C_NULL, CWIFI_C_NULL, CWIFI_C_CALLBACK )
 
+                                             /* list of command descriptor */
 static s_CmdDesc const k_aCmdDesc [] =
 {
    LIST_CMD( CWIFI_C_OPER, CWIFI_C_OPER_R, CWIFI_C_OPER_F )
 } ;
 
-typedef struct
+typedef struct                               /* command/response datas */
 {
-   e_CmdId eCmdId ;
-   e_CmdStatus eStatus ;
-   WORD wStrContentIdx ;
-   DWORD dwTmpCmdTimeout ;
-} s_CmdCurStatus ;
+   e_CmdId eCmdId ;                          /* current command ID (CWIFI_CMD_NONE if no command is processing) */
+   e_CmdStatus eStatus ;                     /* command status */
+   WORD wStrContentIdx ;                     /* string index to store response content (eg. l_szRespGCfg) */
+   DWORD dwTmpCmdTimeout ;                   /* command/response timeout */
+} s_CmdCurData ;
 
-typedef struct
+typedef struct                               /* command FIFO's item */
 {
-   e_CmdId eCmdId ;
-   char szStrCmd [128] ;
+   e_CmdId eCmdId ;                          /* command ID */
+   char szStrCmd [128] ;                     /* command string (already formatted) to send */
 } s_CmdItem ;
 
-typedef struct
+typedef struct                               /* command FIFO */
 {
-   BYTE byIdxIn ;
-   BYTE byIdxOut ;
-   s_CmdItem aCmdItems [10] ;
+   BYTE byIdxIn ;                            /* input index */
+   BYTE byIdxOut ;                           /* output index */
+   s_CmdItem aCmdItems [10] ;                /* FIFO elements */
 } s_CmdFifo ;
 
-#define CWIFI_DATABUF_SIZE  512
+#define CWIFI_DATABUF_SIZE  512              /* socket data buffer size */
 
-typedef struct
+typedef struct                               /* socket data buffer */
 {
-   BOOL bAskFlush ;
-   BOOL bPendingFlush ;
-   DWORD dwNbChar ;
-   CHAR sDataBuf [CWIFI_DATABUF_SIZE] ;
+   BOOL bAskFlush ;                          /* ask for fushing indicator */
+   BOOL bPendingFlush ;                      /* socket data sending in progess */
+   DWORD dwNbChar ;                          /* number of char stored in buffer */
+   CHAR sDataBuf [CWIFI_DATABUF_SIZE] ;      /* data buffer */
 } s_DataBuf ;
 
 
@@ -223,26 +316,27 @@ static void cwifi_HrdSetResetModule( BOOL i_bReset );
 /* Variables                                                                  */
 /*----------------------------------------------------------------------------*/
 
-static e_WifiState l_eWifiState ;
-static s_CmdCurStatus l_CmdCurStatus ;
-static DWORD l_dwTmpDataMode ;
-static DWORD l_dwTmpMaintMode ;
-static DWORD l_dwTmpScan ;
+static e_WifiState l_eWifiState ;      /* Wifi module state */
+static s_CmdCurData l_CmdCurStatus ;   /* command/response datas */
 
-static BOOL l_bMaintMode ;
-static BOOL l_bConfigDone ;
-static BOOL l_bCmdToDataInFifo ;
+static DWORD l_dwTmpDataMode ;         /* data mode (socket) timeout */
+static DWORD l_dwTmpMaintMode ;        /* maintenance mode timeout */
+static DWORD l_dwTmpScan ;             /* temporisation for periodic scan */
 
-static BOOL l_bInhPendingData ;
+static BOOL l_bMaintMode ;             /* maintenance mode indicator */
+static BOOL l_bConfigDone ;            /* all config command have been sent */
+static BOOL l_bCmdToDataInFifo ;       /* data (socket) open command sent to commands FIFO */
 
-static f_ScktGetFrame l_fScktGetFrame ;
-static f_ScktGetResExt l_fScktGetResExt ;
+static BOOL l_bInhPendingData ;        /* pending data (not complete message) processing is inhibited */
 
-static f_htmlSsi l_fHtmlSsi ;
-static f_htmlCgi l_fHtmlCgi ;
+static f_ScktDataProc l_fScktDataProc ; /* data (socket) processing callback */
+static f_PostResProc l_fPostResProc ;  /* external command's response callback */
 
-static s_CmdFifo l_CmdFifo ;
-static s_DataBuf l_DataBuf ;
+static f_htmlSsi l_fHtmlSsi ;          /* SSI callback */
+static f_htmlCgi l_fHtmlCgi ;          /* CGI callback */
+
+static s_CmdFifo l_CmdFifo ;           /* command FIFO */
+static s_DataBuf l_DataBuf ;           /* data (socket) buffer */
 
 
 /*----------------------------------------------------------------------------*/
@@ -261,7 +355,7 @@ void cwifi_Init( void )
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Activate Wifi power save state (all reset)                                 */
 /*----------------------------------------------------------------------------*/
 
 void cwifi_EnterSaveMode( void )
@@ -274,14 +368,18 @@ void cwifi_EnterSaveMode( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* register data/external responses callbacks                                 */
+/*----------------------------------------------------------------------------*/
 
-void cwifi_RegisterScktFunc( f_ScktGetFrame i_fScktGetFrame, f_ScktGetResExt i_fScktGetResExt )
+void cwifi_RegisterScktFunc( f_ScktDataProc i_fScktDataProc, f_PostResProc i_fPostResProc )
 {
-   l_fScktGetFrame = i_fScktGetFrame ;
-   l_fScktGetResExt = i_fScktGetResExt ;
+   l_fScktDataProc = i_fScktDataProc ;
+   l_fPostResProc = i_fPostResProc ;
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* register SSI/CGI callbacks                                                 */
 /*----------------------------------------------------------------------------*/
 
 void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi )
@@ -292,6 +390,8 @@ void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi )
 
 
 /*----------------------------------------------------------------------------*/
+/* maintenance mode setting                                                   */
+/*----------------------------------------------------------------------------*/
 
 void cwifi_SetMaintMode( BOOL i_bMaintmode )
 {
@@ -299,6 +399,8 @@ void cwifi_SetMaintMode( BOOL i_bMaintmode )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* test if wifi is connected (to home netword or stand-alone AP)              */
 /*----------------------------------------------------------------------------*/
 
 BOOL cwifi_IsConnected( void )
@@ -312,6 +414,8 @@ BOOL cwifi_IsConnected( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* test if socket is connected                                                */
+/*----------------------------------------------------------------------------*/
 
 BOOL cwifi_IsSocketConnected( void )
 {
@@ -319,6 +423,8 @@ BOOL cwifi_IsSocketConnected( void )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* test if maintenance mode is on                                             */
 /*----------------------------------------------------------------------------*/
 
 BOOL cwifi_IsMaintMode( void )
@@ -328,6 +434,8 @@ BOOL cwifi_IsMaintMode( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* add external command to command's FIFO                                     */
+/*----------------------------------------------------------------------------*/
 
 RESULT cwifi_AddExtCmd( char C* i_szStrCmd )
 {
@@ -336,11 +444,18 @@ RESULT cwifi_AddExtCmd( char C* i_szStrCmd )
 
 
 /*----------------------------------------------------------------------------*/
-void cwifi_AddExtData( char C* i_szStrCmd )
+/* Public add external data to data (socket) buffer                           */
+/*----------------------------------------------------------------------------*/
+
+void cwifi_AddExtData( char C* i_szStrData )
 {
-   cwifi_AddDataBuffer( i_szStrCmd ) ;
+   cwifi_AddDataBuffer( i_szStrData ) ;
 }
 
+
+/*----------------------------------------------------------------------------*/
+/* ask for flushing data (socket) buffer                                      */
+/*----------------------------------------------------------------------------*/
 
 void cwifi_AskFlushData( void )
 {
@@ -358,11 +473,6 @@ void cwifi_TaskCyc( void )
 
    if ( l_CmdCurStatus.eStatus == CWIFI_CMDST_END_ERR )
    {
-      //flush buffer ;
-      //if ( l_eWifiState == CWIFI_STATE_CONNECTING && ( ! l_bWifiUp ) )
-      //{
-      //   l_eWifiState = CWIFI_STATE_RDY ;
-      //}
       l_CmdCurStatus.eCmdId = CWIFI_CMD_NONE ;
       l_CmdCurStatus.eStatus = CWIFI_CMDST_NONE ;
    }
@@ -371,7 +481,7 @@ void cwifi_TaskCyc( void )
       l_CmdCurStatus.eCmdId = CWIFI_CMD_NONE ;
       l_CmdCurStatus.eStatus = CWIFI_CMDST_NONE ;
    }
-   else           /* NONE ou PROCESSING */
+   else           /* l_CmdCurStatus.eStatus == NONE or PROCESSING */
    {
    }
 
@@ -432,7 +542,7 @@ void cwifi_TaskCyc( void )
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Finite state machine for connecting processing                             */
 /*----------------------------------------------------------------------------*/
 
 static void cwifi_ConnectFSM( void )
@@ -506,7 +616,7 @@ static void cwifi_ConnectFSM( void )
       case CWIFI_STATE_CONNECTING :
          if ( l_bWifiUp )
          {
-            rRet = cwifi_FmtAddCmdFifo( CWIFI_CMD_SOCKD, "15555", "" ) ; //TODO: de temps en temps, la commande ne semble pas s'envoyer
+            rRet = cwifi_FmtAddCmdFifo( CWIFI_CMD_SOCKD, "15555", "" ) ;
             if ( rRet == OK )
             {
                l_eWifiState = CWIFI_STATE_CONNECTED ;
@@ -552,6 +662,8 @@ static void wifi_DoSetMaintMode( BOOL i_bMaintmode )
 
 
 /*----------------------------------------------------------------------------*/
+/* Format and add command to FIFO                                             */
+/*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_FmtAddCmdFifo( e_CmdId i_eCmdId, char C* i_szArg1, char C* i_szArg2 )
 {
@@ -569,6 +681,8 @@ static RESULT cwifi_FmtAddCmdFifo( e_CmdId i_eCmdId, char C* i_szArg1, char C* i
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Add command to FIFO                                                        */
 /*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_AddCmdFifo( e_CmdId i_eCmdId, char C* i_szStrCmd )
@@ -601,7 +715,7 @@ static RESULT cwifi_AddCmdFifo( e_CmdId i_eCmdId, char C* i_szStrCmd )
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Sent incoming item from command FIFO                                       */
 /*----------------------------------------------------------------------------*/
 
 static void cwifi_ExecSendCmd( void )
@@ -648,6 +762,8 @@ static void cwifi_ExecSendCmd( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Add external data to data (socket) buffer                                  */
+/*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_AddDataBuffer( char C* i_szStrData )
 {
@@ -682,9 +798,10 @@ static RESULT cwifi_AddDataBuffer( char C* i_szStrData )
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Sent data (socket) buffer to Wifi module                                   */
 /*----------------------------------------------------------------------------*/
 
+//SBA : to be reworked : simple ping pong buffer must be simplier
 static void cwifi_ExecSendData( void )
 {
    WORD wBufSize ;
@@ -692,7 +809,7 @@ static void cwifi_ExecSendData( void )
    WORD wBufSeparator ;
    WORD wIdx1 ;
    WORD wIdx2 ;
-   char sInterBuf[CWIFI_DATABUF_SIZE/2] ;
+   char sInterBuf [CWIFI_DATABUF_SIZE/2] ;
    char * sDataBuf ;
 
    if ( ( l_eWifiState != CWIFI_STATE_OFF ) && ( l_DataBuf.bAskFlush ) &&
@@ -745,7 +862,7 @@ static void cwifi_ExecSendData( void )
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Processing global read from Wifi module                                    */
 /*----------------------------------------------------------------------------*/
 
 static void cwifi_ProcessRec( void )
@@ -761,7 +878,7 @@ static void cwifi_ProcessRec( void )
    if ( wNbReadVal == 0 )
    {
       if ( ! l_bInhPendingData )
-      {                                /* lecture temporaire données avant CR/LF final */
+      {                                /* tempoary read data before final CR/LF */
          wNbReadVal = uwifi_Read( abyReadData, sizeof(abyReadData), TRUE ) ;
          bPendingData = TRUE ;
       }
@@ -790,11 +907,12 @@ static void cwifi_ProcessRec( void )
             else if ( l_bDataMode && ( l_eWifiState == CWIFI_STATE_CONNECTED ) &&
                       l_bSocketConnected )
             {
-               if ( l_fScktGetFrame != NULL )
+               if ( l_fScktDataProc != NULL )
                {
                   pbyProcessData = &abyReadData[0] ;
-                  (*l_fScktGetFrame)((char*)pbyProcessData) ;
-                  tim_StartMsTmp( &l_dwTmpDataMode ) ; // redémarrage tempo
+                  (*l_fScktDataProc)((char*)pbyProcessData) ;
+
+                  tim_StartMsTmp( &l_dwTmpDataMode ) ; /* restarting data mode tempo */
                }
             }
             else
@@ -813,19 +931,19 @@ static void cwifi_ProcessRec( void )
 
    if ( ( l_CmdCurStatus.eStatus == CWIFI_CMDST_PROCESSING ) &&
         ( tim_IsEndMsTmp( &l_CmdCurStatus.dwTmpCmdTimeout, CWIFI_CMD_TIMEOUT ) ) )
-   {                                // force retour erreur
+   {
       l_CmdCurStatus.eStatus = CWIFI_CMDST_END_ERR ;
 
-      if ( ( l_CmdCurStatus.eCmdId == CWIFI_CMD_EXT ) && ( l_fScktGetResExt != NULL ) )
+      if ( ( l_CmdCurStatus.eCmdId == CWIFI_CMD_EXT ) && ( l_fPostResProc != NULL ) )
       {
-         (*l_fScktGetResExt)( "ERROR: Timeout\r\n", TRUE ) ;
+         (*l_fPostResProc)( "ERROR: Timeout\r\n", TRUE ) ;
       }
    }
 }
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Processing wind treatments                                                 */
 /*----------------------------------------------------------------------------*/
 
 static void cwifi_ProcessRecWind( char * io_pszProcessData, BOOL i_bPendingData )
@@ -867,7 +985,7 @@ static void cwifi_ProcessRecWind( char * io_pszProcessData, BOOL i_bPendingData 
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Wind CWIFI_WIND_POWER_ON callback                                          */
 /*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_WindCallBackPowerOn( char C* i_pszProcessData, BOOL i_bPendingData )
@@ -895,7 +1013,7 @@ static RESULT cwifi_WindCallBackPowerOn( char C* i_pszProcessData, BOOL i_bPendi
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Wind CWIFI_WIND_RESET callback                                             */
 /*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_WindCallBackReset( char C* i_pszProcessData, BOOL i_bPendingData )
@@ -907,22 +1025,7 @@ static RESULT cwifi_WindCallBackReset( char C* i_pszProcessData, BOOL i_bPending
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
-/*----------------------------------------------------------------------------*/
-
-static RESULT cwifi_WindCallBackDataMode( char C* i_pszProcessData, BOOL i_bPendingData )
-{
-   if ( ! i_bPendingData )
-   {
-      tim_StartMsTmp( &l_dwTmpDataMode ) ;  // red�marrage tempo
-   }
-
-   return OK ;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Wind CWIFI_WIND_CMDMODE callback                                           */
 /*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_WindCallBackCmdMode( char C* i_pszProcessData, BOOL i_bPendingData )
@@ -941,7 +1044,22 @@ static RESULT cwifi_WindCallBackCmdMode( char C* i_pszProcessData, BOOL i_bPendi
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Wind CWIFI_WIND_DATAMODE callback                                          */
+/*----------------------------------------------------------------------------*/
+
+static RESULT cwifi_WindCallBackDataMode( char C* i_pszProcessData, BOOL i_bPendingData )
+{
+   if ( ! i_bPendingData )
+   {
+      tim_StartMsTmp( &l_dwTmpDataMode ) ;
+   }
+
+   return OK ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Wind CWIFI_WIND_SOCKETDATA callback                                        */
 /*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_WindCallBackSocketData( char C* i_pszProcessData, BOOL i_bPendingData )
@@ -956,7 +1074,7 @@ static RESULT cwifi_WindCallBackSocketData( char C* i_pszProcessData, BOOL i_bPe
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Wind CWIFI_WIND_INPUT callback                                             */
 /*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPendingData )
@@ -1019,7 +1137,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          tim_StartMsTmp( &dwTmpSend ) ;
          while( ! uWifi_IsSendDone() )
          {
-            if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_SEND_TIMEOUT ) )
+            if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_INPUT_SEND_TIMEOUT ) )
             {
                ERR_FATAL() ;
             }
@@ -1030,7 +1148,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          tim_StartMsTmp( &dwTmpSend ) ;
          while( ! uWifi_IsSendDone() )
          {
-            if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_SEND_TIMEOUT ) )
+            if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_INPUT_SEND_TIMEOUT ) )
             {
                ERR_FATAL() ;
             }
@@ -1044,7 +1162,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* GCI reception processing                                                   */
 /*----------------------------------------------------------------------------*/
 
 static void cwifi_ProcessRecCgi( char C* i_pszProcessData )
@@ -1095,7 +1213,7 @@ static void cwifi_ProcessRecCgi( char C* i_pszProcessData )
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Processing response (from command) treatments                              */
 /*----------------------------------------------------------------------------*/
 
 static void cwifi_ProcessRecResp( char * io_pszProcessData )
@@ -1163,6 +1281,8 @@ static void cwifi_ProcessRecResp( char * io_pszProcessData )
 
 
 /*----------------------------------------------------------------------------*/
+/* response from CWIFI_CMD_EXT command callback                               */
+/*----------------------------------------------------------------------------*/
 
 static RESULT cwifi_CmdCallBackExt( char C* i_pszProcData )
 {
@@ -1171,9 +1291,9 @@ static RESULT cwifi_CmdCallBackExt( char C* i_pszProcData )
    bLastCall = ( ( l_CmdCurStatus.eStatus == CWIFI_CMDST_END_OK ) ||
                  ( l_CmdCurStatus.eStatus == CWIFI_CMDST_END_ERR ) ) ;
 
-   if ( l_fScktGetResExt != NULL )
+   if ( l_fPostResProc != NULL )
    {
-      (*l_fScktGetResExt)( i_pszProcData, bLastCall ) ;
+      (*l_fPostResProc)( i_pszProcData, bLastCall ) ;
    }
 
    return OK ;
@@ -1181,7 +1301,7 @@ static RESULT cwifi_CmdCallBackExt( char C* i_pszProcData )
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* split string from the right with specific delimiter                        */
 /*----------------------------------------------------------------------------*/
 
 static char C* cwifi_RSplit( char C* i_pszStr, char C* i_pszDelim )
@@ -1204,7 +1324,8 @@ static char C* cwifi_RSplit( char C* i_pszStr, char C* i_pszDelim )
 }
 
 /*----------------------------------------------------------------------------*/
-
+/* Reset variables after reset                                                */
+/*----------------------------------------------------------------------------*/
 static void cwifi_ResetVar( void )
 {
    l_eWifiState = CWIFI_STATE_OFF ;
@@ -1273,5 +1394,3 @@ static void cwifi_HrdSetResetModule( BOOL i_bReset )
       uwifi_SetErrorDetection( TRUE ) ;
    }
 }
-
-

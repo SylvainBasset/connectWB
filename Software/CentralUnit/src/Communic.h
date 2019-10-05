@@ -33,8 +33,8 @@
 /* ScktFrame.c                                                                */
 /*----------------------------------------------------------------------------*/
 
-typedef void (*f_ScktGetFrame)( char * i_pszFrame ) ;
-typedef void (*f_ScktGetResExt)( char C* i_pszResExt, BOOL i_bLastCall ) ;
+typedef void (*f_ScktDataProc)( char * i_pszFrame ) ;
+typedef void (*f_PostResProc)( char C* i_pszResExt, BOOL i_bLastCall ) ;
 
 void sfrm_Init( void ) ;
 
@@ -94,7 +94,7 @@ void html_Init( void ) ;
 void cwifi_Init( void ) ;
 void cwifi_EnterSaveMode( void ) ;
 
-void cwifi_RegisterScktFunc( f_ScktGetFrame i_fScktGetFrame, f_ScktGetResExt i_fScktGetResExt ) ;
+void cwifi_RegisterScktFunc( f_ScktDataProc i_fScktDataProc, f_PostResProc i_fPostResProc ) ;
 void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi ) ;
 
 void cwifi_SetMaintMode( BOOL i_bMaintmode ) ;
@@ -103,7 +103,7 @@ BOOL cwifi_IsSocketConnected( void ) ;
 BOOL cwifi_IsMaintMode( void ) ;
 
 RESULT cwifi_AddExtCmd( char C* i_szStrCmd ) ;
-void cwifi_AddExtData( char C* i_szStrCmd ) ;
+void cwifi_AddExtData( char C* i_szStrData ) ;
 void cwifi_AskFlushData( void ) ;
 void cwifi_TaskCyc( void ) ;
 
@@ -141,7 +141,7 @@ typedef enum                                    /* EVSE state */
 
 
 void coevse_Init( void ) ;
-void coevse_RegisterRetScktFunc( f_ScktGetResExt i_fScktGetResExt ) ;
+void coevse_RegisterRetScktFunc( f_PostResProc i_fPostResProc ) ;
 
 void coevse_SetEnable( BOOL i_bEnable ) ;
 void coevse_SetCurrentCap( BYTE i_byCurrent ) ;

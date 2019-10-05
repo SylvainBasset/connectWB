@@ -78,13 +78,14 @@ static BOOL uwifi_IsNeedRxSuspend( void ) ;
 /* Variables                                                                  */
 /*----------------------------------------------------------------------------*/
 
-BYTE l_byRxBuffer [UWIFI_RXBUFSIZE] ;  /* circular reception buffer */
-WORD l_wRxIdxIn ;                      /* input index of reception buffer  */
-WORD l_wRxIdxOut ;                     /* output index of reception buffer */
-BOOL l_bRxSuspend ;                    /* suspended reception indicator */
+                                       /* circular reception buffer */
+static BYTE l_byRxBuffer [UWIFI_RXBUFSIZE] ;
+static WORD l_wRxIdxIn ;               /* input index of reception buffer  */
+static WORD l_wRxIdxOut ;              /* output index of reception buffer */
+static BOOL l_bRxSuspend ;             /* suspended reception indicator */
 
-BOOL l_bTxPending ;                    /* transmission DMA transfer is ongoing */
-BOOL l_byErrors ;                      /* errors status, cf. UWIFI_ERROR_xxx */
+static BOOL l_bTxPending ;             /* transmission DMA transfer is ongoing */
+static BOOL l_byErrors ;               /* errors status, cf. UWIFI_ERROR_xxx */
 
 
 /*----------------------------------------------------------------------------*/
