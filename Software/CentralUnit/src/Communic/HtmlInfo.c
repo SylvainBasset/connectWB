@@ -1,11 +1,45 @@
 /******************************************************************************/
-/*                                                                            */
 /*                                  HtmlInfo.c                                */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:   24 dec. 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   Html information control module
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 24 dec. 2018, creation
+   @brief
+   Implement SSI (information display) and CGI (settings) treatment
+   for HTML page information controle
+
+   SSI are managed by html_ProcessSsi(), CGI by html_ProcessCgi().
+
+   Information to return is identified by i_dwParam1 and i_dwParam2 parameters,
+   and formatted to <o_pszOutput> with respect to <i_wStrSize> size.
+
+   Both functions are registered to CommWifi.c module via cwifi_RegisterHtmlFunc().
+   They are automatically called by CommWifi.c at SSI/CGI reception.
+
+   i_dwParam1 identifies the HTML web page, it may contain HTML_PAGE_... values
+   i_dwParam2 identifies the data inside web page, it may contain
+   HTML_{CHARGE,CALENDAR-WIFI}_{GCI,SSI}_... values
+
+   see CCI/SSI defines section.
+*/
 
 
 #include "Define.h"
@@ -15,6 +49,8 @@
 
 
 /*----------------------------------------------------------------------------*/
+/* defines                                                                    */
+/*----------------------------------------------------------------------------*/
 
 #define HTML_COL_RED     "<FONT COLOR=\"#C00000\">"
 #define HTML_COL_BLUE    "<FONT COLOR=\"#0000C0\">"
@@ -23,9 +59,49 @@
 #define HTML_COL_END     "</FONT>"
 
 
+/*----------------------------------------------------------------------------*/
+/* CCI/SSI defines section.                                                   */
+/*----------------------------------------------------------------------------*/
+
+#define HTML_PAGE_CHARGE                 0  /* charge HTML page */
+#define HTML_PAGE_CALENDAR               1  /* calendar HTML page */
+#define HTML_PAGE_WIFI                   2  /* wifi HTML page */
+
+#define HTML_CHARGE_SSI_FORCE            0  /* SSI in charge HTML page : forced mode */
+#define HTML_CHARGE_SSI_CALENDAR_OK      1  /* SSI in charge HTML page : charge is allowed in this time period */
+#define HTML_CHARGE_SSI_EVPLUGGED        2  /* SSI in charge HTML page : EV is plugged */
+#define HTML_CHARGE_SSI_STATE            3  /* SSI in charge HTML page : charge state */
+#define HTML_CHARGE_SSI_CURRENT_MES      4  /* SSI in charge HTML page : charge current measurement in mA */
+#define HTML_CHARGE_SSI_VOLTAGE_MES      5  /* SSI in charge HTML page : charge voltage measurement in mV */
+#define HTML_CHARGE_SSI_ENERGY_MES       6  /* SSI in charge HTML page : energy consumption in Wh */
+#define HTML_CHARGE_SSI_CURRENT_CAP      7  /* SSI in charge HTML page : maximum current capacity */
+#define HTML_CHARGE_SSI_CURRENT_MIN      8  /* SSI in charge HTML page : minimum current to stop the charge is allowed */
+
+#define HTML_CALENDAR_SSI_DATETIME       0  /* SSI in calendar HTML page : current date time in "weekday DD/MM/YYYY HH/MM/SS" format */
+#define HTML_CALENDAR_SSI_CAL_MONDAY     1  /* SSI in calendar HTML page : monday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_TUESDAY    2  /* SSI in calendar HTML page : tuesday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_WEDNESDAY  3  /* SSI in calendar HTML page : wednesday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_THURSDAY   4  /* SSI in calendar HTML page : thursday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_FRIDAY     5  /* SSI in calendar HTML page : friday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_SATURDAY   6  /* SSI in calendar HTML page : saturday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_SUNDAY     7  /* SSI in calendar HTML page : sunday allowed charge period */
+
+#define HTML_WIFI_SSI_WIFIHOME           0  /* SSI in wifi HTML page : home wifi SSID */
+#define HTML_WIFI_SSI_SECURITY           1  /* SSI in wifi HTML page : home wifi security */
+#define HTML_WIFI_SSI_MAINTMODE          2  /* SSI in wifi HTML page : maintenance mode status */
+
+#define HTML_CHARGE_CGI_CURRENT_CAPMAX   0  /* CGI (settings) in charge HTML page : maximum current capacity */
+#define HTML_CHARGE_CGI_CURRENT_MIN      1  /* CGI (settings) in charge HTML page : minimum current to stop the charge is allowed */
+#define HTML_CHARGE_CGI_TOGGLE_FORCE     2  /* CGI (settings) in charge HTML page : forced mode */
+
+#define HTML_CALENDAR_CGI_DATE           0  /* CGI (settings) in calendar HTML page : date/time */
+#define HTML_CALENDAR_CGI_DAYSET         1  /* CGI (settings) in calendar HTML page : allowed charge period for the weekday */
+
+#define HTML_WIFI_CGI_WIFI               0  /* CGI (settings) in Wifi HTML page : home wifi SSID / pwd and securirty type */
 
 
-
+/*----------------------------------------------------------------------------*/
+/* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
 static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize ) ;
@@ -39,11 +115,12 @@ static void html_ProcessCgiCharge( DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue ) ;
 static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue ) ;
 
-static void html_ReplaceUrlChar( CHAR * io_pszString, WORD i_wStrSize ) ;
+static void html_DecodUrlChar( CHAR * io_pszString, WORD i_wStrSize ) ;
 static CHAR * html_AddToStr( CHAR * o_pszString, WORD * io_pwStrSize, CHAR C* i_szStrToAdd ) ;
 
 
-
+/*----------------------------------------------------------------------------*/
+/* Module initialization                                                      */
 /*----------------------------------------------------------------------------*/
 
 void html_Init( void )
@@ -55,12 +132,14 @@ void html_Init( void )
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
+/* SSI dispatch                                                               */
+/*----------------------------------------------------------------------------*/
 
 static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutput, WORD i_wStrSize )
 {
    switch ( i_dwParam1 )
    {
-      case HTML_PAGE_STATUS :
+      case HTML_PAGE_CHARGE :
          html_ProcessSsiCharge( i_dwParam2, o_pszOutput, i_wStrSize ) ;
          break ;
 
@@ -78,6 +157,9 @@ static void html_ProcessSsi( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOut
    }
 }
 
+
+/*----------------------------------------------------------------------------*/
+/* Charge page SSIs treatment                                                 */
 /*----------------------------------------------------------------------------*/
 
 static void html_ProcessSsiCharge( DWORD i_dwParam2,
@@ -216,6 +298,8 @@ static void html_ProcessSsiCharge( DWORD i_dwParam2,
 
 
 /*----------------------------------------------------------------------------*/
+/* Calendar page SSIs treatment                                               */
+/*----------------------------------------------------------------------------*/
 
 static void html_ProcessSsiCalendar( DWORD i_dwParam2,
                                      char * o_pszOutput, WORD i_wStrSize )
@@ -339,6 +423,8 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
 
 
 /*----------------------------------------------------------------------------*/
+/* Wifi page SSIs treatment                                                   */
+/*----------------------------------------------------------------------------*/
 
 static void html_ProcessSsiWifi( DWORD i_dwParam2,
                                  char * o_pszOutput, WORD i_wStrSize )
@@ -397,12 +483,14 @@ static void html_ProcessSsiWifi( DWORD i_dwParam2,
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
+/* CGI dispatch treatment                                                     */
+/*----------------------------------------------------------------------------*/
 
 static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszValue )
 {
    switch ( i_dwParam1 )
    {
-      case HTML_PAGE_STATUS :
+      case HTML_PAGE_CHARGE :
          html_ProcessCgiCharge( i_dwParam2, i_pszValue ) ;
          break ;
 
@@ -420,6 +508,8 @@ static void html_ProcessCgi( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszVa
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Charge page CGIs treatment                                                 */
 /*----------------------------------------------------------------------------*/
 
 static void html_ProcessCgiCharge( DWORD i_dwParam2, char C* i_pszValue )
@@ -462,6 +552,8 @@ static void html_ProcessCgiCharge( DWORD i_dwParam2, char C* i_pszValue )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Calendar page CGIs treatment                                               */
 /*----------------------------------------------------------------------------*/
 
 static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
@@ -547,6 +639,8 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
 
 
 /*----------------------------------------------------------------------------*/
+/* Wifi page CGIs treatment                                                   */
+/*----------------------------------------------------------------------------*/
 
 static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
 {
@@ -609,10 +703,10 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
          szSsid[byIdxSsid] = 0 ;
          szPwd[byIdxPwd] = 0 ;
 
-         html_ReplaceUrlChar( szSsid, sizeof(szSsid) ) ;
+         html_DecodUrlChar( szSsid, sizeof(szSsid) ) ;
          eep_WriteWifiId( TRUE, szSsid ) ;
 
-         html_ReplaceUrlChar( szPwd, sizeof(szPwd) ) ;
+         html_DecodUrlChar( szPwd, sizeof(szPwd) ) ;
          eep_WriteWifiId( FALSE, szPwd ) ;
 
          eep_write( (DWORD)&g_sDataEeprom->sWifiConInfo.dwWifiSecurity, (DWORD)bySecurity ) ;
@@ -626,9 +720,12 @@ static void html_ProcessCgiWifi( DWORD i_dwParam2, char C* i_pszValue )
 
 
 /*============================================================================*/
+
+/*----------------------------------------------------------------------------*/
+/* Decod URL specific characters (%..)                                        */
 /*----------------------------------------------------------------------------*/
 
-static void html_ReplaceUrlChar( CHAR * io_pszString, WORD i_wStrSize )
+static void html_DecodUrlChar( CHAR * io_pszString, WORD i_wStrSize )
 {
    WORD i ;
    CHAR * pszStrRaw ;
@@ -686,6 +783,8 @@ static void html_ReplaceUrlChar( CHAR * io_pszString, WORD i_wStrSize )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Concat string at the end of an other                                       */
 /*----------------------------------------------------------------------------*/
 
 static CHAR * html_AddToStr( CHAR * o_pszString, WORD * io_pwStrSize, CHAR C* i_szStrToAdd )

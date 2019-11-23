@@ -43,44 +43,6 @@ void sfrm_Init( void ) ;
 /* HtmlInfo.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
-#define HTML_PAGE_STATUS        0
-#define HTML_PAGE_CALENDAR      1
-#define HTML_PAGE_WIFI          2
-
-#define HTML_CHARGE_SSI_FORCE             0
-#define HTML_CHARGE_SSI_CALENDAR_OK       1
-#define HTML_CHARGE_SSI_EVPLUGGED         2
-#define HTML_CHARGE_SSI_STATE             3
-#define HTML_CHARGE_SSI_CURRENT_MES       4
-#define HTML_CHARGE_SSI_VOLTAGE_MES       5
-#define HTML_CHARGE_SSI_ENERGY_MES        6
-#define HTML_CHARGE_SSI_CURRENT_CAP       7
-#define HTML_CHARGE_SSI_CURRENT_MIN       8
-
-#define HTML_CALENDAR_SSI_DATETIME        0
-#define HTML_CALENDAR_SSI_CAL_MONDAY      1
-#define HTML_CALENDAR_SSI_CAL_TUESDAY     2
-#define HTML_CALENDAR_SSI_CAL_WEDNESDAY   3
-#define HTML_CALENDAR_SSI_CAL_THURSDAY    4
-#define HTML_CALENDAR_SSI_CAL_FRIDAY      5
-#define HTML_CALENDAR_SSI_CAL_SATURDAY    6
-#define HTML_CALENDAR_SSI_CAL_SUNDAY      7
-
-#define HTML_WIFI_SSI_WIFIHOME            0
-#define HTML_WIFI_SSI_SECURITY            1
-#define HTML_WIFI_SSI_MAINTMODE           2
-
-#define HTML_CHARGE_CGI_CURRENT_CAPMAX    0
-#define HTML_CHARGE_CGI_CURRENT_MIN       1
-#define HTML_CHARGE_CGI_TOGGLE_FORCE      2
-
-#define HTML_CALENDAR_CGI_DATE            0
-#define HTML_CALENDAR_CGI_DAYSET          1
-
-#define HTML_WIFI_CGI_WIFI                0
-
-
-
 typedef void (*f_htmlSsi)( DWORD i_dwParam1, DWORD i_dwParam2, char * o_pszOutPut, WORD i_byOutSize ) ;
 typedef void (*f_htmlCgi)( DWORD i_dwParam1, DWORD i_dwParam2, char C* i_pszValue ) ;
 
@@ -112,9 +74,9 @@ void cwifi_TaskCyc( void ) ;
 /* UartWifi.c                                                                 */
 /*----------------------------------------------------------------------------*/
 
-#define UWIFI_ERROR_RX        1u
-#define UWIFI_ERROR_DMA_TX    2u
-#define UWIFI_ERROR_DMA_RX    4u
+#define UWIFI_ERROR_RX        1u        /* UART reception error */
+#define UWIFI_ERROR_DMA_TX    2u        /* transmission DMA error */
+#define UWIFI_ERROR_DMA_RX    4u        /* reception DMA error */
 
 void uwifi_Init( void ) ;
 WORD uwifi_Read( BYTE * o_pbyData, WORD i_dwMaxSize, BOOL i_bGetPending ) ;

@@ -1,11 +1,49 @@
 /******************************************************************************/
-/*                                                                            */
 /*                                 UartWifi.c                                 */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:   08 apr. 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   Low lovel UART managment
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 08 apr. 2018, creation
+   @brief
+
+   Implement low level communication (send/receive) by UART
+   - use of UASRT 1
+   - hard flow RTS/CTS managment
+   - error detection (noise, overflow, frame)
+   - use odf DMA for send and receive
+   - send :
+      . configure send-DMA on buffer to send addr.
+      . pending transfer indication, (uwifi_Send() return false if transfer is pending)
+      . end of transfer interrupt to enable new sending
+      . DMA error detection
+   - receive :
+      . configure receive-DMA to <l_byRxBuffer> in circular mode
+      . <l_wRxIdxIn> : input pointer, <l_wRxIdxOut> buffer read pointer
+      . full transfert and half transert interrupts : if no more space for
+        half transfer -> stop DMA and set RTS to 1.
+      . if enough space is free by uwifi_Read() calling, then DMA reception is
+        re-enabled.
+      . this half transfert interrupt scheme lower CPU occupation rate.
+*/
+
 
 
 #include "Define.h"
@@ -13,38 +51,6 @@
 #include "System.h"
 #include "System/Hard.h"
 
-
-/*
-Module description:
-//TBD
-   - uilisation de l'USART 1
-   - Gestion hard flow RTS/CTS
-   - Gestion détection erreur de bruit, de débordement, et d'erreur de trames (a détailler)
-   - Détection d'erreur activable/désactivable
-   - DMA utilisé en emission et en récpetion
-   - En emission:
-      . configuration du channel DMA sur le buffer à mettre
-      . indication transfert en cours et si nouvelle demande alors la
-        fonction Send() renvoie FALSE
-      . interruption en fin de transfert pour autoriser nouvelle transmission
-      . détection erreurs DMA
-   - En réception:
-      . configuration du channel DMA sur le buffer de lecture "l_byRxBuffer" en
-        mode circulaire
-      . pointeur l_wRxIdxIn pour écriture dans buffer et l_wRxIdxOut pour lecture
-        dans buffer
-      . interruption DMA sur fin demi-transfert et fin transfert. Si pas assez
-        de place libre pour demi transfert suivant alors on suspend la réception
-        (arrêt DMA et donc mise à 1 de RTS)
-      . Fonction Read() pour lecture n octets. Si on est en réception suspendue
-        et que la lecture permet de libérer assez de place, alors la réception
-        est a nouveau autorisée.
-      . Il aurait été aussi possible d'activer l'inerruption DMA à chaque transfert
-        d'octet (permettant une gestion plus fine du buffer de réception). Mais
-        cette méthode d'interruption demi/fin transfert permet de réduire le
-        taux d'occupation CPU, (au prix d'une consommation de RAM un peu plus
-        importante)
-*/
 
 
 /*----------------------------------------------------------------------------*/
