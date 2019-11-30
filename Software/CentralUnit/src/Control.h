@@ -55,22 +55,22 @@ BOOL cal_IsChargeEnable( void ) ;
 /* ChargeState.c                                                              */
 /*----------------------------------------------------------------------------*/
 
-typedef enum
+typedef enum                     /* FSM charge state */
 {
    CSTATE_NULL,
-   CSTATE_OFF,
-   CSTATE_FORCE_WAIT,
-   CSTATE_ON_WAIT,
-   CSTATE_CHARGING,
-   CSTATE_EOC_LOWCUR,
+   CSTATE_OFF,                   /* idle state, charge disabled */
+   CSTATE_FORCE_WAIT,            /* forced and waiting for EV, charge enabled */
+   CSTATE_ON_WAIT,               /* calendar enabled and waiting for EV, charge enabled */
+   CSTATE_CHARGING,              /* charging in progress, charge enabled */
+   CSTATE_EOC_LOWCUR,            /* end of charge for low current, charge disabled */
 } e_cstateChargeSt ;
 
-typedef enum
+typedef enum                     /* forced charge status */
 {
-   CSTATE_FORCE_NONE,
-   CSTATE_FORCE_AMPMIN,
-   CSTATE_FORCE_ALL,
-} e_cstateForceSt ;              /* forced charge status */
+   CSTATE_FORCE_NONE,            /* no force */
+   CSTATE_FORCE_AMPMIN,          /* minimum current (ampere) forced */
+   CSTATE_FORCE_ALL,             /* always forced */
+} e_cstateForceSt ;
 
 #define CSTATE_CURRENT_MINSTOP_MIN    0
 #define CSTATE_CURRENT_MINSTOP_MAX   16

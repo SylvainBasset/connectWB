@@ -1,11 +1,90 @@
 /******************************************************************************/
-/*                                                                            */
 /*                               ChargeState.c                                */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:   28 nov. 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   OpenEVSE Charge state management
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 28 nov. 2018, creation
+   @brief
+   This module manage the enable/disable state of OpenEVSE.
+
+   The enable/disable state is computed the FSM located in
+   cstate_ProcessState(), given the following entries :
+    - Calendard state : Given by cal_IsChargeEnable() to check if a regular
+      enable is currently allowed by the calendar.
+    - Charge force : 3 types of force are managed by the module :
+    - Actual charging status, with consumed current, provided by commEVSE.c
+      module
+
+   Three forcing levels are available :
+      . CSTATE_FORCE_NONE : no force. Charge is allowed only if it set in
+        calendar, and the consumed current is above the theshold limit
+        (l_Data.dwCurrentMinStop)
+      . CSTATE_FORCE_AMPMIN : Ampere min forceed, Charge is allowed only
+        if it set in  calendar, the actual consumed current is not checked
+      . CSTATE_FORCE_ALL : Charge is allowed in any circumstances.
+   These 3 levels can be switched by a short press on the CSTATE_BUTTON.
+   The 'color' of the charge state led can indicable the current forcing
+   level,(cf led state)
+
+   There are 5 state in the FSM:
+      - CSTATE_OFF : idle state. This is the device state when calendar
+        charing is not enabled and there are no forcing mode. Charge is not
+        enabled
+      - CSTATE_FORCE_WAIT : forced and waiting for EV : One forced mode
+        is enabled (which means that calendar charging is not used, always
+        true). So, the charge is enabled but not currently on progress.
+      - CSTATE_ON_WAIT : calendar enabled and waiting for EV : calendar
+        charging allows the charge, but it is not currently on progress.
+        (no force mode is set, otherwise the state would be CSTATE_FORCE_WAIT)
+        Charge is enabled.
+      - CSTATE_CHARGING : charging in progress. The charge is allowed by
+        calendar or by forced mode, and a vehicle is charging.
+        Charge is enabled.
+      - CSTATE_EOC_LOWCUR : end of charge for low current. This state is
+        used when the minimum current is checked (no force mode): If
+        the real charging current cross the defined low limit during charging,
+        this state is activated, until calandar or fored charge is not
+        allowed. Charge is disabled.
+
+   Note : The Cp line is read by the Adc. This allow to determine of a EV is
+   plugged on. In CSTATE_OFF state, if the plug state comes from disonnected
+   to connected, the openEVSE charge is allowed for 30 sec.
+   This is a workaround for the Zoe sleep state.
+
+   There are 2 LEDs indicating the device status :
+      - wifi led :
+         . Off : no connection
+         . Steady blue : connection with home wifi
+         . blinking blue : a maintenance AP point is settled for external
+                           devices (see CommWifi.c)
+      - charge led :
+         . Off : idle or end of charge state, and date/time is correctly set
+         . blinking red : idle or end of charge state, and date/time is lost
+         . blinking blue : forced and waiting for EV state, with minimum
+                           current force mode
+         . steady blue : forced and waiting for EV state, with minimum
+                         always forced force mode
+         . blinking green : calendar enabled and waiting for EV state
+         . steady green : charging in progress state
+*/
 
 
 #include "Define.h"
@@ -14,30 +93,6 @@
 #include "System.h"
 #include "System/Hard.h"
 
-
-/*----------------------------------------------------------------------------*/
-/* Description:                                                               */
-/* This module manage the enable/disable state of EVSE.                       */
-/* The enable/disable state is computed the FSM located in                    */
-/* cstate_ProcessState(), given the following entries :                       */
-/*  - Calendard state : Given by cal_IsChargeEnable() to check if a regular   */
-/*    enable is currently allowed by the calendar.                            */
-/*  - Charge force : 3 types of force are managed by the module :             */
-/*  - Actual charging status, with consumed current, provided by commEVSE.c   */
-/*    module                                                                  */
-/*                                                                            */
-/* Three forcing levels are available :                                       */
-/*    . CSTATE_FORCE_NONE : no force. Charge is allowed only if it set in     */
-/*      calendar, and the consumed current is above the theshold limit        */
-/*      (l_Data.dwCurrentMinStop)                                             */
-/*    . CSTATE_FORCE_AMPMIN : Ampere min forceed, Charge is allowed only      */
-/*      if it set in  calendar, the actual consumed current is not checked    */
-/*    . CSTATE_FORCE_ALL : Charge is allowed in any circumstances.            */
-/* These 3 levels can be switched by a short press on the CSTATE_BUTTON.      */
-/* The 'color' of the charge state led can indicable the current forcing      */
-/* level, when no vehicule is charging :                                      */
-/*    - a                                                                     */
-/*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
 /* Defines                                                                    */
@@ -68,20 +123,17 @@ typedef enum
 
 typedef struct
 {
-   BOOL bWifiMaint ;
-   BOOL bEnabled ;
-   BOOL bEvPlugged ;
-   BOOL bCharging ;
-   BOOL bEndOfCharge ;
-   DWORD dwCurrentMinStop ;
-   e_cstateForceSt eForceState ;
-   e_cstateChargeSt eChargeState ;
-   WORD awAdcValues [16] ;
-   WORD wAdcValuesIdx ;
-   WORD wAdcMoy ;
-   BOOL bEvConnected ;
-   BOOL bPrevEvConnected ;
-   DWORD dwTmpPluging ;
+   BOOL bWifiMaint ;                   /* maintenance AP state from commWifi.c */
+   BOOL bEnabled ;                     /* openEVSE enable status */
+   DWORD dwCurrentMinStop ;            /* real charging current low limit */
+   e_cstateForceSt eForceState ;       /* force status */
+   e_cstateChargeSt eChargeState ;     /* FSM charge state */
+   WORD awAdcValues [16] ;             /* Cp line Adc row measurments */
+   WORD wAdcValuesIdx ;                /* measurment index */
+   WORD wAdcMoy ;                      /* average value of Cp line measurment */
+   BOOL bEvConnected ;                 /* plug state from cp line measurment */
+   BOOL bPrevEvConnected ;             /* previous plug state */
+   DWORD dwTmpPluging ;                /* delay to enable openEVSE because of plugging */
 } s_cstateData ;
 
 
@@ -141,6 +193,7 @@ void cstate_Init( void )
    l_Data.bEnabled = BYTE_MAX ;              /* force first update */
 
    l_Data.eChargeState = CSTATE_OFF ;
+                                             /* init charge state history */
    l_aeHistState[l_byHistStateIdx] = CSTATE_OFF ;
    l_byHistStateIdx = NEXTIDX( l_byHistStateIdx, l_aeHistState ) ;
 
@@ -151,7 +204,7 @@ void cstate_Init( void )
 
 
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
+/* Set power save mode (reset LEDs)                                           */
 /*----------------------------------------------------------------------------*/
 
 void cstate_EnterSaveMode( void )
@@ -162,17 +215,24 @@ void cstate_EnterSaveMode( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Set new value for minimum real charge current                              */
+/*----------------------------------------------------------------------------*/
 
 void cstate_SetCurrentMinStop( DWORD i_dwCurrentMinStop )
 {
+                                       /* if value is different */
    if ( i_dwCurrentMinStop != l_Data.dwCurrentMinStop )
    {
       l_Data.dwCurrentMinStop = i_dwCurrentMinStop ;
-      eep_write( (DWORD)&g_sDataEeprom->sChargeStateData.dwCurrentMinStop, i_dwCurrentMinStop ) ;
+                                       /* store in eeprom */
+      eep_write( (DWORD)&g_sDataEeprom->sChargeStateData.dwCurrentMinStop,
+                 i_dwCurrentMinStop ) ;
    }
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Read minimum real charge current value                                     */
 /*----------------------------------------------------------------------------*/
 
 DWORD cstate_GetCurrentMinStop( void )
@@ -181,6 +241,8 @@ DWORD cstate_GetCurrentMinStop( void )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Toggle force state mode                                                    */
 /*----------------------------------------------------------------------------*/
 
 void cstate_ToggleForce( void )
@@ -193,6 +255,8 @@ void cstate_ToggleForce( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Read force state mode                                                      */
+/*----------------------------------------------------------------------------*/
 
 e_cstateForceSt cstate_GetForceState( void )
 {
@@ -201,6 +265,8 @@ e_cstateForceSt cstate_GetForceState( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Read charge state                                                          */
+/*----------------------------------------------------------------------------*/
 
 e_cstateChargeSt cstate_GetChargeState( void )
 {
@@ -208,6 +274,8 @@ e_cstateChargeSt cstate_GetChargeState( void )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Read charge state history                                                  */
 /*----------------------------------------------------------------------------*/
 
 void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize )
@@ -225,6 +293,7 @@ void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize )
       if ( wSize >= 2 )
       {
          *pszOut++ = '0' + (BYTE) l_aeHistState[byIdxOut] ;
+         wSize-- ;
          *pszOut++= ' ' ;
          wSize-- ;
       }
@@ -240,6 +309,8 @@ void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Read Cp line adc average value                                             */
 /*----------------------------------------------------------------------------*/
 
 WORD cstate_GetAdcVal( CHAR * o_pszAdcVal, WORD i_wSize )
@@ -260,15 +331,14 @@ void cstate_TaskCyc( void )
    BOOL bLongPress ;
    BOOL bToogleWifi ;
    BOOL bToogleForce ;
-   //BOOL bEvPlugged ;
 
-   l_Data.bWifiMaint = cwifi_IsMaintMode() ;
+   l_Data.bWifiMaint = cwifi_IsMaintMode() ;          /* check if wifi is in maintenance mode */
 
-   l_Data.wAdcMoy = cstate_ProcessAdc() ;
+   l_Data.wAdcMoy = cstate_ProcessAdc() ;             /* read Cp line adc value */
 
-   if ( l_Data.wAdcMoy < CSTATE_ADC_EV_CONNECT_TH )
+   if ( l_Data.wAdcMoy < CSTATE_ADC_EV_CONNECT_TH )   /* if value is below the connect thershold */
    {
-      if ( ! l_Data.bEvConnected )
+      if ( ! l_Data.bEvConnected )                    /* if there was no Ev connected before */
       {
          l_Data.bEvConnected = TRUE ;
          tim_StartSecTmp( &l_Data.dwTmpPluging ) ;
@@ -279,24 +349,26 @@ void cstate_TaskCyc( void )
       l_Data.bEvConnected = FALSE ;
    }
 
-   bPress = cstate_ProcessButton( &bLongPress ) ;
+   bPress = cstate_ProcessButton( &bLongPress ) ;     /* check main button */
 
    bToogleWifi = bPress && bLongPress ;
    bToogleForce = bPress && ( ! bLongPress ) ;
 
-   if ( bToogleWifi )
+   if ( bToogleWifi )                                 /* if there is long press */
    {
-      cwifi_SetMaintMode( ! l_Data.bWifiMaint ) ;
+      cwifi_SetMaintMode( ! l_Data.bWifiMaint ) ;     /* toggle wifi maintenance mode */
    }
 
-   cstate_ProcessState( bToogleForce ) ;
+   cstate_ProcessState( bToogleForce ) ;              /* update FSM state */
 
-   cstate_ProcessLed() ;
+   cstate_ProcessLed() ;                              /* update LEDs */
 }
 
 
 /*=========================================================================*/
 
+/*----------------------------------------------------------------------------*/
+/* Update FSM state                                                           */
 /*----------------------------------------------------------------------------*/
 
 static void cstate_ProcessState( BOOL i_bToogleForce )
@@ -434,6 +506,8 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
 
 
 /*----------------------------------------------------------------------------*/
+/* Check end of charge by low current                                         */
+/*----------------------------------------------------------------------------*/
 
 static BOOL cstate_CheckEoc( void )
 {
@@ -461,6 +535,8 @@ static BOOL cstate_CheckEoc( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Get the next forced mode status                                            */
+/*----------------------------------------------------------------------------*/
 
 static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceState )
 {
@@ -484,12 +560,15 @@ static e_cstateForceSt cstate_GetNextForcedState( e_cstateForceSt i_eForceState 
 
 
 /*----------------------------------------------------------------------------*/
+/* Set forced mode status                                                     */
+/*----------------------------------------------------------------------------*/
 
 static void cstate_UpdateForceState( e_cstateForceSt i_eForceState )
 {
    if ( l_Data.eForceState != i_eForceState )
    {
       l_Data.eForceState = i_eForceState ;
+                                       /* store in eeprom */
       eep_write( (DWORD)&g_sDataEeprom->sChargeStateData.dwForceState, i_eForceState ) ;
    }
 }
@@ -811,6 +890,8 @@ static void cstate_HrdInitLed( void )
 
 
 /*----------------------------------------------------------------------------*/
+/* Low level color set for wifi Led                                           */
+/*----------------------------------------------------------------------------*/
 
 static void cstate_HrdSetColorLedWifi( e_cstateLedColor i_eLedColor )
 {
@@ -851,6 +932,8 @@ static void cstate_HrdSetColorLedWifi( e_cstateLedColor i_eLedColor )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Low level color set for charge state Led                                   */
 /*----------------------------------------------------------------------------*/
 
 static void cstate_HrdSetColorLedCharge( e_cstateLedColor i_eLedColor )

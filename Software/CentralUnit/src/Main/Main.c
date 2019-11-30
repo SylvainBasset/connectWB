@@ -1,11 +1,28 @@
 /******************************************************************************/
-/*                                                                            */
 /*                                 Main.c                                     */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:    4 mars 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   Wallybox Main
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 4 mars 2018, creation
+*/
 
 
 #include <stm32l0xx_hal.h>
@@ -23,24 +40,24 @@
 
 #define MAIN_SAVEMODE_PIN_DUR  100         /* ms */
 
-#define TIMSYSLED_FREQ_DIV    1000llu  /* set counter incr frequency to 1 ms */
-#define TIMSYSLED_PERIOD      500llu   /* set period to 500 ms*/
+#define TIMSYSLED_FREQ_DIV    1000llu     /* set counter incr frequency to 1 ms */
+#define TIMSYSLED_PERIOD      500llu      /* set period to 500 ms*/
 
-#define TASK_PER_LOOP    1000                        //SBA: doit �tre multiple de toutes les periodes
+#define TASK_PER_LOOP    1000             /* calling loop period (must be multiple for all periods) */
 
-#define CLK_TASK_PER     1000//
+#define CLK_TASK_PER     1000             /* Clock.c module call period */
 #define CLK_TASK_ORDER      0
 
-#define CSTATE_TASK_PER    10
+#define CSTATE_TASK_PER    10             /* ChargeState.c module call period */
 #define CSTATE_TASK_ORDER   0
 
-#define CWIFI_TASK_PER      1
+#define CWIFI_TASK_PER      1             /* CommWifi.c module call period */
 #define CWIFI_TASK_ORDER    0
 
-#define COEVSE_TASK_PER    10
+#define COEVSE_TASK_PER    10             /* CommOEvse.c module call period */
 #define COEVSE_TASK_ORDER   0
 
-#define SYSLED_TASK_PER       10
+#define SYSLED_TASK_PER       10          /* SysLed.c module call period */
 #define SYSLED_TASK_ORDER      0
 
 #define TASK_CALL( prefixlow, prefixup )                                         \
@@ -48,10 +65,6 @@
    {                                                                             \
       prefixlow##_TaskCyc() ;                                                  \
    }
-
-
-//const s_Time k_TimeStart = { .byHours = 06, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
-//const s_Time k_TimeEnd = { .byHours = 07, .byMinutes = 00, .bySeconds = 00 } ;  //SBA
 
 
 /*----------------------------------------------------------------------------*/
@@ -135,6 +148,8 @@ int main( void )
 /*============================================================================*/
 
 /*----------------------------------------------------------------------------*/
+/* Configure mains checking pin                                               */
+/*----------------------------------------------------------------------------*/
 
 static void main_SaveModeInit( void )
 {
@@ -148,6 +163,8 @@ static void main_SaveModeInit( void )
    HAL_GPIO_Init( MAIN_SAVEMODE_GPIO, &sGpioInit ) ;
 }
 
+/*----------------------------------------------------------------------------*/
+/* enter power save mode (propagate to power conuming modules)                */
 /*----------------------------------------------------------------------------*/
 
 static void main_EnterSaveMode( void )

@@ -1,23 +1,42 @@
 /******************************************************************************/
-/*                                                                            */
 /*                              ChargeCalendar.c                              */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:   27 mars 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   Calendar for charging periods
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 04 oct. 2018, creation
+   @brief
+   The calendar is based on hardware RTC
+
+   Week day periods are set by calling cal_SetDayVals(), they are stored in
+   eeprom for power-off retention. They are recovered at initialisation.
+   cal_GetDayVals() is used to get start and end time of charing for one day.
+   And cal_IsChargeEnable() allows to determine if charge is enable at this
+   instant.
+*/
 
 
 #include <stm32l0xx_hal.h>
 #include "Define.h"
 #include "Control.h"
 #include "System.h"
-
-
-/*----------------------------------------------------------------------------*/
-/* Module description                                                         */
-/* //TBD                                                                      */
-/*----------------------------------------------------------------------------*/
 
 
 /*----------------------------------------------------------------------------*/
@@ -53,6 +72,7 @@ static void cal_CalcStructFromCnt( DWORD i_dwTimeSec, s_Time * o_pTime ) ;
 
 /*----------------------------------------------------------------------------*/
 /* Calendar module initialization                                             */
+/* Note : read eeprom to get memorised weekday charging periods               */
 /*----------------------------------------------------------------------------*/
 
 void cal_Init( void )
@@ -87,6 +107,10 @@ void cal_Init( void )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Check if start/end time for weekday is valid                               */
+/*    - <i_pStartTime> sarting time to be tested  for this day                */
+/*    - <i_pEndTime> ending time to be tested  for this day                   */
 /*----------------------------------------------------------------------------*/
 
 BOOL cal_IsValid( s_Time C* i_pStartTime, s_Time C* i_pEndTime )
@@ -138,6 +162,13 @@ void cal_SetDayVals( BYTE i_byWeekday, s_Time C* i_pStartTime, s_Time C* i_pEndT
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Get start/end time for a day                                               */
+/*    - <i_byWeekday> week day to read                                        */
+/*    - <o_pStartTime> start time struct for this weekday                     */
+/*    - <o_pEndTime> end time struct for this weekday                         */
+/*    - <o_pdwCntStart> start time counter for this weekday                   */
+/*    - <o_pdwCntEnd> end time counter for this weekday                       */
 /*----------------------------------------------------------------------------*/
 
 void cal_GetDayVals( BYTE i_byWeekday, s_Time * o_pStartTime, s_Time * o_pEndTime,
@@ -261,6 +292,10 @@ static DWORD cal_CalcCntFromStruct( s_Time C* i_psTime )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Build time struct from second counter                                      */
+/*    - <i_dwTimeSec> second counter                                          */
+/*    - <o_pTime> output time struct                                          */
 /*----------------------------------------------------------------------------*/
 
 static void cal_CalcStructFromCnt( DWORD i_dwTimeSec, s_Time * o_pTime )

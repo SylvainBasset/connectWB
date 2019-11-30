@@ -1,33 +1,50 @@
 /******************************************************************************/
-/*                                                                            */
 /*                                  Clock.c                                   */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:   12 mars 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   STM32 RTC clock managment
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 12 mars 2018, creation
+   @brief
+
+   This module configure the STM32 RTC peripheral to maintain date/time.
+
+   The date/time is stored with the use of s_DateTime struture.
+
+   It is possible to set a new date/time using this structure with clk_SetDateTime(),
+   read date/time with clk_GetDateTime(), as well as determine if date/time is
+   lost with clk_IsDateTimeLost().
+
+   This module automatically check if the current date/time is in summer hour,
+   and set the summer time bit (RTC_CR_BCK) accordingly.
+
+   The RTC 32kHz is also compared to the system clock by the timer21 input
+   capture channel 1. The 32kHz clock is therefore ajusted, to compensate
+   potential frequence variations.
+*/
 
 
 #include <stm32l0xx_hal.h>
 #include "Define.h"
 #include "System.h"
 #include "System/Hard.h"
-
-
-/*----------------------------------------------------------------------------*/
-/* Module description:                                                        */
-/*    //TBD                                                                   */
-/* - //initialisation RTC                                                     */
-/* - //gestion changement d'heure à chaque traitement cyclique                */
-/* - //calibration de l'horloge HSI avec le timer 21 en input compare         */
-/*     si inferieur à seuil, augmentation du trimm                            */
-/*     si superieur à seuil, diminution du trimm                              */
-/*     moyennage de la valeur sur 64 mesures                                  */
-/*----------------------------------------------------------------------------*/
-//SBA:
-// voir si utilisation prescaller sur input compare pour r�duire passage en IT
-// Actuellement on a un taux d'occupation CPU de ~3%
-// Permettrait de gagner 1 ou 2 % de taux d'occupation CPU
 
 
 /*----------------------------------------------------------------------------*/
@@ -257,6 +274,8 @@ void clk_GetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday )
 
 
 /*----------------------------------------------------------------------------*/
+/* Check if Date/time is valid                                                */
+/*----------------------------------------------------------------------------*/
 
 BOOL clk_IsValid( s_DateTime C* i_psDateTime )
 {
@@ -418,6 +437,8 @@ static void clk_ComSetDateTime( s_DateTime C* i_psDateTime )
 }
 
 
+/*----------------------------------------------------------------------------*/
+/* Check if Date/time is valid                                                */
 /*----------------------------------------------------------------------------*/
 
 static BOOL clk_ComIsValid( s_DateTime C* i_pDateTime )

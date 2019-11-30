@@ -1,11 +1,28 @@
 /******************************************************************************/
-/*                                                                            */
 /*                                  Eeprom.c                                  */
-/*                                                                            */
 /******************************************************************************/
-/* Created on:   04 apr. 2018   Sylvain BASSET        Version 0.1             */
-/* Modifications:                                                             */
-/******************************************************************************/
+/*
+   Eeprom managment
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 04 apr. 2018, creation
+*/
 
 
 #include "Define.h"
@@ -20,6 +37,8 @@
 
 
 
+/*----------------------------------------------------------------------------*/
+/* High level wifi SSID/PWD eeprom write                                      */
 /*----------------------------------------------------------------------------*/
 
 RESULT eep_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
@@ -50,7 +69,7 @@ RESULT eep_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
       dwEepVal = 0 ;
       byShift = 0 ;
       pszChar = i_szParam ;
-      while( byParamSize != 0 )
+      while( byParamSize != 0 )                 /* concatenate char in 32 bits words */
       {
          dwEepVal |= ( *pszChar << byShift ) ;
          byShift += 8 ;

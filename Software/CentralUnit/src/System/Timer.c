@@ -6,6 +6,45 @@
 /* Created on:   12 mars 2018   Sylvain BASSET        Version 0.1             */
 /* Modifications:                                                             */
 /******************************************************************************/
+/*
+   Timer
+
+   Copyright (C) 2018  Sylvain BASSET
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+   ------------
+   @version 1.0
+   @history 1.0, 10 mars 2018, creation
+   @brief
+
+   This module allow to use non blocking delay (temporisation) :
+
+   The temporisation is stored in 32bit integer, by the calling module.
+   - tim_StartMsTmp() is called at the start of the temporisation, and returns
+     the start time plus a start flag.
+   - The temporisation remaining time is tested by calling tim_IsEndMsTmp(), with
+     temporisation duration in paramteter
+   - The temporisation ending is tested by calling tim_GetRemainMsTmp(), with
+     temporisation duration in paramteter
+
+   All these function are in milli-second time base.
+
+   It is possible to use a second time base, by remplacing the tag "Ms" by "Sec"
+   in the 3 fonctions above.
+   Be careful to use the same time base for temporisation starting and testing
+*/
 
 
 #include <stm32l0xx_hal.h>
