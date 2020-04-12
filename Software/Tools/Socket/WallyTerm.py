@@ -40,6 +40,8 @@ class GetCmd(threading.Thread):
          try :
             Char = readchar.readkey()
             StrToSend = ""
+            if Char == 'h':
+               self.help()
             if Char == 'a':
                StrToSend = u"$01:AT"
             if Char == 'p':
@@ -57,7 +59,8 @@ class GetCmd(threading.Thread):
             if StrToSend != "":
                self.QOutput.put_nowait(StrToSend)
                LastSend = StrToSend
-         except:
+         except Exception as e:
+            print(e)
             break
 
       exitFlag = True
@@ -65,9 +68,46 @@ class GetCmd(threading.Thread):
       del self.QOutput
 
 
+   def help(self):
+      print ""
+      print "h : aide"
+      print "a : commande AT simple ($01:AT)"
+      print "p : ping ($01:AT+S.PING=192.168.0.1)"
+      print "f : liste fichiers html ($01:AT+S.FSL)"
+      print "s : envoi commande AT utilisateur (en entée)"
+      print "r : réenvoi de la précédente commande"
+      print "q : quit"
+      print ""
+      print "$01:<arg> : wifi bridge (reponse code 0x81) : Received argument is sent back to       "
+      print "            Wifi module as an external AT command. The response is delayed. Execution "
+      print "            result is sent with the response.                                         "
+      print "$02:<arg> : SSID set (reponse code 0x82) : Received argument is used as new home      "
+      print "            wifi SSID (stored in eeprom).                                             "
+      print "$03:<arg> : Password set (reponse code 0x83) : Received argument is used as new       "
+      print "            home wifi password (stored in eeprom).                                    "
+      print "$04:      : Exit maintenance mode (reponse code 0x84) : Force the Wifi module to      "
+      print "            leave maintenance mode.                                                   "
+      print "$05:      : Get device name (reponse code 0x84) : device name is sent with the        "
+      print "            response                                                                  "
+      print "$10:<arg> : OpenEvse RAPI bridge (reponse code 0x90) : Received argument is sent      "
+      print "            to OpenEVSE module as an external command. The response is delayed.       "
+      print "            Execution result is sent with the response.                               "
+      print "$11:      : Get charge information (response code 0x91) : Charge information are      "
+      print "            sent with the response                                                    "
+      print "$12:      : Get charge history (response code 0x92) : The 10 last charge states       "
+      print "            are sent with the response (see ChargeState.c)                            "
+      print "$13:      : Get CP line adc value (response code 0x93) : Adc Value is sent with       "
+      print "            the response.                                                             "
+      print "$7F:      : \"ScktFrame\" reset (response code 0xFF) : reset the \"ScktFrame\" state  "
+      print "            <l_eFrmId>, in case of pending delayed response.                          "
+
+
+
+
 #---------------------------------------------------------------------------#
 
 def PrintTerm( fLog, String ):
+   """colorise les SocketFrames de commande et de réponses"""
    if fLog:
       fLog.write( String )
 
