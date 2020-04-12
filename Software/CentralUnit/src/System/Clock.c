@@ -43,6 +43,7 @@
 
 #include <stm32l0xx_hal.h>
 #include "Define.h"
+#include "Lib.h"
 #include "System.h"
 #include "System/Hard.h"
 
@@ -85,6 +86,8 @@ RTC_InitTypeDef const k_sRtcInit =     /* HAL RTC initialisation constants */
 
 
 #define CLK_DATETIME_SIGN  0x5C5C5C5C  /* mark to idientify is datetime is valid */
+
+#define CLK_NB_FIELDS_DATETIME      6  /*+ number of field in s_DateTime */
 
 s_DateTime const k_sDateTimeInit =     /* datetime value for intializtion */
 {
@@ -255,9 +258,50 @@ SDWORD clk_GetCalib( DWORD * o_dwNbCalibActions )
 /* Date/time writing                                                          */
 /*----------------------------------------------------------------------------*/
 
-void clk_SetDateTime( s_DateTime C* i_psDateTime )
+void clk_SetDateTime( s_DateTime C* i_psDateTime, BYTE i_byErrorSecMax )
 {
-   clk_ComSetDateTime( i_psDateTime ) ; /* set datetime */
+   s_DateTime CurDTime ;
+   DWORD dwCurNbSec ;
+   DWORD dwNbSec ;
+   BOOL bSetDTime ;
+
+   bSetDTime = TRUE ;
+
+   if ( i_byErrorSecMax != 0 )         /* if maximum erreur difference is defined */
+   {                                   /* read current date/time */
+      clk_ComGetDateTime( &CurDTime, NULL ) ;
+
+         /* Note : the test under only verify the equality on the days/month/years */
+         /* while calculating the seconds counter for hours/mintues/secondes.      */
+         /* It's easyer way to do since it may me complicated to calculate the     */
+         /* complete "second counter" of the date/time (bisextile years day by     */
+         /* month). However it changes the expected behavior, a changing day       */
+         /* trigger a date/time setting even is the difference is less than        */
+         /* <i_byErrorSecMax>. This is not really problematic since it occurs only */
+         /* once a day, and leads to a better synchronised clock                   */
+
+                                       /* if dates are equals  */
+      if ( ( CurDTime.byDays == i_psDateTime->byDays ) &&
+           ( CurDTime.byMonth == i_psDateTime->byMonth ) &&
+           ( CurDTime.byYear == i_psDateTime->byYear ) )
+      {                                /* compute the current time (only) seconds counter*/
+         dwCurNbSec = CurDTime.byHours * 3600 +
+                      CurDTime.byMinutes * 60 + CurDTime.bySeconds ;
+                                       /* compute the new time (only) seconds counter*/
+         dwNbSec = i_psDateTime->byHours * 3600 +
+                   i_psDateTime->byMinutes * 60 + i_psDateTime->bySeconds ;
+                                       /* if the difference is <i_byErrorSecMax> maximum */
+         if ( ABS_DIFF( dwCurNbSec, dwNbSec ) <= i_byErrorSecMax )
+         {
+            bSetDTime = FALSE ;        /* no need to write date/time */
+         }
+      }
+   }
+
+   if ( bSetDTime )
+   {                                   /* set datetime */
+      clk_ComSetDateTime( i_psDateTime ) ;
+   }
 
    RTC->BKP0R = CLK_DATETIME_SIGN ;    /* mark as datetime valid */
 }
@@ -280,6 +324,66 @@ void clk_GetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday )
 BOOL clk_IsValid( s_DateTime C* i_psDateTime )
 {
    return clk_ComIsValid( i_psDateTime ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* DEcod String and check if it is Date/time                                  */
+/*----------------------------------------------------------------------------*/
+
+BOOL clk_IsValidStr( CHAR C* i_pszDateTime, s_DateTime * o_psDateTime )
+{
+   BYTE i ;
+   CHAR C* pszDateTime ;
+   CHAR C* pszNext ;
+   SDWORD sdwValue ;
+   BOOL bValid ;
+
+   pszDateTime = i_pszDateTime ;
+                                       /* for all date/time fields */
+   for ( i = 0 ; i < CLK_NB_FIELDS_DATETIME ; i++ )
+   {                                   /* read the next numberin string */
+      pszNext = cascii_GetNextDec( pszDateTime, &sdwValue, FALSE, WORD_MAX ) ;
+
+      if ( pszDateTime != pszNext )    /* if conversion succeded */
+      {
+         pszDateTime = pszNext ;       /* set the pointer to the character next to the number */
+                                       /* set the date to a 00-99 format */
+         if ( ( i == 0 ) && ( sdwValue > 2000 ) )
+         {
+            sdwValue -= 2000 ;
+         }
+                                       /* avoid byte overflow */
+         sdwValue = GETMIN( sdwValue, BYTE_MAX ) ;
+
+         switch( i )                   /* fill field according to loop execution */
+         {
+            case 0 :  o_psDateTime->byYear = (BYTE)sdwValue ;     break ;
+            case 1 :  o_psDateTime->byMonth = (BYTE)sdwValue ;    break ;
+            case 2 :  o_psDateTime->byDays = (BYTE)sdwValue ;     break ;
+            case 3 :  o_psDateTime->byHours = (BYTE)sdwValue ;    break ;
+            case 4 :  o_psDateTime->byMinutes = (BYTE)sdwValue ;  break ;
+            case 5 :  o_psDateTime->bySeconds = (BYTE)sdwValue ;  break ;
+            default :                                             break ;
+         }
+      }
+      else                              /* conversion error (end of string reached) */
+      {
+         break ;
+      }
+   }
+
+   bValid = FALSE ;
+
+   if ( i == CLK_NB_FIELDS_DATETIME )  /* if all fields are filled */
+   {                                   /* if string is valid */
+      if ( clk_ComIsValid( o_psDateTime ) )
+      {
+         bValid = TRUE ;
+      }
+   }
+
+   return bValid ;
 }
 
 

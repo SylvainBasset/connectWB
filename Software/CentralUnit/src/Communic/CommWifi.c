@@ -112,7 +112,7 @@
                                                 data is sent (ms) */
 #define CWIFI_MAINT_TIMEOUT       300        /* maintenance mode activation duration (sec) */
 
-#define CWIFI_SCAN_PERIOD          60        /* Wifi neightbourg detection period, sec */
+#define CWIFI_ACT_PERIOD          60         /* Wifi actions (scan+date/time) period, sec */
 
 #define CWIFI_INPUT_SEND_TIMEOUT  100        /* timeout temporisation for UART transmission for
                                                 INPUT callaback (ms) */
@@ -185,19 +185,29 @@ static BOOL l_bDataMode ;
 static char l_szWindWifiUpIp[32] ;           /* device current IP */
 static char l_szWindSocketConIp[16] ;        /* IP for connected socket */
 
+   /* Note : Macro mecanism :                                              */
+   /* Op()  = Simple wind frame                                            */
+   /* Opr() = wind frame with response string to be stored (l_szWindxxx)   */
+   /* Opf() = wind frame with callback function (cwifi_WindCallBackxxx())  */
+   /* Arg1 = command name upper case                                       */
+   /* Arg2 = command name lower case                                       */
+   /* Arg3 = wind number string                                            */
+   /* Arg4 = Boolean varaible to be modified at wind reception             */
+   /* Arg5 = valeur to be written in (Arg4) at wind reception              */
+
                                              /* general macro for handled wind messages */
 #define LIST_WIND( Op, Opr, Opf ) \
-   Op(  CONSOLE_RDY, ConsoleRdy,  "0:",  &l_bConsoleRdy,      TRUE )  \
-   Opf( POWER_ON,    PowerOn,     "1:",  &l_bPowerOn,         TRUE )  \
-   Opf( RESET,       Reset,       "2:",  NULL,                0 )     \
-   Op(  HRD_STARTED, HrdStarted,  "32:", &l_bHrdStarted,      TRUE )  \
-   Opr( WIFI_UP_IP,  WifiUpIp,    "24:", &l_bWifiUp,          TRUE )  \
-   Opf( INPUT,       Input,       "56:", NULL,                0 )     \
+   Op(  CONSOLE_RDY, ConsoleRdy,  "0:",  &l_bConsoleRdy,      TRUE  ) \
+   Opf( POWER_ON,    PowerOn,     "1:",  &l_bPowerOn,         TRUE  ) \
+   Opf( RESET,       Reset,       "2:",  NULL,                0     ) \
+   Op(  HRD_STARTED, HrdStarted,  "32:", &l_bHrdStarted,      TRUE  ) \
+   Opr( WIFI_UP_IP,  WifiUpIp,    "24:", &l_bWifiUp,          TRUE  ) \
+   Opf( INPUT,       Input,       "56:", NULL,                0     ) \
    Opf( CMDMODE,     CmdMode,     "59:", &l_bDataMode,        FALSE ) \
-   Opf( DATAMODE,    DataMode,    "60:", &l_bDataMode,        TRUE )  \
-   Opr( SOCKETCONIP, SocketConIp, "61:", &l_bSocketConnected, TRUE )  \
+   Opf( DATAMODE,    DataMode,    "60:", &l_bDataMode,        TRUE  ) \
+   Opr( SOCKETCONIP, SocketConIp, "61:", &l_bSocketConnected, TRUE  ) \
    Op(  SOCKETDIS,   SocketDis,   "62:", &l_bSocketConnected, FALSE ) \
-   Opf( SOCKETDATA,  SocketData,  "64:", NULL,                0 )
+   Opf( SOCKETDATA,  SocketData,  "64:", NULL,                0     )
 
 typedef enum                                 /* Wind identifiers (not used for now) */
 {
@@ -222,21 +232,31 @@ static s_WindDesc const k_aWindDesc [] =
 static char l_szRespPing [1] ;               /* ping result (not used for now)  */
 static char l_szRespGCfg [1] ;               /* Conf getter result  (not used for now)  */
 
+   /* Note : Macro mecanism :                                         */
+   /* Op()  = Simple command                                          */
+   /* Opr() = Command with response string to be stored l_szRespxxx   */
+   /* Opf() = Command with callback function (cwifi_CmdCallBackxxx()) */
+   /* Arg1 = command name upper case                                  */
+   /* Arg2 = command name lower case                                  */
+   /* Arg3 = string formatting                                        */
+   /* Arg4 = needed response (from Wifi board) indicator              */
+
                                              /* general macro for handled commands */
-#define LIST_CMD( Op, Opr, Opf )                            \
-   Op(  AT,        At,        "AT\r",               TRUE )  \
-   Op(  SCFG,      SCfg,      "AT+S.SCFG=%s,%s\r",  TRUE )  \
-   Opr( GCFG,      GCfg,      "AT+S.GCFG=%s\r",     TRUE )  \
-   Op(  SETSSID,   SetSsid,   "AT+S.SSIDTXT=%s\r",  TRUE )  \
-   Op(  CFUN,      CFun,      "AT+CFUN=%s\r",       FALSE ) \
-   Op(  SAVE,      Save,      "AT&W\r",             TRUE )  \
-   Op(  FACTRESET, FactReset, "AT&F\r",             TRUE )  \
-   Opr( PING,      Ping,      "AT+S.PING=%s\r",     TRUE )  \
-   Op(  SOCKD,     Sockd,     "AT+S.SOCKD=%s\r",    TRUE )  \
-   Op(  CMDTODATA, CmdToData, "AT+S.\r",            FALSE ) \
-   Op(  FSL,       Fsl,       "AT+S.FSL\r",         TRUE )  \
-   Op(  SCAN,      Scan,      "AT+S.SCAN=a,m,%s\r", TRUE ) \
-   Opf( EXT,       Ext,       "",                   TRUE ) \
+#define LIST_CMD( Op, Opr, Opf )                              \
+   Op(  AT,        At,        "AT\r",                 TRUE  ) \
+   Op(  SCFG,      SCfg,      "AT+S.SCFG=%s,%s\r",    TRUE  ) \
+   Opr( GCFG,      GCfg,      "AT+S.GCFG=%s\r",       TRUE  ) \
+   Op(  SETSSID,   SetSsid,   "AT+S.SSIDTXT=%s\r",    TRUE  ) \
+   Op(  CFUN,      CFun,      "AT+CFUN=%s\r",         FALSE ) \
+   Op(  SAVE,      Save,      "AT&W\r",               TRUE  ) \
+   Op(  FACTRESET, FactReset, "AT&F\r",               TRUE  ) \
+   Opr( PING,      Ping,      "AT+S.PING=%s\r",       TRUE  ) \
+   Op(  SOCKD,     Sockd,     "AT+S.SOCKD=%s\r",      TRUE  ) \
+   Op(  CMDTODATA, CmdToData, "AT+S.\r",              FALSE ) \
+   Op(  FSL,       Fsl,       "AT+S.FSL\r",           TRUE  ) \
+   Op(  SCAN,      Scan,      "AT+S.SCAN=a,m,%s\r",   TRUE  ) \
+   Opf( HTTPGET,   HttpGet,   "AT+S.HTTPGET=%s,%s\r", TRUE  ) \
+   Opf( EXT,       Ext,       "",                     TRUE  ) \
 
 typedef enum                                 /* Command identifiers */
 {
@@ -630,9 +650,11 @@ static void cwifi_ConnectFSM( void )
          break ;
 
       case CWIFI_STATE_CONNECTED :
-         if ( tim_IsEndSecTmp( &l_dwTmpScan, CWIFI_SCAN_PERIOD ) )
-         {
+         if ( tim_IsEndSecTmp( &l_dwTmpScan, CWIFI_ACT_PERIOD ) )
+         {                             /* vicinity Wifi scan demand */
             cwifi_FmtAddCmdFifo( CWIFI_CMD_SCAN, "/scan.txt", "" ) ;
+                                       /* read date/time demand */
+            cwifi_FmtAddCmdFifo( CWIFI_CMD_HTTPGET, "192.168.1.16", "/" ) ;
             tim_StartSecTmp( &l_dwTmpScan ) ;
          }
          break ;
@@ -1277,6 +1299,34 @@ static void cwifi_ProcessRecResp( char * io_pszProcessData )
          pCmdDesc->fCallback( io_pszProcessData ) ;
       }
    }
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* response from CWIFI_CMD_HTTPGET command callback                               */
+/*----------------------------------------------------------------------------*/
+
+static RESULT cwifi_CmdCallBackHttpGet( char C* i_pszProcData )
+{
+   char C* pszProcData ;
+   s_DateTime DateTime ;
+   BOOL bValidDt ;
+
+   pszProcData = i_pszProcData ;
+                                       /* if response line start by "DT=" */
+   if ( *pszProcData == 'D' && *( pszProcData + 1 ) == 'T' && *( pszProcData + 2 ) == '=' )
+   {
+      pszProcData += 3 ;
+                                       /* check if the following string is a valid date/time */
+      bValidDt = clk_IsValidStr( pszProcData, &DateTime ) ;
+      if ( bValidDt )                  /* if date/time is valid */
+      {                                /* set new date/time only if it differ more than */
+                                       /* 60 seconds from current date/time */
+         clk_SetDateTime( &DateTime, 60 ) ;
+      }
+   }
+
+   return OK ;
 }
 
 

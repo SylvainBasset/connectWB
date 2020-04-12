@@ -71,8 +71,8 @@
 /* Prototypes                                                                 */
 /*----------------------------------------------------------------------------*/
 
-static void main_SaveModeInit( void ) ;
-static void main_EnterSaveMode( void ) ;
+//static void main_SaveModeInit( void ) ;
+//static void main_EnterSaveMode( void ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -109,7 +109,7 @@ int main( void )
    coevse_Init() ;
    sysled_Init() ;
 
-   main_SaveModeInit() ;               /* Configure powermode pin */
+   //main_SaveModeInit() ;               /* Configure powermode pin */
 
    byTaskPerCnt = 0 ;
    tim_StartMsTmp( &dwTaskTmp ) ;
@@ -126,7 +126,7 @@ int main( void )
          {
             if ( tim_IsEndMsTmp( &dwTmpSaveMode, MAIN_SAVEMODE_PIN_DUR ) )
             {
-               main_EnterSaveMode() ;
+               //main_EnterSaveMode() ;
             }
          }
       }
@@ -147,33 +147,35 @@ int main( void )
 
 /*============================================================================*/
 
-/*----------------------------------------------------------------------------*/
-/* Configure mains checking pin                                               */
-/*----------------------------------------------------------------------------*/
+//SBA remove when unding hardware powersave system
 
-static void main_SaveModeInit( void )
-{
-   GPIO_InitTypeDef sGpioInit ;
-
-   sGpioInit.Pin = MAIN_SAVEMODE_PIN ;
-   sGpioInit.Mode = GPIO_MODE_INPUT ;
-   sGpioInit.Pull = GPIO_PULLDOWN ;
-   sGpioInit.Speed = GPIO_SPEED_FAST ;
-   sGpioInit.Alternate = MAIN_SAVEMODE_AF ;
-   HAL_GPIO_Init( MAIN_SAVEMODE_GPIO, &sGpioInit ) ;
-}
-
-/*----------------------------------------------------------------------------*/
-/* enter power save mode (propagate to power conuming modules)                */
-/*----------------------------------------------------------------------------*/
-
-static void main_EnterSaveMode( void )
-{
-   cwifi_EnterSaveMode() ;
-   cstate_EnterSaveMode() ;
-   sysled_EnterSaveMode() ;
-
-   while ( HAL_GPIO_ReadPin( MAIN_SAVEMODE_GPIO, MAIN_SAVEMODE_PIN) == GPIO_PIN_RESET ) ;
-
-   NVIC_SystemReset() ;
-}
+// /*----------------------------------------------------------------------------*/
+// /* Configure mains checking pin                                               */
+// /*----------------------------------------------------------------------------*/
+//
+// static void main_SaveModeInit( void )
+// {
+//    GPIO_InitTypeDef sGpioInit ;
+//
+//    sGpioInit.Pin = MAIN_SAVEMODE_PIN ;
+//    sGpioInit.Mode = GPIO_MODE_INPUT ;
+//    sGpioInit.Pull = GPIO_PULLDOWN ;
+//    sGpioInit.Speed = GPIO_SPEED_FAST ;
+//    sGpioInit.Alternate = MAIN_SAVEMODE_AF ;
+//    HAL_GPIO_Init( MAIN_SAVEMODE_GPIO, &sGpioInit ) ;
+// }
+//
+// /*----------------------------------------------------------------------------*/
+// /* enter power save mode (propagate to power conuming modules)                */
+// /*----------------------------------------------------------------------------*/
+//
+// static void main_EnterSaveMode( void )
+// {
+//    cwifi_EnterSaveMode() ;
+//    cstate_EnterSaveMode() ;
+//    sysled_EnterSaveMode() ;
+//
+//    while ( HAL_GPIO_ReadPin( MAIN_SAVEMODE_GPIO, MAIN_SAVEMODE_PIN) == GPIO_PIN_RESET ) ;
+//
+//    NVIC_SystemReset() ;
+// }

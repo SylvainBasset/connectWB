@@ -133,6 +133,9 @@ typedef BYTE RESULT ;               /* unsigned 8 bits return statut (r) */
                                  /* get maximum between <Val1> and <Val2> */
 #define GETMAX( Val1, Val2 )     ( ( (Val1) < (Val2) ) ? (Val2) : (Val1) )
 
+                                 /* compute absolute difference */
+#define ABS_DIFF(Val1, Val2)     ( ( Val1 > Val2 ) ? ( Val1 - Val2 ) : ( Val2 - Val1 ) )
+
                                  /* use paramètre in a test, to avoid non-used
                                     parameter warning */
 #define USEPARAM( Val )          if ( Val ) {} ;

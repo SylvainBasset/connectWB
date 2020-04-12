@@ -53,6 +53,7 @@
 
 
 #include "Define.h"
+#include "Lib.h"
 #include "Communic.h"
 #include "Communic/l_Communic.h"
 #include "System.h"
@@ -193,10 +194,6 @@ static void coevse_GetChecksum( char * o_sChecksum, BYTE i_byCkSize,
 static void coevse_CmdSetErr( void ) ;
 static void coevse_CmdStart( e_CmdId i_eCmdId ) ;
 static void coevse_CmdEnd( void ) ;
-
-static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
-                                  BOOL i_bIsSigned, DWORD i_dwMax ) ;
-static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue ) ;
 
 static void coevse_HrdInit( void ) ;
 static void coevse_HrdSendCmd( char C* i_pszStrCmd, BYTE i_bySize ) ;
@@ -763,7 +760,7 @@ static void coevse_CmdresultGetCurrentCap( char C* i_pszDataRes )
 
    pszStr = i_pszDataRes ;
                                        /* convert next digit to integer */
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
+   pszNext = cascii_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
 
    if ( pszStr != pszNext )            /* if conversion succeded */
    {
@@ -785,21 +782,21 @@ static void coevse_CmdresultGetFault( char C* i_pszDataRes )
 
    pszStr = i_pszDataRes ;
                                           /* convert next hexa to integer */
-   pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
+   pszNext = cascii_GetNextHex( pszStr, &dwValue ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
       l_Status.dwErrGfiTripCnt = dwValue ;
    }
                                        /* convert next hexa to integer */
-   pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
+   pszNext = cascii_GetNextHex( pszStr, &dwValue ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
       l_Status.dwNoGndTripCnt = dwValue ;
    }
                                        /* convert next hexa to integer */
-   pszNext = coevse_GetNextHex( pszStr, &dwValue ) ;
+   pszNext = cascii_GetNextHex( pszStr, &dwValue ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
@@ -820,14 +817,14 @@ static void coevse_CmdresultGetChargParam( char C* i_pszDataRes )
 
    pszStr = i_pszDataRes ;
                                        /* convert next digit to integer */
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
+   pszNext = cascii_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
       l_Status.sdwChargeCurrent = sdwValue ;
    }
                                        /* convert next digit to integer */
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
+   pszNext = cascii_GetNextDec( pszStr, &sdwValue, TRUE, SDWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
@@ -848,14 +845,14 @@ static void coevse_CmdresultGetEneryCnt( char C* i_pszDataRes )
 
    pszStr = i_pszDataRes ;
                                        /* convert next digit to integer */
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
+   pszNext = cascii_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
       l_Status.dwCurWh = ( sdwValue / ( 60 * 60 ) ) ;
    }
                                        /* convert next digit to integer */
-   pszNext = coevse_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
+   pszNext = cascii_GetNextDec( pszStr, &sdwValue, FALSE, DWORD_MAX ) ;
    if ( pszStr != pszNext )
    {
       pszStr = pszNext ;
@@ -884,141 +881,6 @@ static void coevse_CmdresultExtCmd( char C* i_pszDataRes )
    {                                   /* post to ScktFrame module */
       (*l_fPostResProc)( i_pszDataRes, TRUE ) ;
    }
-}
-
-//SBA : place these function in a convAcsiiInt file
-/*----------------------------------------------------------------------------*/
-/* convert next digit to integer                                              */
-/*----------------------------------------------------------------------------*/
-
-static char C* coevse_GetNextDec( char C* i_pszStr, SDWORD *o_psdwValue,
-                                  BOOL i_bIsSigned, DWORD i_dwMax )
-{
-   BOOL bEndOfString ;
-   BOOL bNeg ;
-   DWORD dwValue ;
-   char C* pszStr ;
-   char C* pszEnd ;
-   BYTE byVal ;
-
-   bEndOfString = FALSE ;
-   bNeg = FALSE ;
-   dwValue = 0 ;
-   pszStr = i_pszStr ;
-   pszEnd = i_pszStr ;
-                                       /* loop while there are no digit */
-   while( ! ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) )
-   {
-      if ( ( *pszStr == '\0' ) || ( *pszStr == '^' ) )
-      {
-         bEndOfString = TRUE ;
-         break ;
-      }
-      if ( *pszStr == '-' )            /* check negative sign */
-      {
-         bNeg ^= TRUE ;
-      }
-      pszStr++ ;
-   }
-                                       /* loop until last digit */
-   if ( ! bEndOfString )
-   {
-      while( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
-      {
-         byVal = ( *pszStr - '0' ) ;
-                                       /* if maximum is reached */
-         if ( ( dwValue > ( i_dwMax - byVal ) / 10 ) )
-         {
-            dwValue = i_dwMax ;
-                                       /* set pszStr directely to the end of the number */
-            while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) && ( *pszStr != 0 ) ) )
-            {
-               pszStr++ ;
-            }
-            break ;
-         }
-         dwValue *= 10 ;
-         dwValue += byVal ;
-         pszStr++ ;
-      }
-      pszEnd = pszStr ;
-   }
-
-   if ( o_psdwValue != NULL )
-   {
-      if ( bNeg )                      /* adjust sign */
-      {
-         if ( i_bIsSigned )
-         {
-            *o_psdwValue = -(SDWORD)dwValue ;
-         }
-         else
-         {
-            *o_psdwValue = 0 ;
-         }
-      }
-      else
-      {
-         *o_psdwValue = (SDWORD)dwValue ;
-      }
-   }
-
-   return pszEnd ;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/* convert next hexa to integer                                               */
-/*----------------------------------------------------------------------------*/
-
-static char C* coevse_GetNextHex( char C* i_pszStr, DWORD *o_pdwValue )
-{
-   BOOL bEndOfString ;
-   DWORD dwValue ;
-   char C* pszStr ;
-   char C* pszEnd ;
-
-   bEndOfString = FALSE ;
-   dwValue = 0 ;
-   pszStr = i_pszStr ;
-   pszEnd = i_pszStr ;
-                                       /* loop while there are no digit */
-   while( ! ( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) ||
-              ( ( *pszStr >= 'A' ) && ( *pszStr <= 'F' ) ) ) )
-   {
-      if ( ( *pszStr == '\0' ) || ( *pszStr == '^' ) )
-      {
-         bEndOfString = TRUE ;
-         break ;
-      }
-      pszStr++ ;
-   }
-
-   if ( ! bEndOfString )
-   {                                   /* loop until last digit */
-      while( ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) ) ||
-             ( ( *pszStr >= 'A' ) && ( *pszStr <= 'F' ) ) )
-         {
-            dwValue *= 16 ;
-            if ( ( *pszStr >= '0' ) && ( *pszStr <= '9' ) )
-            {
-               dwValue += ( *pszStr - '0' ) ;
-            }
-            else
-            {
-               dwValue += ( *pszStr - 'A' ) + 10 ;
-            }
-            pszStr++ ;
-         }
-         pszEnd = pszStr ;
-   }
-
-   if ( o_pdwValue != NULL )
-   {
-      *o_pdwValue = dwValue ;
-   }
-
-   return pszEnd ;
 }
 
 

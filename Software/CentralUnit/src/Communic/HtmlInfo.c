@@ -588,7 +588,7 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
 
          if ( ( byNbScan == 5 ) && clk_IsValid( &DateTime ) )
          {
-            clk_SetDateTime( &DateTime ) ;
+            clk_SetDateTime( &DateTime, 0 ) ;
          }
          //TODO: voir si affichage message erreur avec un SSI
          break ;

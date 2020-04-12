@@ -71,14 +71,18 @@ DWORD tim_GetRemainSecTmp( DWORD* io_pdwTempo, DWORD i_dwDelay ) ;
 /* Clock.c                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define NB_DAYS_WEEK   7               /* day numbers over the week */
+#define NB_DAYS_WEEK        7          /* day numbers over the week */
 
 void clk_Init( void ) ;
 BOOL clk_IsDateTimeLost( void ) ;
-BOOL clk_IsValid( s_DateTime C* i_psDateTime ) ;
 SDWORD clk_GetCalib( DWORD * o_dwNbCalibActions ) ;
+
+void clk_SetDateTime( s_DateTime C* i_psDateTime, BYTE i_byErrorSecMax ) ;
 void clk_GetDateTime( s_DateTime * o_psDateTime, BYTE * o_pbyWeekday ) ;
-void clk_SetDateTime( s_DateTime C* i_psDateTime ) ;
+
+BOOL clk_IsValid( s_DateTime C* i_psDateTime ) ;
+BOOL clk_IsValidStr( CHAR C* i_pszDateTime, s_DateTime * o_psDateTime ) ;
+
 void clk_TaskCyc( void ) ;
 
 
