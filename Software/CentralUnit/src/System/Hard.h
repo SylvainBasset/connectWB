@@ -122,10 +122,6 @@
 #define CSTATE_LEDCH_COMMON_GPIO       GPIOC
 #define CSTATE_LEDCH_COMMON_AF         0
 
-#define MAIN_SAVEMODE_PIN              GPIO_PIN_10
-#define MAIN_SAVEMODE_GPIO             GPIOC
-#define MAIN_SAVEMODE_AF               0
-
 #define WIFI_RESET_PIN                 GPIO_PIN_12
 #define WIFI_RESET_GPIO                GPIOC
 #define WIFI_RESET_AF                  0

@@ -27,9 +27,14 @@
          let ElemYear = document.getElementById("year");
          let ElemHour = document.getElementById("hour");
          let ElemMin = document.getElementById("min");
+         let AdjustValue = "0";
+         if ( document.getElementById("adjust").checked == true ){
+            AdjustValue = "1";
+         }
 
          Str = cgi + "0" + ":" + ElemDay.value + "," + ElemMonth.value + "," +
-               + ElemYear.value + "," + ElemHour.value + "," + ElemMin.value + suffix
+               ElemYear.value + "," + ElemHour.value + "," + ElemMin.value + "," +
+               AdjustValue + suffix
 
          $.get(Str);
          sleep(1000)
@@ -101,9 +106,10 @@
 
    <p>Date/heure courante:
       <br><br>
-      <b>
-         &nbsp;&nbsp;<!--#input:1:0-->
-      </b>
+      <b> &nbsp;&nbsp;<!--#input:1:0--> </b>
+      <br>
+      <br>
+      Ajustement automatique : <!--#input:1:1-->
    </p>
    <br>
    Nouveau r&eacute;glage:
@@ -184,10 +190,17 @@
       </SELECT>
       min
    </span>
+
+
    <span class="marge">
-      <input type="button" onclick="Send_DateTime()" value="OK"/>
+      <input id="adjust" type="checkbox">ajustement automatique</button>
    </span>
 
+   <br><br><br>
+
+   <span class="marge"></span>
+      <input type="button" onclick="Send_DateTime()" value="OK"/>
+   </span>
 
    <br><br><br>
 
@@ -200,13 +213,13 @@
 
    <div style="margin-left:20px">
       <TABLE BORDER="0">
-         <TR><TD> Lundi : </TD><!--#input:1:1--></TR>
-         <TR><TD> Mardi : </TD><!--#input:1:2--></TR>
-         <TR><TD> Mercredi : </TD><!--#input:1:3--></TR>
-         <TR><TD> Jeudi : </TD><!--#input:1:4--></TR>
-         <TR><TD> Vendredi : </TD><!--#input:1:5--></TR>
-         <TR><TD> Samedi : </TD><!--#input:1:6--></TR>
-         <TR><TD> Dimanche : </TD><!--#input:1:7--></TR>
+         <TR><TD> Lundi : </TD><!--#input:1:2--></TR>
+         <TR><TD> Mardi : </TD><!--#input:1:3--></TR>
+         <TR><TD> Mercredi : </TD><!--#input:1:4--></TR>
+         <TR><TD> Jeudi : </TD><!--#input:1:5--></TR>
+         <TR><TD> Vendredi : </TD><!--#input:1:6--></TR>
+         <TR><TD> Samedi : </TD><!--#input:1:7--></TR>
+         <TR><TD> Dimanche : </TD><!--#input:1:8--></TR>
       </TABLE>
    </div>
    <br>
@@ -281,6 +294,8 @@
       </SELECT>
       min
    </span>
+
+   <br><br><br>
 
    <span class="marge">
       <input type="button" onclick="Send_Calendar()" value="OK"/>

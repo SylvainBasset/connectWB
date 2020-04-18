@@ -38,8 +38,6 @@
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define MAIN_SAVEMODE_PIN_DUR  100         /* ms */
-
 #define TIMSYSLED_FREQ_DIV    1000llu     /* set counter incr frequency to 1 ms */
 #define TIMSYSLED_PERIOD      500llu      /* set period to 500 ms*/
 
@@ -67,12 +65,6 @@
    }
 
 
-/*----------------------------------------------------------------------------*/
-/* Prototypes                                                                 */
-/*----------------------------------------------------------------------------*/
-
-//static void main_SaveModeInit( void ) ;
-//static void main_EnterSaveMode( void ) ;
 
 
 /*----------------------------------------------------------------------------*/
@@ -83,7 +75,6 @@ int main( void )
 {
    DWORD dwTaskTmp ;
    BYTE byTaskPerCnt ;
-   DWORD dwTmpSaveMode ;
 
       /* Note: The call to HAL_Init() perform these oprations:               */
       /* - Configure the Flash prefetch, Flash preread and Buffer caches     */
@@ -109,27 +100,11 @@ int main( void )
    coevse_Init() ;
    sysled_Init() ;
 
-   //main_SaveModeInit() ;               /* Configure powermode pin */
-
    byTaskPerCnt = 0 ;
    tim_StartMsTmp( &dwTaskTmp ) ;
 
    while ( TRUE )                      /* Infinite loop */
    {
-      if ( HAL_GPIO_ReadPin( MAIN_SAVEMODE_GPIO, MAIN_SAVEMODE_PIN) == GPIO_PIN_RESET )
-      {
-         if ( dwTmpSaveMode == 0 ) //
-         {
-            tim_StartMsTmp( &dwTmpSaveMode ) ;
-         }
-         else
-         {
-            if ( tim_IsEndMsTmp( &dwTmpSaveMode, MAIN_SAVEMODE_PIN_DUR ) )
-            {
-               //main_EnterSaveMode() ;
-            }
-         }
-      }
 
       TASK_CALL( clk, CLK ) ;
       TASK_CALL( cstate, CSTATE ) ;
@@ -143,39 +118,3 @@ int main( void )
       byTaskPerCnt = ( byTaskPerCnt + 1 ) % TASK_PER_LOOP ;
    }
 }
-
-
-/*============================================================================*/
-
-//SBA remove when unding hardware powersave system
-
-// /*----------------------------------------------------------------------------*/
-// /* Configure mains checking pin                                               */
-// /*----------------------------------------------------------------------------*/
-//
-// static void main_SaveModeInit( void )
-// {
-//    GPIO_InitTypeDef sGpioInit ;
-//
-//    sGpioInit.Pin = MAIN_SAVEMODE_PIN ;
-//    sGpioInit.Mode = GPIO_MODE_INPUT ;
-//    sGpioInit.Pull = GPIO_PULLDOWN ;
-//    sGpioInit.Speed = GPIO_SPEED_FAST ;
-//    sGpioInit.Alternate = MAIN_SAVEMODE_AF ;
-//    HAL_GPIO_Init( MAIN_SAVEMODE_GPIO, &sGpioInit ) ;
-// }
-//
-// /*----------------------------------------------------------------------------*/
-// /* enter power save mode (propagate to power conuming modules)                */
-// /*----------------------------------------------------------------------------*/
-//
-// static void main_EnterSaveMode( void )
-// {
-//    cwifi_EnterSaveMode() ;
-//    cstate_EnterSaveMode() ;
-//    sysled_EnterSaveMode() ;
-//
-//    while ( HAL_GPIO_ReadPin( MAIN_SAVEMODE_GPIO, MAIN_SAVEMODE_PIN) == GPIO_PIN_RESET ) ;
-//
-//    NVIC_SystemReset() ;
-// }
