@@ -377,19 +377,6 @@ void cwifi_Init( void )
 
 
 /*----------------------------------------------------------------------------*/
-/* Activate Wifi power save state (all reset)                                 */
-/*----------------------------------------------------------------------------*/
-
-void cwifi_EnterSaveMode( void )
-{
-   cwifi_HrdSetResetModule( TRUE ) ;
-   cwifi_ResetVar() ;
-   l_bMaintMode = FALSE ;
-   l_bConfigDone = FALSE ;
-}
-
-
-/*----------------------------------------------------------------------------*/
 /* register data/external responses callbacks                                 */
 /*----------------------------------------------------------------------------*/
 
