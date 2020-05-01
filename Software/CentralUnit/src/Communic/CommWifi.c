@@ -295,7 +295,7 @@ typedef struct                               /* command FIFO */
 } s_CmdFifo ;
 
 
-#define CWIFI_DATABUF_SIZE  1024             /* socket data buffer size */
+#define CWIFI_DATABUF_SIZE  1024             /* socket data buffer size, in bytes */
 
 typedef struct                               /* socket data buffer (ping/pong buffer) */
 {
