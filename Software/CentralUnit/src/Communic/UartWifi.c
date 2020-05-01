@@ -153,6 +153,29 @@ BOOL uwifi_Send( void C* i_pvData, DWORD i_dwSize )
 
 
 /*----------------------------------------------------------------------------*/
+/* Get number of remaining byte for the current transfer                      */
+/* Return:                                                                    */
+/*    - number of remaining byte                                              */
+/*----------------------------------------------------------------------------*/
+
+DWORD uwifi_GetRemainingSend( void )
+{
+   DWORD dwRet ;
+
+   if ( l_bTxPending )                 /* if transfer is ongoing */
+   {
+      dwRet = UWIFI_DMA_TX->CNDTR ;    /* read DMA channel remaining byte */
+   }
+   else
+   {
+      dwRet = 0 ;
+   }
+
+   return dwRet ;
+}
+
+
+/*----------------------------------------------------------------------------*/
 /* Check if last transmit is completed                                        */
 /* Return:                                                                    */
 /*    - transmission status:                                                  */
@@ -160,7 +183,7 @@ BOOL uwifi_Send( void C* i_pvData, DWORD i_dwSize )
 /*       . FALSE : transfert is still pending                                 */
 /*----------------------------------------------------------------------------*/
 
-BOOL uWifi_IsSendDone( void )
+BOOL uwifi_IsSendDone( void )
 {
    BOOL bRet ;
 

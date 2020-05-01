@@ -10,7 +10,5 @@ Software/Tools/Socket/\./LastIp\.dat
 *.pyc
 
 
-
-
-
 Software/\.metadata/
+Software/CentralUnit/.settings/language.settings.xml

@@ -44,7 +44,7 @@
    ready (Wifi module ready and no pending command) the last FIFO command is
    sent.
    When a response is required, a timeout duration of CWIFI_CMD_TIMEOUT ms
-   is verifiée.
+   is checked.
 
    - Wind message : these frame are sent asynchonously by the module,
    to describe an event. Only Wind event described by LIST_WIND() macro are
@@ -294,14 +294,16 @@ typedef struct                               /* command FIFO */
    s_CmdItem aCmdItems [10] ;                /* FIFO elements */
 } s_CmdFifo ;
 
-#define CWIFI_DATABUF_SIZE  512              /* socket data buffer size */
 
-typedef struct                               /* socket data buffer */
+#define CWIFI_DATABUF_SIZE  1024             /* socket data buffer size */
+
+typedef struct                               /* socket data buffer (ping/pong buffer) */
 {
    BOOL bAskFlush ;                          /* ask for fushing indicator */
-   BOOL bPendingFlush ;                      /* socket data sending in progess */
-   DWORD dwNbChar ;                          /* number of char stored in buffer */
-   CHAR sDataBuf [CWIFI_DATABUF_SIZE] ;      /* data buffer */
+   WORD wNbChar ;                            /* number of char stored in buffer */
+   WORD wNbCharInTx ;                        /* number of byte currently in DMA transfer */
+                                             /* 0 if no DMA transfer pending */
+   CHAR sDataBuf [CWIFI_DATABUF_SIZE] ;      /* buffer item 0 */
 } s_DataBuf ;
 
 
@@ -317,7 +319,7 @@ static RESULT cwifi_FmtAddCmdFifo( e_CmdId i_eCmdId, char C* i_szArg1,
 static RESULT cwifi_AddCmdFifo( e_CmdId i_eCmdId, char C* i_szStrCmd ) ;
 static void cwifi_ExecSendCmd( void ) ;
 
-static RESULT cwifi_AddDataBuffer( char C* i_szStrData ) ;
+static void cwifi_AddDataBuffer( char C* i_szStrData ) ;
 static void cwifi_ExecSendData( void ) ;
 
 static void cwifi_ProcessRec( void ) ;
@@ -516,15 +518,11 @@ void cwifi_TaskCyc( void )
       }
    }
 
-
-   if ( l_DataBuf.bPendingFlush )
+   if ( l_DataBuf.wNbCharInTx != 0 )
    {
-      if ( uWifi_IsSendDone() )
+      if ( uwifi_IsSendDone() )
       {
-         l_DataBuf.bAskFlush = FALSE ;
-         l_DataBuf.bPendingFlush = FALSE ;
-         l_DataBuf.dwNbChar = 0 ;
-         memset( &l_DataBuf.sDataBuf, 0, sizeof(l_DataBuf.sDataBuf) ) ;
+         l_DataBuf.wNbCharInTx = 0 ;
       }
    }
    else
@@ -757,7 +755,7 @@ static void cwifi_ExecSendCmd( void )
       pCmdItem = &l_CmdFifo.aCmdItems[byIdxOut] ;
       eCmdId = pCmdItem->eCmdId ;
 
-      ERR_FATAL_IF( ! uWifi_IsSendDone() ) ;
+      ERR_FATAL_IF( ! uwifi_IsSendDone() ) ;
 
       bUartAccept = uwifi_Send( pCmdItem->szStrCmd, strlen(pCmdItem->szStrCmd) ) ;
       ERR_FATAL_IF( ! bUartAccept ) ;
@@ -782,103 +780,83 @@ static void cwifi_ExecSendCmd( void )
 }
 
 
-
 /*----------------------------------------------------------------------------*/
 /* Add external data to data (socket) buffer                                  */
 /*----------------------------------------------------------------------------*/
 
-static RESULT cwifi_AddDataBuffer( char C* i_szStrData )
+static void cwifi_AddDataBuffer( char C* i_szStrData )
 {
-   WORD wBufSeparator ;
-   CHAR C* pszChar ;
-   RESULT rRet ;
+   WORD wNbChar ;
+   WORD wFreeSpace ;
+   WORD wNbEffectiveCpy ;
+   CHAR * psDataBuf ;
+   CHAR C* psDataBufEnd  ;
 
-   rRet = ERR ;
+   wNbChar = l_DataBuf.wNbChar ;
 
-   if ( ! l_DataBuf.bPendingFlush )
+   if ( l_DataBuf.wNbCharInTx == 0 )     /* if no DMA transfer is ongoing */
    {
-      wBufSeparator = l_DataBuf.dwNbChar % sizeof(l_DataBuf.sDataBuf) ;
-      pszChar = i_szStrData ;
-
-      while( *pszChar != 0 )
+      wFreeSpace = sizeof(l_DataBuf.sDataBuf) - wNbChar ;
+   }
+   else
+   {                                      /* take the space left from DMA transfer */
+      wFreeSpace = ( l_DataBuf.wNbCharInTx - uwifi_GetRemainingSend() ) - wNbChar ;
+                                          /* defensive prog : limit to buffer size */
+      if ( wFreeSpace > sizeof(l_DataBuf.sDataBuf) )
       {
-         l_DataBuf.sDataBuf[wBufSeparator] = *pszChar ;
-         wBufSeparator = ( ( wBufSeparator + 1 ) % sizeof(l_DataBuf.sDataBuf) ) ;
-         pszChar++ ;
-         l_DataBuf.dwNbChar++ ;
-      }
-
-      if ( l_DataBuf.dwNbChar > sizeof(l_DataBuf.sDataBuf) )
-      {
-         rRet = OK ;
+         wFreeSpace = sizeof(l_DataBuf.sDataBuf) ;
       }
    }
+                                       /* if space remaining + defensive prog */
+   if ( ( wFreeSpace != 0 ) && ( wNbChar < sizeof(l_DataBuf.sDataBuf) ) )
+   {                                   /* pointer to first free character */
+      psDataBuf = &l_DataBuf.sDataBuf[wNbChar] ;
+                                       /* copy into buffer */
+      psDataBufEnd = stpncpy( psDataBuf, i_szStrData, wFreeSpace ) ;
+      wNbEffectiveCpy = psDataBufEnd - psDataBuf ;
 
-   return rRet ;
+      if ( ( wNbChar + wNbEffectiveCpy ) < sizeof(l_DataBuf.sDataBuf) )
+      {
+         wNbChar += wNbEffectiveCpy  ; /* update number of character in buffer */
+      }
+      else                             /* defensive prog : limit to buffer size */
+      {
+         wNbChar = sizeof( l_DataBuf.sDataBuf) ;
+      }
+      l_DataBuf.wNbChar = wNbChar ;
+   }
 }
-
 
 
 /*----------------------------------------------------------------------------*/
 /* Sent data (socket) buffer to Wifi module                                   */
 /*----------------------------------------------------------------------------*/
 
-//SBA : to be reworked : simple ping pong buffer must be simplier
 static void cwifi_ExecSendData( void )
 {
-   WORD wBufSize ;
    BOOL bUartAccept ;
-   WORD wBufSeparator ;
-   WORD wIdx1 ;
-   WORD wIdx2 ;
-   char sInterBuf [CWIFI_DATABUF_SIZE/2] ;
-   char * sDataBuf ;
-
-   if ( ( l_eWifiState != CWIFI_STATE_OFF ) && ( l_DataBuf.bAskFlush ) &&
-        ( l_DataBuf.dwNbChar != 0 ) && uWifi_IsSendDone() )
+                                       /* if flush asked and no DMA transfer onging */
+   if ( ( l_DataBuf.bAskFlush ) &&  ( l_DataBuf.wNbCharInTx == 0 ) &&
+        uwifi_IsSendDone() )
    {
-      sDataBuf = l_DataBuf.sDataBuf ;
-      wBufSize = sizeof( l_DataBuf.sDataBuf ) ;
-
-
-      if ( l_DataBuf.dwNbChar <= wBufSize )
+      if ( l_DataBuf.wNbChar != 0 )    /* if data to send */
       {
-         bUartAccept = uwifi_Send( sDataBuf, l_DataBuf.dwNbChar ) ;
-         ERR_FATAL_IF( ! bUartAccept ) ;
+         bUartAccept = uwifi_Send( l_DataBuf.sDataBuf, l_DataBuf.wNbChar ) ;
       }
       else
       {
-         wBufSeparator = l_DataBuf.dwNbChar % wBufSize ;
-         if ( wBufSeparator > 512 )
-         {
-            memcpy( sInterBuf, &sDataBuf[wBufSeparator], ( wBufSize - wBufSeparator ) ) ;
-            wIdx2 = wBufSize - 1 ;
-            for ( wIdx1 = wBufSeparator - 1 ; wIdx1 != 0 ; wIdx1-- )
-            {
-               sDataBuf[wIdx2] = sDataBuf[wIdx1] ;
-               wIdx2-- ;
-            }
-            sDataBuf[wIdx2] = sDataBuf[wIdx1] ;
-            memcpy( &sDataBuf[0], sInterBuf, ( wBufSize - wBufSeparator ) ) ;
-         }
-         else
-         {
-            memcpy( sInterBuf, &sDataBuf[0], wBufSeparator ) ;
-            wIdx2 = 0 ;
-            for ( wIdx1 = wBufSeparator ; wIdx1 < wBufSize ; wIdx1++ )
-            {
-               sDataBuf[wIdx2] = sDataBuf[wIdx1] ;
-               wIdx2++ ;
-            }
-            memcpy( &sDataBuf[(wBufSize - wBufSeparator)], sInterBuf, wBufSeparator ) ;
-         }
-
-         bUartAccept = uwifi_Send( sDataBuf, wBufSize ) ;
-         ERR_FATAL_IF( ! bUartAccept ) ;
+         bUartAccept = TRUE ;
       }
 
-      l_DataBuf.bPendingFlush = TRUE ;
-      tim_StartMsTmp( &l_dwTmpDataMode ) ; // red�marrage tempo
+      if ( bUartAccept )
+      {
+         l_DataBuf.bAskFlush = FALSE ; /* no more ask for flushing */
+                                       /* indicate DMA transfer, and set number characters */
+         l_DataBuf.wNbCharInTx = l_DataBuf.wNbChar ;
+         l_DataBuf.wNbChar = 0 ;       /* buffer is set as free */
+                                       /* restart tempo, action on data transfer*/
+         tim_StartMsTmp( &l_dwTmpDataMode ) ;
+      }
    }
 }
 
@@ -1055,9 +1033,8 @@ static RESULT cwifi_WindCallBackCmdMode( char C* i_pszProcessData, BOOL i_bPendi
    if ( ! i_bPendingData )
    {
       l_DataBuf.bAskFlush = FALSE ;
-      l_DataBuf.bPendingFlush = FALSE ;
-      l_DataBuf.dwNbChar = 0 ;
-      memset( &l_DataBuf.sDataBuf, 0, sizeof(l_DataBuf.sDataBuf) ) ;
+      l_DataBuf.wNbChar = 0 ;
+      l_DataBuf.wNbCharInTx = 0 ;
       l_dwTmpDataMode = 0 ;
    }
 
@@ -1157,7 +1134,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          wSize++ ;
 
          tim_StartMsTmp( &dwTmpSend ) ;
-         while( ! uWifi_IsSendDone() )
+         while( ! uwifi_IsSendDone() )
          {
             if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_INPUT_SEND_TIMEOUT ) )
             {
@@ -1168,7 +1145,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          uwifi_Send( szOutput, wSize ) ;
 
          tim_StartMsTmp( &dwTmpSend ) ;
-         while( ! uWifi_IsSendDone() )
+         while( ! uwifi_IsSendDone() )
          {
             if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_INPUT_SEND_TIMEOUT ) )
             {
