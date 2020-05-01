@@ -54,7 +54,6 @@ void html_Init( void ) ;
 /*----------------------------------------------------------------------------*/
 
 void cwifi_Init( void ) ;
-void cwifi_EnterSaveMode( void ) ;
 
 void cwifi_RegisterScktFunc( f_ScktDataProc i_fScktDataProc, f_PostResProc i_fPostResProc ) ;
 void cwifi_RegisterHtmlFunc( f_htmlSsi i_fHtmlSsi, f_htmlCgi i_fHtmlCgi ) ;

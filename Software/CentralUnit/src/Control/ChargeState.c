@@ -204,17 +204,6 @@ void cstate_Init( void )
 
 
 /*----------------------------------------------------------------------------*/
-/* Set power save mode (reset LEDs)                                           */
-/*----------------------------------------------------------------------------*/
-
-void cstate_EnterSaveMode( void )
-{
-   cstate_HrdSetColorLedWifi( CSTATE_LED_OFF ) ;
-   cstate_HrdSetColorLedCharge( CSTATE_LED_OFF ) ;
-}
-
-
-/*----------------------------------------------------------------------------*/
 /* Set new value for minimum real charge current                              */
 /*----------------------------------------------------------------------------*/
 

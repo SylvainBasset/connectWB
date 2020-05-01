@@ -35,7 +35,6 @@
 /*----------------------------------------------------------------------------*/
 
 void sysled_Init( void ) ;
-void sysled_EnterSaveMode( void ) ;
 void sysled_TaskCyc( void ) ;
 
 
@@ -76,7 +75,6 @@ typedef enum                     /* forced charge status */
 #define CSTATE_CURRENT_MINSTOP_MAX   16
 
 void cstate_Init( void ) ;
-void cstate_EnterSaveMode( void ) ;
 
 void cstate_SetCurrentMinStop( DWORD i_dwCurrentMinStop ) ;
 DWORD cstate_GetCurrentMinStop( void ) ;

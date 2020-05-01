@@ -97,6 +97,7 @@ typedef struct                         /* eeprom structure definition for calend
 {
    DWORD adwTimeSecStart [ NB_DAYS_WEEK ] ;
    DWORD adwTimeSecEnd [ NB_DAYS_WEEK ] ;
+   DWORD dwAutoAdjust ;
 } s_CalData ;
 
 typedef struct                         /* eeprom strcuture for wifi SSID and password */

@@ -110,7 +110,7 @@
                                                 from command (ms) */
 #define CWIFI_DATAMODE_TIMEOUT  30000        /* timeout temporisation to exit data mode if no
                                                 data is sent (ms) */
-#define CWIFI_MAINT_TIMEOUT       300        /* maintenance mode activation duration (sec) */
+#define CWIFI_MAINT_TIMEOUT       900        /* maintenance mode activation duration (sec) */
 
 #define CWIFI_ACT_PERIOD          60         /* Wifi actions (scan+date/time) period, sec */
 
@@ -377,19 +377,6 @@ void cwifi_Init( void )
 
 
 /*----------------------------------------------------------------------------*/
-/* Activate Wifi power save state (all reset)                                 */
-/*----------------------------------------------------------------------------*/
-
-void cwifi_EnterSaveMode( void )
-{
-   cwifi_HrdSetResetModule( TRUE ) ;
-   cwifi_ResetVar() ;
-   l_bMaintMode = FALSE ;
-   l_bConfigDone = FALSE ;
-}
-
-
-/*----------------------------------------------------------------------------*/
 /* register data/external responses callbacks                                 */
 /*----------------------------------------------------------------------------*/
 
@@ -648,11 +635,15 @@ static void cwifi_ConnectFSM( void )
          break ;
 
       case CWIFI_STATE_CONNECTED :
+                                       /* if action period tempo ended */
          if ( tim_IsEndSecTmp( &l_dwTmpScan, CWIFI_ACT_PERIOD ) )
          {                             /* vicinity Wifi scan demand */
             cwifi_FmtAddCmdFifo( CWIFI_CMD_SCAN, "/scan.txt", "" ) ;
-                                       /* read date/time demand */
-            cwifi_FmtAddCmdFifo( CWIFI_CMD_HTTPGET, "192.168.1.16", "/" ) ;
+                                       /* if auto-adjust enabled */
+            if ( g_sDataEeprom->sCalData.dwAutoAdjust != 0 )
+            {                          /* read date/time demand */
+               cwifi_FmtAddCmdFifo( CWIFI_CMD_HTTPGET, "192.168.1.16", "/" ) ;
+            }
             tim_StartSecTmp( &l_dwTmpScan ) ;
          }
          break ;

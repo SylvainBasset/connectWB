@@ -78,13 +78,14 @@
 #define HTML_CHARGE_SSI_CURRENT_MIN      8  /* SSI in charge HTML page : minimum current to stop the charge is allowed */
 
 #define HTML_CALENDAR_SSI_DATETIME       0  /* SSI in calendar HTML page : current date time in "weekday DD/MM/YYYY HH/MM/SS" format */
-#define HTML_CALENDAR_SSI_CAL_MONDAY     1  /* SSI in calendar HTML page : monday allowed charge period */
-#define HTML_CALENDAR_SSI_CAL_TUESDAY    2  /* SSI in calendar HTML page : tuesday allowed charge period */
-#define HTML_CALENDAR_SSI_CAL_WEDNESDAY  3  /* SSI in calendar HTML page : wednesday allowed charge period */
-#define HTML_CALENDAR_SSI_CAL_THURSDAY   4  /* SSI in calendar HTML page : thursday allowed charge period */
-#define HTML_CALENDAR_SSI_CAL_FRIDAY     5  /* SSI in calendar HTML page : friday allowed charge period */
-#define HTML_CALENDAR_SSI_CAL_SATURDAY   6  /* SSI in calendar HTML page : saturday allowed charge period */
-#define HTML_CALENDAR_SSI_CAL_SUNDAY     7  /* SSI in calendar HTML page : sunday allowed charge period */
+#define HTML_CALDNDAR_SSI_AUTOADJUST     1  /* SSI in calendar HTML page : auto-adjuste time */
+#define HTML_CALENDAR_SSI_CAL_MONDAY     2  /* SSI in calendar HTML page : monday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_TUESDAY    3  /* SSI in calendar HTML page : tuesday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_WEDNESDAY  4  /* SSI in calendar HTML page : wednesday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_THURSDAY   5  /* SSI in calendar HTML page : thursday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_FRIDAY     6  /* SSI in calendar HTML page : friday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_SATURDAY   7  /* SSI in calendar HTML page : saturday allowed charge period */
+#define HTML_CALENDAR_SSI_CAL_SUNDAY     8  /* SSI in calendar HTML page : sunday allowed charge period */
 
 #define HTML_WIFI_SSI_WIFIHOME           0  /* SSI in wifi HTML page : home wifi SSID */
 #define HTML_WIFI_SSI_SECURITY           1  /* SSI in wifi HTML page : home wifi security */
@@ -374,6 +375,17 @@ static void html_ProcessSsiCalendar( DWORD i_dwParam2,
 
          break ;
 
+      case HTML_CALDNDAR_SSI_AUTOADJUST :
+         if ( g_sDataEeprom->sCalData.dwAutoAdjust == 0 )
+         {
+            strncpy( o_pszOutput, "Non", i_wStrSize ) ;
+         }
+         else
+         {
+            strncpy( o_pszOutput, "Oui", i_wStrSize ) ;
+         }
+         break ;
+
 
       case HTML_CALENDAR_SSI_CAL_MONDAY :
       case HTML_CALENDAR_SSI_CAL_TUESDAY :
@@ -573,12 +585,13 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
    unsigned int uiMinutes ;
    unsigned int uiHoursEnd ;
    unsigned int uiMinutesEnd ;
+   unsigned int uiAutoadjust ;
 
    switch ( i_dwParam2 )
    {
       case HTML_CALENDAR_CGI_DATE :
-         byNbScan = sscanf( i_pszValue, "%u,%u,%u,%u,%u", &uiDays, &uiMonth, &uiYear,
-                                                          &uiHours, &uiMinutes ) ;
+         byNbScan = sscanf( i_pszValue, "%u,%u,%u,%u,%u,%u", &uiDays, &uiMonth, &uiYear,
+                                                             &uiHours, &uiMinutes, &uiAutoadjust ) ;
          DateTime.byYear = uiYear - 2000 ;
          DateTime.byMonth = uiMonth ;
          DateTime.byDays = uiDays ;
@@ -586,10 +599,13 @@ static void html_ProcessCgiCalendar( DWORD i_dwParam2, char C* i_pszValue )
          DateTime.byMinutes = uiMinutes ;
          DateTime.bySeconds = 0 ;
 
-         if ( ( byNbScan == 5 ) && clk_IsValid( &DateTime ) )
+         if ( ( byNbScan == 6 ) && clk_IsValid( &DateTime ) )
          {
             clk_SetDateTime( &DateTime, 0 ) ;
          }
+
+         eep_write( (DWORD)&g_sDataEeprom->sCalData.dwAutoAdjust, (DWORD)uiAutoadjust ) ;
+
          //TODO: voir si affichage message erreur avec un SSI
          break ;
 
