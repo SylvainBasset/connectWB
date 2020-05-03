@@ -32,6 +32,61 @@
 
 
 /*----------------------------------------------------------------------------*/
+/* Defines                                                                    */
+/*----------------------------------------------------------------------------*/
+
+#define ERR_ERROR_BIT( ErrorId )    ( 1 << ( ErrorId - 1 ) )
+
+
+/*----------------------------------------------------------------------------*/
+/* Variables                                                                  */
+/*----------------------------------------------------------------------------*/
+
+static DWORD l_dwRecordedError ;       /* list of error set */
+static BOOL l_bErrChange ;             /* list change indicator */
+
+
+/*----------------------------------------------------------------------------*/
+/* set error                                                                  */
+/*----------------------------------------------------------------------------*/
+
+void err_Set( e_ErrorId i_eErrorId )
+{
+   DWORD dwRecordedError ;
+
+   dwRecordedError = l_dwRecordedError ;
+
+   dwRecordedError |= ERR_ERROR_BIT( i_eErrorId ) ;
+
+   if ( l_dwRecordedError != dwRecordedError )
+   {
+      l_dwRecordedError = dwRecordedError ;
+      l_bErrChange = TRUE ;
+   }
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Read list of set error since begining                                      */
+/*----------------------------------------------------------------------------*/
+
+DWORD err_GetErrorList( BOOL * o_pbChange, BOOL i_bResetChange )
+{
+   if ( o_pbChange != NULL )
+   {
+      *o_pbChange = l_bErrChange ;
+   }
+
+   if ( i_bResetChange )
+   {
+      l_bErrChange = FALSE ;
+   }
+
+   return l_dwRecordedError ;
+}
+
+
+/*----------------------------------------------------------------------------*/
 /* Fatal error                  							   				            */
 /* Note: This function set the Nucleo LED as output and makes it blink at     */
 /* 10 Hz. Never returns                                                       */

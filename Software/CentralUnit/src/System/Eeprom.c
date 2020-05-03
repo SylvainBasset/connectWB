@@ -106,29 +106,28 @@ RESULT eep_WriteWifiId( BOOL i_bIsSsid, char C* i_szParam )
 void eep_write( DWORD i_dwAddress, DWORD i_dwValue )
 {
    DWORD dwTmpTimeout ;
-                                       /* if adress is not in eeprom */
-   ERR_FATAL_IF( ( i_dwAddress < DATA_EEPROM_BASE ) ||
-                 ( i_dwAddress > DATA_EEPROM_END ) ) ;
-                                       /* if adress is not DWORD aligned */
-   ERR_FATAL_IF( ( i_dwAddress % 4 ) != 0 ) ;
-                                       /* if eeprom is locked */
-   if( ISSET( FLASH->PECR, FLASH_PECR_PELOCK ) )
-   {
-      FLASH->PEKEYR = FLASH_PEKEY1;    /* sequence to unlocking eeprom */
-      FLASH->PEKEYR = FLASH_PEKEY2;
-   }
-
-   tim_StartMsTmp( &dwTmpTimeout ) ;   /* start timeout tempo */
-                                       /* wait pervious eeprom operation has finished */
-   while ( ISSET( FLASH->SR, FLASH_FLAG_BSY ) )
-   {                                   /* if timeout is finished */
-      if ( tim_IsEndMsTmp( &dwTmpTimeout, EEP_BUSY_TIMEOUT ) )
+                                       /* adress must be in eeprom and DWORD aligned */
+   if ( ( i_dwAddress >= DATA_EEPROM_BASE ) && ( i_dwAddress <= DATA_EEPROM_END ) &&
+        ( ( i_dwAddress % 4 ) == 0 ) )
+   {                                   /* if eeprom is locked */
+      if( ISSET( FLASH->PECR, FLASH_PECR_PELOCK ) )
       {
-         ERR_FATAL() ;
+         FLASH->PEKEYR = FLASH_PEKEY1; /* sequence to unlocking eeprom */
+         FLASH->PEKEYR = FLASH_PEKEY2;
       }
-   }
+
+      tim_StartMsTmp( &dwTmpTimeout ) ; /* start timeout tempo */
+                                       /* wait pervious eeprom operation has finished */
+      while ( ISSET( FLASH->SR, FLASH_FLAG_BSY ) )
+      {                                /* if timeout is finished */
+         if ( tim_IsEndMsTmp( &dwTmpTimeout, EEP_BUSY_TIMEOUT ) )
+         {
+            break ;
+         }
+      }
                                        /* write the value */
-   *(volatile DWORD *)i_dwAddress = i_dwValue ;
+      *(volatile DWORD *)i_dwAddress = i_dwValue ;
                                        /* Set the PELOCK Bit to lock eeprom access */
-   SET_BIT( FLASH->PECR, FLASH_PECR_PELOCK ) ;
+      SET_BIT( FLASH->PECR, FLASH_PECR_PELOCK ) ;
+   }
 }

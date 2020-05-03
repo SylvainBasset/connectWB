@@ -143,7 +143,7 @@ void cal_SetDayVals( BYTE i_byWeekday, s_Time C* i_pStartTime, s_Time C* i_pEndT
    DWORD dwStartValue ;
    DWORD dwEndValue ;
                                        /* if week day outside limit */
-   ERR_FATAL_IF( i_byWeekday >= NB_DAYS_WEEK ) ;
+   DEFENS_LIM_MAX( i_byWeekday, NB_DAYS_WEEK - 1 ) ;
 
                                        /* calulate starting time in second */
    dwStartValue = cal_CalcCntFromStruct( i_pStartTime ) ;
@@ -178,7 +178,7 @@ void cal_GetDayVals( BYTE i_byWeekday, s_Time * o_pStartTime, s_Time * o_pEndTim
    DWORD dwCntEnd ;
 
                                        /* if week day outside limit */
-   ERR_FATAL_IF( i_byWeekday >= NB_DAYS_WEEK ) ;
+   DEFENS_LIM_MAX( i_byWeekday, NB_DAYS_WEEK - 1 ) ;
 
    dwCntStart = l_adwTimeSecStart[i_byWeekday] ;
    dwCntEnd = l_adwTimeSecEnd[i_byWeekday] ;
@@ -223,7 +223,7 @@ BOOL cal_IsChargeEnable( void )
    {                                   /* read current datetime */
       clk_GetDateTime( &sCurDateTime, &byWeekday ) ;
                                        /* if week day outside limit */
-      ERR_FATAL_IF( byWeekday >= NB_DAYS_WEEK ) ;
+      DEFENS_LIM_MAX( byWeekday, NB_DAYS_WEEK - 1 ) ;
                                        /* calculate current time in second */
       dwTimeSecCurrent = cal_CalcCntFromStruct( &sCurDateTime.sTime ) ;
 
@@ -284,9 +284,9 @@ static DWORD cal_CalcCntFromStruct( s_Time C* i_psTime )
    byMinutes = i_psTime->byMinutes ;   /* get minute */
    bySeconds = i_psTime->bySeconds ;   /* get second */
 
-   ERR_FATAL_IF( byHours > CAL_HOUR_MAX ) ;
-   ERR_FATAL_IF( byMinutes > CAL_MINUTES_MAX ) ;
-   ERR_FATAL_IF( bySeconds > CAL_SECONDS_MAX ) ;
+   DEFENS_LIM_MAX( byHours, CAL_HOUR_MAX ) ;
+   DEFENS_LIM_MAX( byMinutes, CAL_MINUTES_MAX ) ;
+   DEFENS_LIM_MAX( bySeconds, CAL_SECONDS_MAX ) ;
                                        /* return second value for this time */
    return ( ( byHours * 60 * 60 ) + ( byMinutes * 60 ) + bySeconds ) ;
 }
@@ -315,9 +315,9 @@ static void cal_CalcStructFromCnt( DWORD i_dwTimeSec, s_Time * o_pTime )
 
    byHours = dwTimeSec ;
 
-   ERR_FATAL_IF( byHours > CAL_HOUR_MAX ) ;
-   ERR_FATAL_IF( byMinutes > CAL_MINUTES_MAX ) ;
-   ERR_FATAL_IF( bySeconds > CAL_SECONDS_MAX ) ;
+   DEFENS_LIM_MAX( byHours, CAL_HOUR_MAX ) ;
+   DEFENS_LIM_MAX( byMinutes, CAL_MINUTES_MAX ) ;
+   DEFENS_LIM_MAX( bySeconds, CAL_SECONDS_MAX ) ;
 
    o_pTime->byHours = byHours ;
    o_pTime->byMinutes = byMinutes ;

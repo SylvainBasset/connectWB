@@ -164,7 +164,6 @@ static DWORD l_dwNbCalibActions ;      /* number of clock changes counter */
 void clk_Init( void )
 {
    DWORD dwInitTmp ;
-   SWORD sdwCalibPpmErr ;
 
    // ajout capa sur schema elec (uniquement sur partie backup ou g�n�ral)
    // v�rification si besoin de plus de tests si les appels � la HAL
@@ -199,13 +198,6 @@ void clk_Init( void )
 
    tim_StartMsTmp( &dwInitTmp ) ;      /* wait clock trim to stabilize */
    while ( ! tim_IsEndMsTmp( &dwInitTmp, 20 ) ) ;
-
-   sdwCalibPpmErr = clk_GetCalib( NULL ) ;
-   if ( ( sdwCalibPpmErr > CLK_CALIB_MAXPPM ) ||
-        ( sdwCalibPpmErr < CLK_CALIB_MINPPM ) )
-   {
-      ERR_FATAL() ;
-   }
 }
 
 
@@ -401,7 +393,7 @@ void clk_TaskCyc( void )
    if ( ( sdwCalibPpmErr > CLK_CALIB_MAXPPM ) ||
         ( sdwCalibPpmErr < CLK_CALIB_MINPPM ) )
    {
-      ERR_FATAL() ;
+      err_Set( ERR_CLOCK_CALIB ) ;
    }
 
                                        /* current datetime read */
@@ -448,11 +440,11 @@ void clk_TaskCyc( void )
 
 static void clk_ComSetDateTime( s_DateTime C* i_psDateTime )
 {
-   RTC_HandleTypeDef sRtcHandle ;
-   RTC_DateTypeDef sRtcDate ;
    BYTE byYear ;
    BYTE byMonth ;
    BYTE byDays ;
+   RTC_HandleTypeDef sRtcHandle ;
+   RTC_DateTypeDef sRtcDate ;
    BYTE by1StWeekday ;
    BYTE byWeekday ;
    WORD wIdxFirstDayOfMonth ;
@@ -460,19 +452,9 @@ static void clk_ComSetDateTime( s_DateTime C* i_psDateTime )
    e_SummerState eSummerState ;
 
 
-   ERR_FATAL_IF( ! clk_ComIsValid( i_psDateTime ) ) ;
-
-
-   SET_RTC_HANDLE( sRtcHandle ) ;      /* RTC set handle */
-
    byYear = i_psDateTime->byYear ;
    byMonth = i_psDateTime->byMonth ;
    byDays = i_psDateTime->byDays ;
-                                       /* set HAL date structure */
-   memset( &sRtcDate, 0, sizeof(sRtcDate) ) ;
-   sRtcDate.Year = byYear ;
-   sRtcDate.Month = byMonth ;
-   sRtcDate.Date = byDays ;
                                        /* calculate index to find first day of */
                                        /* month weekeday value */
    wIdxFirstDayOfMonth = ( byYear * 12 + ( byMonth - 1 ) ) / 2 ;
@@ -480,64 +462,73 @@ static void clk_ComSetDateTime( s_DateTime C* i_psDateTime )
       /* Note: each element of <k_abyFirstDayOfMonth> containt   */
       /* the weekday for 2 months, which explain the /2 division */
 
-   ERR_FATAL_IF( wIdxFirstDayOfMonth >= ARRAY_SIZE(k_abyFirstDayOfMonth) ) ;
+   if ( ( wIdxFirstDayOfMonth < ARRAY_SIZE(k_abyFirstDayOfMonth) ) && clk_ComIsValid( i_psDateTime ) )
+   {
+      SET_RTC_HANDLE( sRtcHandle ) ;   /* RTC set handle */
+                                       /* set HAL date structure */
+      memset( &sRtcDate, 0, sizeof(sRtcDate) ) ;
+      sRtcDate.Year = byYear ;
+      sRtcDate.Month = byMonth ;
+      sRtcDate.Date = byDays ;
 
-   if ( ( byMonth - 1 ) % 2 == 0 )     /* if month is odd (jan., march, etc..) */
-   {                                   /* weekday of 1st day of this month is */
+
+      if ( ( byMonth - 1 ) % 2 == 0 )  /* if month is odd (jan., march, etc..) */
+      {                                /* weekday of 1st day of this month is */
                                        /* the low 4 bits of element */
-      by1StWeekday = LO4B( k_abyFirstDayOfMonth[wIdxFirstDayOfMonth] ) ;
-   }
-   else
-   {                                   /* weekday of 1st day of this month is */
+         by1StWeekday = LO4B( k_abyFirstDayOfMonth[wIdxFirstDayOfMonth] ) ;
+      }
+      else
+      {                                /* weekday of 1st day of this month is */
                                        /* the high 4 bits of element */
-      by1StWeekday = HI4B( k_abyFirstDayOfMonth[wIdxFirstDayOfMonth] ) ;
-   }
+         by1StWeekday = HI4B( k_abyFirstDayOfMonth[wIdxFirstDayOfMonth] ) ;
+      }
 
-      /* Note : in the STM32L0 Rtc, weekday is coded from 1 (monday) */
-      /* to 7 (sunday). So, it is necessary to add +1 to the value   */
+         /* Note : in the STM32L0 Rtc, weekday is coded from 1 (monday) */
+         /* to 7 (sunday). So, it is necessary to add +1 to the value   */
 
                                        /* get the weekday of <byDays> in this month */
-   byWeekday = ( ( by1StWeekday + ( byDays - 1 ) ) % NB_DAYS_WEEK ) + 1 ;
+      byWeekday = ( ( by1StWeekday + ( byDays - 1 ) ) % NB_DAYS_WEEK ) + 1 ;
 
-   sRtcDate.WeekDay = byWeekday ;      /* set weekday value */
+      sRtcDate.WeekDay = byWeekday ;    /* set weekday value */
 
-      /* Note: To ensure data integrity both shadows registers are    */
-      /* copied to calendar register when the TR register is written. */
-      /* Hence, DT (date) register must be written before TR (time).  */
+         /* Note: To ensure data integrity both shadows registers are    */
+         /* copied to calendar register when the TR register is written. */
+         /* Hence, DT (date) register must be written before TR (time).  */
 
                                        /* write date to RTC module */
-   if ( HAL_RTC_SetDate( &sRtcHandle, &sRtcDate, RTC_FORMAT_BIN ) != HAL_OK )
-   {
-      ERR_FATAL() ;
-   }
+      if ( HAL_RTC_SetDate( &sRtcHandle, &sRtcDate, RTC_FORMAT_BIN ) != HAL_OK )
+      {
+         err_Set( ERR_CLOCK_SET ) ;
+      }
                                        /* set HAL time structure */
-   memset( &sRtcTime, 0, sizeof(sRtcTime) ) ;
-   sRtcTime.Hours = i_psDateTime->byHours ;
-   sRtcTime.Minutes = i_psDateTime->byMinutes ;
-   sRtcTime.Seconds = i_psDateTime->bySeconds ;
+      memset( &sRtcTime, 0, sizeof(sRtcTime) ) ;
+      sRtcTime.Hours = i_psDateTime->byHours ;
+      sRtcTime.Minutes = i_psDateTime->byMinutes ;
+      sRtcTime.Seconds = i_psDateTime->bySeconds ;
 
                                        /* write date to RTC module */
-   if ( HAL_RTC_SetTime( &sRtcHandle, &sRtcTime, RTC_FORMAT_BIN ) != HAL_OK )
-   {
-      ERR_FATAL() ;
-   }
+      if ( HAL_RTC_SetTime( &sRtcHandle, &sRtcTime, RTC_FORMAT_BIN ) != HAL_OK )
+      {
+         err_Set( ERR_CLOCK_SET ) ;
+      }
                                        /* get daylight status for this datetime */
-   eSummerState = clk_GetSummerState( i_psDateTime ) ;
+      eSummerState = clk_GetSummerState( i_psDateTime ) ;
 
-   RTC->WPR = 0xCAU ;                  /* disable RTC register write protection */
-   RTC->WPR = 0x53U ;
+      RTC->WPR = 0xCAU ;               /* disable RTC register write protection */
+      RTC->WPR = 0x53U ;
                                        /* test if datetime is summer type */
-   if ( ( eSummerState == CLK_SUMMER_1 ) || ( eSummerState == CLK_SUMMER_2 ) )
-   {                                   /* indicate the +1hour operation is already */
+      if ( ( eSummerState == CLK_SUMMER_1 ) || ( eSummerState == CLK_SUMMER_2 ) )
+      {                                /* indicate the +1hour operation is already */
                                        /* done (summer time) */
-      SET_BIT( RTC->CR, RTC_CR_BCK ) ;
-   }
-   else
-   {                                   /* indicate the -1hour operation is already */
+         SET_BIT( RTC->CR, RTC_CR_BCK ) ;
+      }
+      else
+      {                                /* indicate the -1hour operation is already */
                                        /* done (winter time) */
-      CLEAR_BIT( RTC->CR, RTC_CR_BCK ) ;
+         CLEAR_BIT( RTC->CR, RTC_CR_BCK ) ;
+      }
+      RTC->WPR = 0xFFU ;               /* enable RTC register write protection */
    }
-   RTC->WPR = 0xFFU ;                  /* enable RTC register write protection */
 }
 
 
@@ -695,7 +686,7 @@ static void clk_RtcInit( void )
                                        /* HAL initialization method */
    if ( HAL_RTC_Init( &sRtcHandle ) != HAL_OK )
    {
-      ERR_FATAL() ;                    /* go to error if it fails */
+      err_Set( ERR_CLOCK_INIT ) ;
    }
 }
 

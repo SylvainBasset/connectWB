@@ -741,32 +741,33 @@ static void cwifi_ExecSendCmd( void )
 
    if ( ( l_eWifiState != CWIFI_STATE_OFF ) &&
         ( l_CmdCurStatus.eStatus == CWIFI_CMDST_NONE ) &&
-        ( byIdxOut != l_CmdFifo.byIdxIn ) )
+        ( byIdxOut != l_CmdFifo.byIdxIn ) &&
+        uwifi_IsSendDone() )
    {
       pCmdItem = &l_CmdFifo.aCmdItems[byIdxOut] ;
       eCmdId = pCmdItem->eCmdId ;
 
-      ERR_FATAL_IF( ! uwifi_IsSendDone() ) ;
-
       bUartAccept = uwifi_Send( pCmdItem->szStrCmd, strlen(pCmdItem->szStrCmd) ) ;
-      ERR_FATAL_IF( ! bUartAccept ) ;
 
-      bIsResult = k_aCmdDesc[ (BYTE)(eCmdId) - 1 ].bIsResult ;
-
-      if ( bIsResult )
+      if ( bUartAccept )
       {
-         l_CmdCurStatus.eStatus = CWIFI_CMDST_PROCESSING ;
-         tim_StartMsTmp( &l_CmdCurStatus.dwTmpCmdTimeout ) ;
-      }
-      else
-      {
-         l_CmdCurStatus.eStatus = CWIFI_CMDST_END_OK ;
-      }
-      l_CmdCurStatus.eCmdId = eCmdId ;
-      l_CmdCurStatus.wStrContentIdx = 0 ;
+         bIsResult = k_aCmdDesc[ (BYTE)(eCmdId) - 1 ].bIsResult ;
 
-      byIdxOut = NEXTIDX( byIdxOut, l_CmdFifo.aCmdItems )  ;
-      l_CmdFifo.byIdxOut = byIdxOut ;
+         if ( bIsResult )
+         {
+            l_CmdCurStatus.eStatus = CWIFI_CMDST_PROCESSING ;
+            tim_StartMsTmp( &l_CmdCurStatus.dwTmpCmdTimeout ) ;
+         }
+         else
+         {
+            l_CmdCurStatus.eStatus = CWIFI_CMDST_END_OK ;
+         }
+         l_CmdCurStatus.eCmdId = eCmdId ;
+         l_CmdCurStatus.wStrContentIdx = 0 ;
+
+         byIdxOut = NEXTIDX( byIdxOut, l_CmdFifo.aCmdItems )  ;
+         l_CmdFifo.byIdxOut = byIdxOut ;
+      }
    }
 }
 
@@ -1129,7 +1130,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          {
             if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_INPUT_SEND_TIMEOUT ) )
             {
-               ERR_FATAL() ;
+               break ;
             }
          }
 
@@ -1140,7 +1141,7 @@ static RESULT cwifi_WindCallBackInput( char C* i_pszProcessData, BOOL i_bPending
          {
             if ( tim_IsEndMsTmp( &dwTmpSend, CWIFI_INPUT_SEND_TIMEOUT ) )
             {
-               ERR_FATAL() ;
+               break ;
             }
          }
          l_bInhPendingData = TRUE ;

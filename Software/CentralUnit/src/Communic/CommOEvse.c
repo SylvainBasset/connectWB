@@ -191,8 +191,10 @@ static void coevse_AnalyseRes( void ) ;
 
 static void coevse_GetChecksum( char * o_sChecksum, BYTE i_byCkSize,
                                 char C* i_szData ) ;
-static void coevse_CmdSetErr( void ) ;
+
 static void coevse_CmdStart( e_CmdId i_eCmdId ) ;
+static void coevse_CmdSetErr( void ) ;
+static void coevse_SetError( void ) ;
 static void coevse_CmdEnd( void ) ;
 
 static void coevse_HrdInit( void ) ;
@@ -204,11 +206,10 @@ static void coevse_HrdSendCmd( char C* i_pszStrCmd, BYTE i_bySize ) ;
 /*----------------------------------------------------------------------------*/
 
 static e_CmdId l_eCmd ;                /* current sending command, COEVSE_CMD_NONE if no command */
+
+static f_PostResProc l_fPostResProc ;  /* addresse of callback function for external command result */
                                        /* external command string */
 static char l_szExtCmdStr [ COEVSE_MAX_CMD_LEN + 1 ] ;
-                                       /* addresse of callback function for external command result */
-static f_PostResProc l_fPostResProc ;
-
 static s_CmdFifo l_CmdFifo ;           /* command FIFO */
                                        /* Buffer for sending command (must be
                                           declared in static bescause of use of DMA) */
@@ -402,7 +403,7 @@ void coevse_TaskCyc( void )
          }
       }
                                        /* verification of charging metrics temporisation */
-      if ( l_bOpenEvseRdy && tim_IsEndMsTmp( &l_dwGetStateTmp, COEVSE_GETSTATE_PER ) )
+      if ( tim_IsEndMsTmp( &l_dwGetStateTmp, COEVSE_GETSTATE_PER ) )
       {
          tim_StartMsTmp( &l_dwGetStateTmp ) ;
 
@@ -457,23 +458,26 @@ static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbP
    byCurIdxIn = l_CmdFifo.byIdxIn ;
                                        /* caculate next input index */
    byNextIdxIn = NEXTIDX( byCurIdxIn, l_CmdFifo.aCmdData ) ;
-   l_CmdFifo.byIdxIn = byNextIdxIn ;
                                        /* if the FIFO overflows */
-   if ( byNextIdxIn == l_CmdFifo.byIdxOut )
+   if ( byNextIdxIn != l_CmdFifo.byIdxOut )
    {
-      ERR_FATAL() ;
-   }
+      l_CmdFifo.byIdxIn = byNextIdxIn ;
                                        /* fill the new element */
-   pCmdData = &l_CmdFifo.aCmdData[byCurIdxIn] ;
-   pCmdData->eCmdId = i_eCmdId ;
-   pCmdData->byNbParam = i_byNbParam ;
+      pCmdData = &l_CmdFifo.aCmdData[byCurIdxIn] ;
+      pCmdData->eCmdId = i_eCmdId ;
+      pCmdData->byNbParam = i_byNbParam ;
 
-   if ( i_awParams != NULL )           /* fill parameters if needed */
-   {
-      for ( byIdx = 0 ; byIdx < i_byNbParam ; byIdx++ )
+      if ( i_awParams != NULL )        /* fill parameters if needed */
       {
-         pCmdData->wParam[byIdx] = i_awParams[byIdx] ;
+         for ( byIdx = 0 ; byIdx < i_byNbParam ; byIdx++ )
+         {
+            pCmdData->wParam[byIdx] = i_awParams[byIdx] ;
+         }
       }
+   }
+   else
+   {
+      err_Set( ERR_OEVSE_COM_BUF_FULL ) ;
    }
 }
 
@@ -535,24 +539,25 @@ static void coevse_SendCmdFifo( void )
       byStrRemSize -= byFmtSize ;      /* new remaining size */
    }
 
-   ERR_FATAL_IF( byStrRemSize < 4 ) ;  /* if no size for checksum */
-
-   if ( pCmdDesc->szChecksum == NULL )
-   {                                   /* compute checksum and add it at the end of the string */
-      coevse_GetChecksum( szChecksum, sizeof(szChecksum), l_szStrCmdBuffer ) ;
-      *pszStrCmd = '^' ;
-      pszStrCmd++ ;
-      *pszStrCmd = szChecksum[0] ;
-      pszStrCmd++ ;
-      *pszStrCmd = szChecksum[1] ;
-      pszStrCmd++ ;
-      *pszStrCmd = '\r' ;
-      pszStrCmd++ ;
-      *pszStrCmd = '\0' ;
-   }
-   else
-   {                                   /* add static checksum */
-      strlcpy( pszStrCmd, pCmdDesc->szChecksum, byStrRemSize ) ;
+   if ( byStrRemSize >= 4 )            /* if size left for checksum */
+   {
+      if ( pCmdDesc->szChecksum == NULL )
+      {                                /* compute checksum and add it at the end of the string */
+         coevse_GetChecksum( szChecksum, sizeof(szChecksum), l_szStrCmdBuffer ) ;
+         *pszStrCmd = '^' ;
+         pszStrCmd++ ;
+         *pszStrCmd = szChecksum[0] ;
+         pszStrCmd++ ;
+         *pszStrCmd = szChecksum[1] ;
+         pszStrCmd++ ;
+         *pszStrCmd = '\r' ;
+         pszStrCmd++ ;
+         *pszStrCmd = '\0' ;
+      }
+      else
+      {                                /* add static checksum */
+         strlcpy( pszStrCmd, pCmdDesc->szChecksum, byStrRemSize ) ;
+      }
    }
 
    coevse_CmdStart( eCmd ) ;           /* start command transmission */
@@ -637,6 +642,7 @@ static void coevse_AnalyseRes( void )
 /*----------------------------------------------------------------------------*/
 /* Compute checksum and store it in string                                    */
 /*----------------------------------------------------------------------------*/
+
 static void coevse_GetChecksum( char * o_sChecksum, BYTE i_byStrSize,
                                 char C* i_szData )
 {
@@ -662,26 +668,6 @@ static void coevse_GetChecksum( char * o_sChecksum, BYTE i_byStrSize,
 
 
 /*----------------------------------------------------------------------------*/
-/* error treatment                                                            */
-/*----------------------------------------------------------------------------*/
-
-static void coevse_CmdSetErr( void )
-{
-   if ( l_byNbRetry >= COEVSE_MAXRETRY )
-   {
-      ERR_FATAL() ;
-   }
-   l_byNbRetry++ ;
-
-   coevse_CmdEnd() ;                /* stop the sending to retry an other one */
-
-   /* note : the output index of command FIFO is incremented only if the     */
-   /* response valid (see coevse_AnalyseRes() ). So at this point the output */
-   /* index remain the same, and the next retry send the same command        */
-}
-
-
-/*----------------------------------------------------------------------------*/
 /* Start command sending                                                      */
 /*----------------------------------------------------------------------------*/
 
@@ -696,6 +682,55 @@ static void coevse_CmdStart( e_CmdId i_eCmdId )
    l_eCmd = i_eCmdId ;
 
    HAL_NVIC_EnableIRQ( UOEVSE_IRQn ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* error treatment                                                            */
+/*----------------------------------------------------------------------------*/
+
+static void coevse_CmdSetErr( void )
+{
+   if ( l_byNbRetry >= COEVSE_MAXRETRY )
+   {
+      coevse_SetError() ;
+   }
+   else
+   {
+      l_byNbRetry++ ;
+   }
+
+   coevse_CmdEnd() ;                /* stop the sending to retry an other one */
+
+   /* note : the output index of command FIFO is incremented only if the     */
+   /* response valid (see coevse_AnalyseRes() ). So at this point the output */
+   /* index remain the same, and the next retry send the same command        */
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* Hardware error processing                                                  */
+/*----------------------------------------------------------------------------*/
+
+static void coevse_SetError( void )
+{
+                                       /* send reset command */
+   coevse_HrdSendCmd( k_szStrReset, sizeof(k_szStrReset) ) ;
+
+   l_eCmd = COEVSE_CMD_NONE ;          /* initialize commands variables */
+   memset( l_szExtCmdStr, 0, sizeof(l_szExtCmdStr) ) ;
+   memset( l_szStrCmdBuffer, 0, sizeof(l_szStrCmdBuffer) ) ;
+   memset( &l_CmdFifo, 0, sizeof(l_CmdFifo) ) ;
+
+   l_byNbRetry = 0 ;
+   l_dwCmdTimeout = 0 ;
+   l_dwGetStateTmp = 0 ;
+   l_bOpenEvseRdy = 0 ;
+
+   l_bOpenEvseRdy = FALSE ;
+   tim_StartMsTmp( &l_dwTmpStart ) ;
+
+   err_Set( ERR_OEVSE_COM ) ;
 }
 
 

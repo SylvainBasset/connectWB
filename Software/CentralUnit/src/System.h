@@ -49,6 +49,19 @@
       err_FatalError() ;     \
    }
 
+typedef enum                           /* error Id */
+{
+   ERR_NULL = 0,
+   ERR_CLOCK_INIT = 1,                 /* clock initialisation error */
+   ERR_CLOCK_CALIB,                    /* clock calibration error */
+   ERR_CLOCK_SET,                      /* clock date/time setting error */
+   ERR_OEVSE_COM,                      /* openEvse communication error */
+   ERR_OEVSE_COM_BUF_FULL,             /* openEvse full buffer error */
+} e_ErrorId ;
+
+
+void err_Set( e_ErrorId i_eErrorId ) ;
+DWORD err_GetErrorList( BOOL * o_pbChange, BOOL i_bResetChange ) ;
 
 void err_FatalError( void ) ;
 

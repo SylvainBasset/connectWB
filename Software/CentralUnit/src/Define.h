@@ -98,47 +98,49 @@ typedef BYTE RESULT ;               /* unsigned 8 bits return statut (r) */
 #define C   const                   /* constant keyword */
 
                                     /* test if one of bit in set <Bits> is set in <Value> */
-#define ISSET( Val, Bits )       ( ( (Val) & (Bits) ) != 0 )
+#define ISSET( Val, Bits )             ( ( (Val) & (Bits) ) != 0 )
 
                                     /* return elements number for an array */
-#define ARRAY_SIZE( Array )      ( sizeof( Array ) / sizeof( Array[0] ) )
+#define ARRAY_SIZE( Array )            ( sizeof( Array ) / sizeof( Array[0] ) )
 
                                     /* return next index value in a round buffer array */
-#define NEXTIDX( Idx, Array )    ( ( (Idx) < ARRAY_SIZE(Array) - 1 ) ? Idx + 1 : 0 )
+#define NEXTIDX( Idx, Array )          ( ( (Idx) < ARRAY_SIZE(Array) - 1 ) ? Idx + 1 : 0 )
 
 
                                     /* return the 4 lowest bits on a BYTE */
-#define LO4B( byValue )          ( (BYTE)( byValue & 0xF ) )
+#define LO4B( byValue )                ( (BYTE)( byValue & 0xF ) )
                                     /* return the 4 highest bits on a BYTE */
-#define HI4B( byValue )          ( (BYTE)( byValue >> 4 ) )
+#define HI4B( byValue )                ( (BYTE)( byValue >> 4 ) )
                                     /* make BYTE from 2 4-bits parts */
-#define MAKEBYTE( byLo, byHi )   ( ( (BYTE)( byHi & 0xFu ) << 4 ) | (BYTE)( byLo & 0xFu ) )
+#define MAKEBYTE( byLo, byHi )         ( ( (BYTE)( byHi & 0xFu ) << 4 ) | (BYTE)( byLo & 0xFu ) )
 
                                     /* return the 8 lowest bits on a WORD */
-#define LOBYTE( wValue )         ( (BYTE)( wValue & 0xFF ) )
+#define LOBYTE( wValue )               ( (BYTE)( wValue & 0xFF ) )
                                     /* return the 8 highest bits on a WORD */
-#define HIBYTE( wValue )         ( (BYTE)( wValue >> 8 ) )
+#define HIBYTE( wValue )               ( (BYTE)( wValue >> 8 ) )
                                     /* make WORD from 2 BYTE parts */
-#define MAKEWORD( byLo, byHi )   ( ( (WORD)( byHi & 0xFFu ) << 8 ) | (WORD)( byLo & 0xFFu ) )
+#define MAKEWORD( byLo, byHi )         ( ( (WORD)( byHi & 0xFFu ) << 8 ) | (WORD)( byLo & 0xFFu ) )
 
                                     /* return the 16 lowest bits on a DWORD */
-#define LOWORD( wValue )         ( (WORD)( wValue & 0xFFFF ) )
+#define LOWORD( wValue )               ( (WORD)( wValue & 0xFFFF ) )
                                     /* return the 16 highest bits on a DWORD */
-#define HIWORD( wValue )         ( (WORD)( wValue >> 16 ) )
+#define HIWORD( wValue )               ( (WORD)( wValue >> 16 ) )
                                     /* make DWORD from 2 WORD parts */
-#define MAKEDWORD( wLo, wHi )    ( ( (DWORD)( wHi & 0xFFFFu ) << 16 ) | (DWORD)( wLo & 0xFFFFu ) )
+#define MAKEDWORD( wLo, wHi )          ( ( (DWORD)( wHi & 0xFFFFu ) << 16 ) | (DWORD)( wLo & 0xFFFFu ) )
 
                                  /* get minimum between <Val1> and <Val1> */
-#define GETMIN( Val1, Val2 )     ( ( (Val1) < (Val2) ) ? (Val1) : (Val2) )
+#define GETMIN( Val1, Val2 )           ( ( (Val1) < (Val2) ) ? (Val1) : (Val2) )
                                  /* get maximum between <Val1> and <Val2> */
-#define GETMAX( Val1, Val2 )     ( ( (Val1) < (Val2) ) ? (Val2) : (Val1) )
+#define GETMAX( Val1, Val2 )           ( ( (Val1) < (Val2) ) ? (Val2) : (Val1) )
 
                                  /* compute absolute difference */
-#define ABS_DIFF(Val1, Val2)     ( ( Val1 > Val2 ) ? ( Val1 - Val2 ) : ( Val2 - Val1 ) )
+#define ABS_DIFF(Val1, Val2 )          ( ( Val1 > Val2 ) ? ( Val1 - Val2 ) : ( Val2 - Val1 ) )
 
                                  /* use paramètre in a test, to avoid non-used
                                     parameter warning */
-#define USEPARAM( Val )          if ( Val ) {} ;
+#define USEPARAM( Val )                if ( Val ) {} ;
+
+#define DEFENS_LIM_MAX( Val, Limit )   Val = Val > Limit ? Limit : Val
 
 
 /*-------------------------------------------------------------------------*/

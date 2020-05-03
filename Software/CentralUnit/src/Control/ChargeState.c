@@ -286,10 +286,6 @@ void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize )
          *pszOut++= ' ' ;
          wSize-- ;
       }
-      else
-      {
-         ERR_FATAL() ;
-      }
 
       byIdxOut = NEXTIDX( byIdxOut, l_aeHistState ) ;
    } while ( byIdxOut != l_byHistStateIdx ) ;
@@ -473,7 +469,8 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
          break ;
 
       default :
-         ERR_FATAL() ;
+         eNextChargeState = CSTATE_OFF ;
+         bEnabled = FALSE ;
          break ;
    }
 
@@ -642,7 +639,7 @@ static void cstate_ProcessLed( void )
          break ;
 
       default :
-         ERR_FATAL() ;
+         eChargeLedColor = CSTATE_LED_OFF ;
          break ;
    }
 
