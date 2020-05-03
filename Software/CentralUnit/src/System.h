@@ -61,7 +61,7 @@ typedef enum                           /* error Id */
 
 
 void err_Set( e_ErrorId i_eErrorId ) ;
-DWORD err_GetErrorList( BOOL * o_pbChange, BOOL i_bResetChange ) ;
+DWORD err_GetErrorList( BOOL * o_pbChange, BOOL i_bResetChange, CHAR * o_pszStr, WORD i_wSize ) ;
 
 void err_FatalError( void ) ;
 

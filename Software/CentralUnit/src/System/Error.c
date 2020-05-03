@@ -70,8 +70,10 @@ void err_Set( e_ErrorId i_eErrorId )
 /* Read list of set error since begining                                      */
 /*----------------------------------------------------------------------------*/
 
-DWORD err_GetErrorList( BOOL * o_pbChange, BOOL i_bResetChange )
+DWORD err_GetErrorList( BOOL * o_pbChange, BOOL i_bResetChange, CHAR * o_pszStr, WORD i_wSize  )
 {
+   snprintf( o_pszStr, i_wSize, "0x%08lx", l_dwRecordedError ) ;
+
    if ( o_pbChange != NULL )
    {
       *o_pbChange = l_bErrChange ;

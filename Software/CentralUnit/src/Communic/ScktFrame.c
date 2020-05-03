@@ -99,11 +99,16 @@ typedef enum                                 /* Frames command Ids */
    SFRM_ID_WIFI_SETPWD,                      /* $03: Password set */
    SFRM_ID_WIFI_EXITMAINT,                   /* $04: Exit maintenance mode */
    SFRM_ID_GETDEVICE,                        /* $05: Get device name */
+
    SFRM_ID_RAPI_BRIGE,                       /* $10: OpenEvse RAPI bridge */
    SFRM_ID_RAPI_CHARGEINFO,                  /* $11: Get charge information */
    SFRM_ID_CHARGE_HISTSTATE,                 /* $12: Get charge history */
    SFRM_ID_CHARGE_ADCVAL,                    /* $13: Get CP line adc value */
+
+   SFRM_ID_ERRORS_LIST,                      /* $20: Get error list */
+
    SFRM_ID_RESET,                            /* $7F: "ScktFrame" reset */
+
    SFRM_ID_LAST
 } e_sfrmFrameId ;
 
@@ -124,15 +129,16 @@ typedef struct                               /* Frame descriptor */
                                              /* table of frame descriptor */
 static s_FrameDesc const k_aFrameDesc [] =
 {
-   _D( WIFI_BRIGE,       "$01:", "$81:", TRUE,  TRUE ),
+   _D( WIFI_BRIGE,       "$01:", "$81:", TRUE,  TRUE  ),
    _D( WIFI_SETSSID,     "$02:", "$82:", FALSE, FALSE ),
    _D( WIFI_SETPWD,      "$03:", "$83:", FALSE, FALSE ),
    _D( WIFI_EXITMAINT,   "$04:", "$84:", FALSE, FALSE ),
    _D( GETDEVICE,        "$05:", "$85:", FALSE, FALSE ),
-   _D( RAPI_BRIGE,       "$10:", "$90:", FALSE, TRUE ),
+   _D( RAPI_BRIGE,       "$10:", "$90:", FALSE, TRUE  ),
    _D( RAPI_CHARGEINFO,  "$11:", "$91:", FALSE, FALSE ),
    _D( CHARGE_HISTSTATE, "$12:", "$92:", FALSE, FALSE ),
    _D( CHARGE_ADCVAL,    "$13:", "$93:", FALSE, FALSE ),
+   _D( ERRORS_LIST,      "$20:", "$A0:", FALSE, FALSE ),
    _D( RESET,            "$7F:", "$FF:", FALSE, FALSE ),
 } ;
 
@@ -226,7 +232,7 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
          {
             cwifi_AddExtData( "at+s." ) ;
          }
-         cwifi_AskFlushData() ;              //SBA : pas nécessaire si pas bridge ?
+         cwifi_AskFlushData() ;              //SBA : pas nÃ©cessaire si pas bridge ?
 
          if ( ! pFrmDesc->bDelayRes )
          {
@@ -282,7 +288,7 @@ static void sfrm_ExecCmd( char C* i_pszArg )
          break ;
 
       case SFRM_ID_GETDEVICE :
-         pszName = id_GetName() ; //SBA vérifier pourquoi ca marche sans '\r\n' ??
+         pszName = id_GetName() ; //SBA vÃ©rifier pourquoi ca marche sans '\r\n' ??
          sfrm_SendRes( pszName ) ;
          break ;
 
@@ -307,6 +313,11 @@ static void sfrm_ExecCmd( char C* i_pszArg )
 
       case SFRM_ID_CHARGE_ADCVAL :
          cstate_GetAdcVal( szStrInfo, sizeof(szStrInfo) );
+         sfrm_SendRes( szStrInfo ) ;
+         break ;
+
+      case SFRM_ID_ERRORS_LIST :
+         err_GetErrorList( NULL, FALSE, szStrInfo, sizeof(szStrInfo) );
          sfrm_SendRes( szStrInfo ) ;
          break ;
 
