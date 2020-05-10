@@ -90,8 +90,6 @@ static char const k_szStrReset [] = "$FR^30\r" ;
 
 typedef void (*f_ResultCallback)( char C* i_pszDataRes ) ;
 
-//SBA: GETEVSESTATE needs its constant checksum
-//---------------------------------------------
 
    /* Note : LIST_CMD() defines the CRC value (<szChecksum> field of         */
    /* s_CmdDesc struct) when the command does not contain variables elements.*/
@@ -110,8 +108,9 @@ typedef void (*f_ResultCallback)( char C* i_pszDataRes ) ;
 #define LIST_CMD( Op, Opg ) \
    Op(   ENABLE,        Enable,        "$FE",    "^27\r" ) \
    Op(   DISABLE,       Disable,       "$FD",    "^26\r" ) \
-   Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d", NULL )    \
-   Opg(  GETEVSESTATE,  GetEVSEState,  "$GS",    NULL ) \
+   Op(   SETLOCK,       SetLock,       "$S4 %d", NULL    ) \
+   Op(   SETCURRENTCAP, SetCurrentCap, "$SC %d", NULL    ) \
+   Opg(  GETEVSESTATE,  GetEVSEState,  "$GS",    "^30\r" ) \
    Opg(  GETCURRENTCAP, GetCurrentCap, "$GE",    "^26\r" ) \
    Opg(  GETFAULT,      GetFault,      "$GF",    "^25\r" ) \
    Opg(  GETCHARGPARAM, GetChargParam, "$GG",    "^24\r" ) \
@@ -168,6 +167,7 @@ typedef struct                         /* response of RAPI commmand */
 typedef struct                         /* module data */
 {
    e_coevseEvseState eEvseState ;      /* current openEVSE state */
+   BOOL bPlugEvent ;                   /* plugging event (transition from state A to B) */
    DWORD dwCurrentCap ;                /* charing current maximum capacity in A */
    SDWORD sdwChargeVoltage ;           /* charing voltage in mV */
    SDWORD sdwChargeCurrent ;           /* charing current in mA */
@@ -239,6 +239,8 @@ void coevse_Init( void )
    l_bOpenEvseRdy = FALSE ;
 
    tim_StartMsTmp( &l_dwTmpStart ) ;
+
+   coevse_AddCmdFifo( COEVSE_CMD_ENABLE, NULL, 0 ) ;
 }
 
 
@@ -256,16 +258,20 @@ void coevse_RegisterRetScktFunc( f_PostResProc i_fPostResProc )
 /* Set current capacity                                                       */
 /*----------------------------------------------------------------------------*/
 
-void coevse_SetEnable( BOOL i_bEnable )
+void coevse_SetChargeEnable( BOOL i_bEnable )
 {
-   if ( i_bEnable )
+   WORD awParam [1] ;
+
+   if ( i_bEnable )                    /* if charge is enabled */
    {
-      coevse_AddCmdFifo( COEVSE_CMD_ENABLE, NULL, 0 ) ;
+      awParam[0] = 0 ;                 /* disable lockstate */
    }
    else
    {
-      coevse_AddCmdFifo( COEVSE_CMD_DISABLE, NULL, 0 ) ;
+      awParam[0] = 1 ;                 /* enable lockstate */
    }
+
+   coevse_AddCmdFifo( COEVSE_CMD_SETLOCK, awParam, 1 ) ;
 }
 
 
@@ -293,7 +299,7 @@ DWORD coevse_GetCurrentCap( void )
 
 
 /*----------------------------------------------------------------------------*/
-/* Get if EV is plugged                                                       */
+/* Get EV state                                                               */
 /*----------------------------------------------------------------------------*/
 
 e_coevseEvseState coevse_GetEvseState( void )
@@ -301,6 +307,24 @@ e_coevseEvseState coevse_GetEvseState( void )
    return l_Status.eEvseState ;
 }
 
+
+/*----------------------------------------------------------------------------*/
+/* Ask if plugging event                                                      */
+/*----------------------------------------------------------------------------*/
+
+BOOL coevse_IsPlugEvent( BOOL i_bReset )
+{
+   BOOL bPlugEvent ;
+
+   bPlugEvent = l_Status.bPlugEvent ;
+
+   if ( i_bReset )
+   {
+      l_Status.bPlugEvent = 0 ;
+   }
+
+   return bPlugEvent ;
+}
 
 
 /*----------------------------------------------------------------------------*/
@@ -470,7 +494,11 @@ static void coevse_AddCmdFifo( e_CmdId i_eCmdId, WORD * i_awParams, BYTE i_byNbP
       if ( i_awParams != NULL )        /* fill parameters if needed */
       {
          for ( byIdx = 0 ; byIdx < i_byNbParam ; byIdx++ )
-         {
+         {                             /* if param buffer overflows */
+            if ( byIdx >= ARRAY_SIZE( pCmdData->wParam ) )
+            {
+               break ;
+            }
             pCmdData->wParam[byIdx] = i_awParams[byIdx] ;
          }
       }
@@ -766,6 +794,11 @@ static void coevse_CmdresultGetEVSEState( char C* i_pszDataRes )
    }
    else if ( i_pszDataRes[1] == '2' )
    {
+      if ( l_Status.eEvseState == COEVSE_STATE_NOTCONNECTED )
+      {
+         l_Status.bPlugEvent = TRUE ;
+      }
+
       l_Status.eEvseState = COEVSE_STATE_CONNECTED ;
    }
    else if ( i_pszDataRes[1] == '3' )

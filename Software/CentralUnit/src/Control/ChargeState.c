@@ -133,7 +133,7 @@ typedef struct
    WORD wAdcMoy ;                      /* average value of Cp line measurment */
    BOOL bEvConnected ;                 /* plug state from cp line measurment */
    BOOL bPrevEvConnected ;             /* previous plug state */
-   DWORD dwTmpPluging ;                /* delay to enable openEVSE because of plugging */
+   DWORD dwTmpPlugging ;               /* delay to enable openEVSE because of plugging */
 } s_cstateData ;
 
 
@@ -321,17 +321,23 @@ void cstate_TaskCyc( void )
 
    l_Data.wAdcMoy = cstate_ProcessAdc() ;             /* read Cp line adc value */
 
-   if ( l_Data.wAdcMoy < CSTATE_ADC_EV_CONNECT_TH )   /* if value is below the connect thershold */
+   //if ( l_Data.wAdcMoy < CSTATE_ADC_EV_CONNECT_TH )   /* if value is below the connect thershold */
+   //{
+   //   if ( ! l_Data.bEvConnected )                    /* if there was no Ev connected before */
+   //   {
+   //      l_Data.bEvConnected = TRUE ;
+   //      tim_StartSecTmp( &l_Data.dwTmpPlugging ) ;
+   //   }
+   //}
+   //else
+   //{
+   //   l_Data.bEvConnected = FALSE ;
+   //}
+
+   if ( coevse_IsPlugEvent( TRUE ) )                  /* if plugging action is detected */
    {
-      if ( ! l_Data.bEvConnected )                    /* if there was no Ev connected before */
-      {
-         l_Data.bEvConnected = TRUE ;
-         tim_StartSecTmp( &l_Data.dwTmpPluging ) ;
-      }
-   }
-   else
-   {
-      l_Data.bEvConnected = FALSE ;
+      tim_StartSecTmp( &l_Data.dwTmpPlugging ) ;      /* start tempo to enable charge shortly */
+                                                      /* (even if charge is not allowed) */
    }
 
    bPress = cstate_ProcessButton( &bLongPress ) ;     /* check main button */
@@ -397,7 +403,7 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
             eNextChargeState = CSTATE_ON_WAIT ;
          }
 
-         if ( tim_GetRemainSecTmp( &l_Data.dwTmpPluging, CSTATE_PLUGING_DELAY ) != 0 )
+         if ( tim_GetRemainSecTmp( &l_Data.dwTmpPlugging, CSTATE_PLUGING_DELAY ) != 0 )
          {
             bEnabled = TRUE ;
          }
@@ -479,7 +485,7 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
    if ( l_Data.bEnabled != bEnabled )
    {
       l_Data.bEnabled = bEnabled ;
-      coevse_SetEnable( bEnabled ) ;
+      coevse_SetChargeEnable( bEnabled ) ;
    }
 
    if ( eNextChargeState != CSTATE_NULL )

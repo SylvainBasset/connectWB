@@ -105,11 +105,12 @@ typedef enum                                    /* EVSE state */
 void coevse_Init( void ) ;
 void coevse_RegisterRetScktFunc( f_PostResProc i_fPostResProc ) ;
 
-void coevse_SetEnable( BOOL i_bEnable ) ;
+void coevse_SetChargeEnable( BOOL i_bEnable ) ;
 void coevse_SetCurrentCap( BYTE i_byCurrent ) ;
 DWORD coevse_GetCurrentCap( void ) ;
 
 e_coevseEvseState coevse_GetEvseState( void ) ;
+BOOL coevse_IsPlugEvent( BOOL i_bReset ) ;
 SDWORD coevse_GetCurrent( void ) ;
 SDWORD coevse_GetVoltage( void ) ;
 DWORD coevse_GetEnergy( void ) ;
