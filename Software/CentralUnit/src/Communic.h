@@ -114,6 +114,7 @@ BOOL coevse_IsPlugEvent( BOOL i_bReset ) ;
 SDWORD coevse_GetCurrent( void ) ;
 SDWORD coevse_GetVoltage( void ) ;
 DWORD coevse_GetEnergy( void ) ;
+void coevse_GetHist( CHAR * o_pszHistCmd, WORD i_wSize ) ;
 void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize ) ;
 
 RESULT coevse_AddExtCmd( char C* i_szStrCmd ) ;

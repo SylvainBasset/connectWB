@@ -61,8 +61,7 @@
                sent with the response
    $12:      : Get charge history (response code 0x92) : The 10 last charge states
                are sent with the response (see ChargeState.c)
-   $13:      : Get CP line adc value (response code 0x93) : Adc Value is sent with
-               the response.
+   $13:      : RAPI (openEvse) Sx commands history
    $7F:      : "ScktFrame" reset (response code 0xFF) : reset the "ScktFrame" state
                <l_eFrmId>, in case of pending delayed response.
 
@@ -88,7 +87,10 @@
 /* Defines                                                                    */
 /*----------------------------------------------------------------------------*/
 
-#define SFRM_DATA_ITEM_SIZE    128           /* Frame response size */
+#define SFRM_DATA_PAYLOAD_SIZE         512   /* Frame payload size */
+                                             /* Frame response size (plus response code size) */
+#define SFRM_DATA_ITEM_SIZE \
+            ( SFRM_DATA_PAYLOAD_SIZE + 5 )
 
 typedef enum                                 /* Frames command Ids */
 {
@@ -103,7 +105,7 @@ typedef enum                                 /* Frames command Ids */
    SFRM_ID_RAPI_BRIGE,                       /* $10: OpenEvse RAPI bridge */
    SFRM_ID_RAPI_CHARGEINFO,                  /* $11: Get charge information */
    SFRM_ID_CHARGE_HISTSTATE,                 /* $12: Get charge history */
-   SFRM_ID_CHARGE_ADCVAL,                    /* $13: Get CP line adc value */
+   SFRM_ID_COEVSE_HIST,                      /* $13: Get RAPI Sx History */
 
    SFRM_ID_ERRORS_LIST,                      /* $20: Get error list */
 
@@ -137,7 +139,7 @@ static s_FrameDesc const k_aFrameDesc [] =
    _D( RAPI_BRIGE,       "$10:", "$90:", FALSE, TRUE  ),
    _D( RAPI_CHARGEINFO,  "$11:", "$91:", FALSE, FALSE ),
    _D( CHARGE_HISTSTATE, "$12:", "$92:", FALSE, FALSE ),
-   _D( CHARGE_ADCVAL,    "$13:", "$93:", FALSE, FALSE ),
+   _D( COEVSE_HIST,      "$13:", "$93:", FALSE, FALSE ),
    _D( ERRORS_LIST,      "$20:", "$A0:", FALSE, FALSE ),
    _D( RESET,            "$7F:", "$FF:", FALSE, FALSE ),
 } ;
@@ -232,7 +234,7 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
          {
             cwifi_AddExtData( "at+s." ) ;
          }
-         cwifi_AskFlushData() ;              //SBA : pas nÃ©cessaire si pas bridge ?
+         cwifi_AskFlushData() ;              //SBA : pas nÃƒÂ©cessaire si pas bridge ?
 
          if ( ! pFrmDesc->bDelayRes )
          {
@@ -246,7 +248,7 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
 /*----------------------------------------------------------------------------*/
 static void sfrm_ExecCmd( char C* i_pszArg )
 {
-   char szStrInfo [48] ;
+   char szStrInfo [SFRM_DATA_PAYLOAD_SIZE] ;
    char C* pszName ;
    RESULT rRet ;
 
@@ -288,7 +290,7 @@ static void sfrm_ExecCmd( char C* i_pszArg )
          break ;
 
       case SFRM_ID_GETDEVICE :
-         pszName = id_GetName() ; //SBA vÃ©rifier pourquoi ca marche sans '\r\n' ??
+         pszName = id_GetName() ; //SBA vÃƒÂ©rifier pourquoi ca marche sans '\r\n' ??
          sfrm_SendRes( pszName ) ;
          break ;
 
@@ -311,8 +313,8 @@ static void sfrm_ExecCmd( char C* i_pszArg )
          sfrm_SendRes( szStrInfo ) ;
          break ;
 
-      case SFRM_ID_CHARGE_ADCVAL :
-         cstate_GetAdcVal( szStrInfo, sizeof(szStrInfo) );
+      case SFRM_ID_COEVSE_HIST :
+         coevse_GetHist( szStrInfo, sizeof(szStrInfo) ) ;
          sfrm_SendRes( szStrInfo ) ;
          break ;
 
@@ -350,20 +352,20 @@ static void sfrm_SendRes( char C* i_szParam )
    s_FrameDesc C* pFrmDesc ;
    char szRes [SFRM_DATA_ITEM_SIZE] ;
    char * pszRes ;
-   BYTE byResSize ;
+   WORD wResSize ;
 
    if ( l_eFrmId != SFRM_ID_NULL )
    {
       pFrmDesc = &k_aFrameDesc[ ( l_eFrmId - SFRM_ID_FIRST ) ] ;
 
       pszRes = szRes ;
-      byResSize = sizeof(szRes) ;
+      wResSize = sizeof(szRes) ;
 
-      strncpy( pszRes, pFrmDesc->szRes, byResSize ) ;
+      strncpy( pszRes, pFrmDesc->szRes, wResSize ) ;
       pszRes += strlen( pFrmDesc->szRes ) ;
-      byResSize -= strlen( pFrmDesc->szRes ) ;
+      wResSize -= strlen( pFrmDesc->szRes ) ;
 
-      strncpy( pszRes, i_szParam, byResSize ) ;
+      strncpy( pszRes, i_szParam, wResSize ) ;
 
          /* Note : force the end of string */
 

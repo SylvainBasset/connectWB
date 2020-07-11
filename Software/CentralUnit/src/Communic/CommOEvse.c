@@ -179,6 +179,12 @@ typedef struct                         /* module data */
    DWORD dwStuckRelayTripCnt ;
 } s_coevseData ;
 
+typedef struct
+{
+   char szHistStr [500] ;
+   WORD wIdx ;
+} s_HistCmd ;
+
 
 /*----------------------------------------------------------------------------*/
 /* Prototypes                                                                 */
@@ -196,6 +202,8 @@ static void coevse_CmdStart( e_CmdId i_eCmdId ) ;
 static void coevse_CmdSetErr( void ) ;
 static void coevse_SetError( void ) ;
 static void coevse_CmdEnd( void ) ;
+
+static void coevse_HistAddCmd( char C* i_pszStrCmd ) ;
 
 static void coevse_HrdInit( void ) ;
 static void coevse_HrdSendCmd( char C* i_pszStrCmd, BYTE i_bySize ) ;
@@ -225,6 +233,8 @@ static s_coevseResult l_Async ;
 
 static DWORD l_dwGetStateTmp ;
 static s_coevseData l_Status ;
+
+static s_HistCmd l_HistCmd ;           /* RAPI Sx command history */
 
 
 /*----------------------------------------------------------------------------*/
@@ -355,6 +365,19 @@ DWORD coevse_GetEnergy( void )
 {
    return l_Status.dwCurWh ;
 }
+
+
+/*----------------------------------------------------------------------------*/
+/* Get RAPI commands history                                                  */
+/*----------------------------------------------------------------------------*/
+
+void coevse_GetHist( CHAR * o_pszHistCmd, WORD i_wSize )
+{
+   strncpy( o_pszHistCmd, l_HistCmd.szHistStr, i_wSize ) ;
+                                       /* clear command history */
+   memset( &l_HistCmd, 0, sizeof( l_HistCmd ) ) ;
+}
+
 
 
 /*----------------------------------------------------------------------------*/
@@ -590,6 +613,8 @@ static void coevse_SendCmdFifo( void )
 
    coevse_CmdStart( eCmd ) ;           /* start command transmission */
    coevse_HrdSendCmd( l_szStrCmdBuffer, strlen( l_szStrCmdBuffer )  ) ;
+
+   coevse_HistAddCmd( l_szStrCmdBuffer ) ;
 }
 
 
@@ -778,6 +803,41 @@ static void coevse_CmdEnd( void )
 
    HAL_NVIC_EnableIRQ( UOEVSE_IRQn ) ;
 }
+
+
+/*----------------------------------------------------------------------------*/
+/* Add new command to historic                                                */
+/*----------------------------------------------------------------------------*/
+
+static void coevse_HistAddCmd( char C* i_pszStrCmd )
+{
+   char * pszHistbuffer ;
+   SWORD swTotalSizeLeft ;
+   BYTE byStrCmdSize ;
+
+   if ( i_pszStrCmd[1] == 'S' )           /* only Sx RAPI commands are stored */
+   {
+      byStrCmdSize = strlen( i_pszStrCmd ) - 4 ;
+
+      swTotalSizeLeft = ( sizeof( l_HistCmd.szHistStr ) ) - l_HistCmd.wIdx ;
+                                          /* if sapce left */
+      if ( ( swTotalSizeLeft > 0 ) && ( ( byStrCmdSize + 1 ) <= swTotalSizeLeft ) )
+      {                                   /* pointer to free hist character */
+         pszHistbuffer = &l_HistCmd.szHistStr[l_HistCmd.wIdx] ;
+                                          /* copy commmand string */
+         strlcpy( pszHistbuffer, i_pszStrCmd, byStrCmdSize + 1 ) ;
+
+         pszHistbuffer += byStrCmdSize ;
+         *pszHistbuffer = '\n' ;          /* add '\n' at the end */
+
+         pszHistbuffer += 1 ;
+         *pszHistbuffer = '\0' ;
+
+         l_HistCmd.wIdx += ( byStrCmdSize + 1 ) ;
+      }
+   }
+}
+
 
 
 /*============================================================================*/
