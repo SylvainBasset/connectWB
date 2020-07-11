@@ -449,12 +449,12 @@ static void cstate_ProcessState( BOOL i_bToogleForce )
             eNextChargeState = CSTATE_ON_WAIT ;
             eForceState = CSTATE_FORCE_NONE ;
          }
-         else if ( ( l_Data.eForceState != CSTATE_FORCE_ALL ) && ( ! bCal ) )
+         else if ( ( l_Data.eForceState == CSTATE_FORCE_NONE ) && ( ! bCal ) )
          {
             eNextChargeState = CSTATE_OFF ;
             eForceState = CSTATE_FORCE_NONE ;
          }
-         else if ( ( l_Data.eForceState == CSTATE_FORCE_NONE ) && cstate_CheckEoc() )
+         else if ( ( l_Data.eForceState != CSTATE_FORCE_ALL ) && cstate_CheckEoc() )
          {
             eNextChargeState = CSTATE_EOC_LOWCUR ;
             eForceState = CSTATE_FORCE_NONE ;
