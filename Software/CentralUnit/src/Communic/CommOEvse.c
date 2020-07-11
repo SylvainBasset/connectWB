@@ -66,7 +66,7 @@
 
 #define COEVSE_BAUDRATE     115200llu  /* baudrate (bits per second) value  */
 
-#define COEVSE_TIMEOUT           200   /* communication timeout, ms */
+#define COEVSE_TIMEOUT           400   /* communication timeout, ms */
 
    /* Note : communication timeout would be higher than main.c duration */
    /* to set save mode (MAIN_SAVEMODE_PIN_DUR). Otherwise, in case of   */
@@ -75,7 +75,7 @@
 
 #define COEVSE_GETSTATE_PER     1000   /* OpenEVSE status read period */
 #define COEVSE_HRD_START_DUR    8000   /* OpenEVSE hardware startup duration */
-#define COEVSE_MAXRETRY            4   /* maximum number of retry before error */
+#define COEVSE_MAXRETRY           10   /* maximum number of retry before error */
 
 #define COEVSE_MAX_CMD_LEN        29   /* maximum size for RAPI command */
 
@@ -151,7 +151,7 @@ typedef struct                         /* command FIFO */
 {
    BYTE byIdxIn ;                      /* input index */
    BYTE byIdxOut ;                     /* output index */
-   s_CmdFifoData aCmdData [8] ;        /* element data */
+   s_CmdFifoData aCmdData [16] ;       /* element data */
 } s_CmdFifo ;
 
 
@@ -778,7 +778,6 @@ static void coevse_SetError( void )
    l_byNbRetry = 0 ;
    l_dwCmdTimeout = 0 ;
    l_dwGetStateTmp = 0 ;
-   l_bOpenEvseRdy = 0 ;
 
    l_bOpenEvseRdy = FALSE ;
    tim_StartMsTmp( &l_dwTmpStart ) ;
