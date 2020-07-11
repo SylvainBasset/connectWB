@@ -47,10 +47,6 @@
 #define CSTATE_LEDWIFI_BLUE_GPIO       GPIOA
 #define CSTATE_LEDWIFI_BLUE_AF         0
 
-#define CSTATE_CP_LINE_PIN             GPIO_PIN_6
-#define CSTATE_CP_LINE_GPIO            GPIOA
-#define CSTATE_CP_LINE_AF              0
-
 #define CSTATE_LEDWIFI_GREEN_PIN       GPIO_PIN_4
 #define CSTATE_LEDWIFI_GREEN_GPIO      GPIOA
 #define CSTATE_LEDWIFI_GREEN_AF        0

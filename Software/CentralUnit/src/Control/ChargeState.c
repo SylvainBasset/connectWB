@@ -64,9 +64,8 @@
         this state is activated, until calandar or fored charge is not
         allowed. Charge is disabled.
 
-   Note : The Cp line is read by the Adc. This allow to determine of a EV is
-   plugged on. In CSTATE_OFF state, if the plug state comes from disonnected
-   to connected, the openEVSE charge is allowed for 30 sec.
+   Note : In case of plgging event (the plug state comes from disonnected
+   to connected), the openEVSE charge is allowed for 30 sec.
    This is a workaround for the Zoe sleep state.
 
    There are 2 LEDs indicating the device status :
@@ -128,11 +127,6 @@ typedef struct
    DWORD dwCurrentMinStop ;            /* real charging current low limit */
    e_cstateForceSt eForceState ;       /* force status */
    e_cstateChargeSt eChargeState ;     /* FSM charge state */
-   WORD awAdcValues [16] ;             /* Cp line Adc row measurments */
-   WORD wAdcValuesIdx ;                /* measurment index */
-   WORD wAdcMoy ;                      /* average value of Cp line measurment */
-   BOOL bEvConnected ;                 /* plug state from cp line measurment */
-   BOOL bPrevEvConnected ;             /* previous plug state */
    DWORD dwTmpPlugging ;               /* delay to enable openEVSE because of plugging */
 } s_cstateData ;
 
@@ -148,9 +142,7 @@ static void cstate_UpdateForceState( e_cstateForceSt i_eForceState ) ;
 
 static void cstate_ProcessLed( void ) ;
 static BOOL cstate_ProcessButton( BOOL * o_bLongPress ) ;
-static WORD cstate_ProcessAdc( void ) ;
 
-static void cstate_HrdInitCPLine( void ) ;
 static void cstate_HrdInitButton( void ) ;
 static void cstate_HrdInitLed( void ) ;
 static void cstate_HrdSetColorLedWifi( e_cstateLedColor i_eLedColor ) ;
@@ -197,7 +189,6 @@ void cstate_Init( void )
    l_aeHistState[l_byHistStateIdx] = CSTATE_OFF ;
    l_byHistStateIdx = NEXTIDX( l_byHistStateIdx, l_aeHistState ) ;
 
-   cstate_HrdInitCPLine() ;
    cstate_HrdInitButton() ;
    cstate_HrdInitLed() ;
 }
@@ -295,18 +286,6 @@ void cstate_GetHistState( CHAR * o_pszHistState, WORD i_wSize )
 
 
 /*----------------------------------------------------------------------------*/
-/* Read Cp line adc average value                                             */
-/*----------------------------------------------------------------------------*/
-
-WORD cstate_GetAdcVal( CHAR * o_pszAdcVal, WORD i_wSize )
-{
-   snprintf( o_pszAdcVal, i_wSize, "%u", l_Data.wAdcMoy ) ;
-
-   return l_Data.wAdcMoy ;
-}
-
-
-/*----------------------------------------------------------------------------*/
 /* periodic task                                                              */
 /*----------------------------------------------------------------------------*/
 
@@ -319,20 +298,6 @@ void cstate_TaskCyc( void )
 
    l_Data.bWifiMaint = cwifi_IsMaintMode() ;          /* check if wifi is in maintenance mode */
 
-   l_Data.wAdcMoy = cstate_ProcessAdc() ;             /* read Cp line adc value */
-
-   //if ( l_Data.wAdcMoy < CSTATE_ADC_EV_CONNECT_TH )   /* if value is below the connect thershold */
-   //{
-   //   if ( ! l_Data.bEvConnected )                    /* if there was no Ev connected before */
-   //   {
-   //      l_Data.bEvConnected = TRUE ;
-   //      tim_StartSecTmp( &l_Data.dwTmpPlugging ) ;
-   //   }
-   //}
-   //else
-   //{
-   //   l_Data.bEvConnected = FALSE ;
-   //}
 
    if ( coevse_IsPlugEvent( TRUE ) )                  /* if plugging action is detected */
    {
@@ -717,64 +682,6 @@ static BOOL cstate_ProcessButton( BOOL * o_bLongPress )
    }
 
    return bPressEvt ;
-}
-
-
-/*----------------------------------------------------------------------------*/
-
-static WORD cstate_ProcessAdc( void )
-{
-   BYTE i ;
-   WORD wAdcMoy ;
-
-   if ( ISSET( ADC_CSTATE->ISR, ADC_ISR_ADRDY ) )
-   {
-      ADC_CSTATE->CR |= ADC_CR_ADSTART ;
-   }
-
-   l_Data.awAdcValues[l_Data.wAdcValuesIdx] = ADC_CSTATE->DR ;
-   l_Data.wAdcValuesIdx = NEXTIDX( l_Data.wAdcValuesIdx, l_Data.awAdcValues ) ;
-
-   wAdcMoy = 0 ;
-   for ( i = 0 ; i < ARRAY_SIZE( l_Data.awAdcValues ) ; i++ )
-   {
-      wAdcMoy += l_Data.awAdcValues[i] ;
-   }
-   wAdcMoy = wAdcMoy / ARRAY_SIZE( l_Data.awAdcValues ) ;
-
-   return wAdcMoy ;
-}
-
-
-
-/*----------------------------------------------------------------------------*/
-/* Hardware initialization for CP line                                        */
-/*----------------------------------------------------------------------------*/
-
-static void cstate_HrdInitCPLine( void )
-{
-   GPIO_InitTypeDef sGpioInit ;
-
-   sGpioInit.Pin = CSTATE_CP_LINE_PIN ;
-   sGpioInit.Mode = GPIO_MODE_ANALOG ;
-   sGpioInit.Pull = GPIO_NOPULL ;
-   sGpioInit.Speed = GPIO_SPEED_FREQ_HIGH ;
-   sGpioInit.Alternate = CSTATE_CP_LINE_AF ;
-   HAL_GPIO_Init( CSTATE_CP_LINE_GPIO, &sGpioInit ) ;
-
-   ADC_CSTATE_CLK_ENABLE() ;
-
-   ADC_CSTATE->CFGR2 = ADC_CFGR2_CKMODE_0 ;
-   ADC_CSTATE->SMPR = ADC_SMPR_SMPR_0 | ADC_SMPR_SMPR_1 | ADC_SMPR_SMPR_2 ;
-
-   __SYSCFG_CLK_ENABLE() ;
-   SYSCFG->CFGR3 = SYSCFG_CFGR3_ENBUF_SENSOR_ADC | SYSCFG_CFGR3_ENBUF_VREFINT_ADC ;
-
-   ADC_CSTATE->CHSELR = ADC_CHSELR_CHSEL6 ;
-
-   ADC1_COMMON->CCR = ADC_CCR_PRESC_2 ;
-
-   ADC_CSTATE->CR = ADC_CR_ADEN ;
 }
 
 

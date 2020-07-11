@@ -234,7 +234,7 @@ static void sfrm_ProcessFrame( char * i_szStrFrm )
          {
             cwifi_AddExtData( "at+s." ) ;
          }
-         cwifi_AskFlushData() ;              //SBA : pas nÃƒÂ©cessaire si pas bridge ?
+         cwifi_AskFlushData() ;              //SBA : pas nÃ©cessaire si pas bridge ?
 
          if ( ! pFrmDesc->bDelayRes )
          {
@@ -290,7 +290,7 @@ static void sfrm_ExecCmd( char C* i_pszArg )
          break ;
 
       case SFRM_ID_GETDEVICE :
-         pszName = id_GetName() ; //SBA vÃƒÂ©rifier pourquoi ca marche sans '\r\n' ??
+         pszName = id_GetName() ; //SBA vÃ©rifier pourquoi ca marche sans '\r\n' ??
          sfrm_SendRes( pszName ) ;
          break ;
 
