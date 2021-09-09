@@ -26,7 +26,7 @@ def SendAndCheck( SockWB, StrCmd, Check = True ):
             break ;
 
       for Line in buf.splitlines() :
-         print Line
+         print( Line )
 
       if Error :
          raise ValueError( "command error" )
@@ -38,16 +38,16 @@ if __name__ == "__main__" :
    SockWB = cSocketWB()
    SockWB.SearchAndConnect()
 
-   ssid = raw_input('SSID=')
+   ssid = input('SSID=')
    pwd = getpass.getpass("enter pwd=")
 
-   print ssid
-   print pwd
+   print( ssid )
+   print( pwd )
 
    SendAndCheck( SockWB, "$02:%s\r\n"%ssid )
    SendAndCheck( SockWB, "$03:%s\r\n"%pwd )
 
-   print "Restart"
+   print( "Restart" )
    SendAndCheck( SockWB, "$04:\r\n", False)                  # ask for restart,
    time.sleep(1)
 

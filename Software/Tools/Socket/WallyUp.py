@@ -27,7 +27,7 @@ def SendAndCheck( SockWB, StrCmd, Check = True ):
             break ;
 
       for Line in buf.splitlines() :
-         print Line
+         print ( Line )
 
       if Error :
          raise ValueError( "command error" )
@@ -45,7 +45,7 @@ if __name__ == "__main__" :
 
    SendAndCheck( SockWB, Cmd)
 
-   print "Restart"
+   print( "Restart" )
    SendAndCheck( SockWB, "$04:\r\n", False)                  # ask for restart,
    time.sleep(1)
 

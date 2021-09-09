@@ -34,17 +34,17 @@ class cSocketWB :
       self.socket = sckt
       self.socket.setblocking(0)
 
-      print DeviceIp
-      print Port
-      print "----------------"
-      print "Socket connected"
-      print "----------------"
-      print ""
+      print( DeviceIp )
+      print( Port )
+      print( "----------------" )
+      print( "Socket connected" )
+      print( "----------------" )
+      print( "" )
 
    #---------------------------------------------------------------------------#
    def SearchAndConnect( self ):
 
-      print "Scanning for devices"
+      print( "Scanning for devices" )
 
       DeviceIp = None
 
@@ -60,7 +60,7 @@ class cSocketWB :
 
 
          ArpRet = subprocess.check_output( ["nmap", "-sP", BroadCastIp] )
-         IpList = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", ArpRet )[1:]
+         IpList = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", str( ArpRet ) )[1:]
 
          LastIp = self.GetLastIp()
          if LastIp in IpList:
@@ -68,20 +68,21 @@ class cSocketWB :
             IpList.insert(0, LastIp)
 
       for Ip in IpList :
-         print Ip,
+         print( Ip, )
 
          sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          sckt.settimeout(5)
+
          try :
-            sckt.connect( ( Ip, DEFAULT_PORT ) )
+            sckt.connect( ( Ip.encode('utf-8'), DEFAULT_PORT ) )
             if self.IsCorrectDevice( sckt ):
                DeviceIp = Ip
                break
             else:
-               print "Bad response"
+               print( "Bad response" )
                del sckt
          except Exception as e:
-            print e
+            print( e )
             del sckt
 
       if not DeviceIp:
@@ -91,15 +92,15 @@ class cSocketWB :
          self.socket.setblocking(0)
          if not IsMiniAp:
             self.SaveLastIp( DeviceIp )
-         print ""
-         print "device found at %s"%DeviceIp
+         print( "" )
+         print( "device found at %s"%DeviceIp )
 
-      print DeviceIp
-      print DEFAULT_PORT
-      print "----------------"
-      print "Socket connected"
-      print "----------------"
-      print ""
+      print( DeviceIp )
+      print( DEFAULT_PORT )
+      print( "----------------" )
+      print( "Socket connected" )
+      print( "----------------" )
+      print( "" )
 
       return DeviceIp
 
@@ -107,9 +108,9 @@ class cSocketWB :
    #---------------------------------------------------------------------------#
    def IsCorrectDevice( self, sckt ):
       sckt.settimeout(5)
-      sckt.send( "$05:\r\n" )
+      sckt.send( "$05:\r\n".encode('utf-8') )
       DeviceName = sckt.recv( 1024 ).strip()
-      if DeviceName == "$85:%s"%DEVICE_NAME:
+      if DeviceName.decode("utf-8") == "$85:%s"%DEVICE_NAME:
          return True
       else:
          return False
@@ -138,7 +139,8 @@ class cSocketWB :
    #---------------------------------------------------------------------------#
    def IsWallyBoxMiniAp( self ) :
       iwconfigRet = subprocess.check_output( ["iwconfig"] )
-      if re.search("ESSID.*:.*WallyBox_Maint", iwconfigRet ) :
+
+      if re.search("ESSID.*:.*WallyBox_Maint", str( iwconfigRet ) ) :
          return True
       else:
          return False
@@ -146,7 +148,8 @@ class cSocketWB :
    #---------------------------------------------------------------------------#
    def GetGatewayIp( self ) :
       ipRet = subprocess.check_output( ["ip","r"] )
-      match = re.search("^default.* (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})", ipRet )
+      match = re.search("default[A-Za-z\s]*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})", str( ipRet ) )
+
       if match :
          gatewayIp = match.groups()[0]
       else:
@@ -180,4 +183,4 @@ class cSocketWB :
    #---------------------------------------------------------------------------#
    def Send( self, StrData ):
       #//StrData += '\r\n'
-      self.socket.send(StrData)
+      self.socket.send(StrData.encode('utf-8'))
