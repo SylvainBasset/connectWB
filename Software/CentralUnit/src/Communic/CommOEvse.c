@@ -167,6 +167,7 @@ typedef struct                         /* response of RAPI commmand */
 typedef struct                         /* module data */
 {
    e_coevseEvseState eEvseState ;      /* current openEVSE state */
+   BYTE byAsyncState ;                 /* openEvse asynchronous state  */
    BOOL bPlugEvent ;                   /* plugging event (transition from state A to B) */
    DWORD dwCurrentCap ;                /* charing current maximum capacity in A */
    SDWORD sdwChargeVoltage ;           /* charing voltage in mV */
@@ -393,6 +394,16 @@ void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize )
 
 
 /*----------------------------------------------------------------------------*/
+/* Get openEVSE asynchronous state                                            */
+/*----------------------------------------------------------------------------*/
+
+void coevse_GetAsyncState( CHAR * o_pszAsync, WORD i_wSize )
+{
+   snprintf( o_pszAsync, i_wSize, "%u", l_Status.byAsyncState ) ;
+}
+
+
+/*----------------------------------------------------------------------------*/
 /* Add external RAPI command (bridge)                                         */
 /*----------------------------------------------------------------------------*/
 
@@ -471,6 +482,23 @@ void coevse_TaskCyc( void )
          tim_StartMsTmp( &l_dwGetStateTmp ) ;
       }
    }
+
+   HAL_NVIC_DisableIRQ( UOEVSE_IRQn ) ;
+   if ( l_Async.byResIdx != 0 )        /* if asynchronous message buffer is not empty */
+   {                                   /* if one asynchronous message is ready (we make assumption) */
+                                       /* that we detect '\r' of each asynchronous messages */
+      if ( l_Async.abyDataRes[( l_Async.byResIdx - 1 )] == '\r' )
+      {                                /* if asynchronous status */
+         if ( memcmp( l_Async.abyDataRes, "$ST 0", sizeof( "$ST 0") - 1 ) == 0 )
+         {                             /* reda status */
+            l_Status.byAsyncState = l_Async.abyDataRes[5] - '0' ;
+         }
+                                       /* re-initialize asynchronous data buffer */
+         memset( &l_Async.abyDataRes, 0, ( l_Async.byResIdx - 1 ) ) ;
+         l_Async.byResIdx = 0 ;
+      }
+   }
+   HAL_NVIC_EnableIRQ( UOEVSE_IRQn ) ;
 }
 
 

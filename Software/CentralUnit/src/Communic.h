@@ -116,6 +116,7 @@ SDWORD coevse_GetVoltage( void ) ;
 DWORD coevse_GetEnergy( void ) ;
 void coevse_GetHist( CHAR * o_pszHistCmd, WORD i_wSize ) ;
 void coevse_FmtInfo( CHAR * o_pszInfo, WORD i_wSize ) ;
+void coevse_GetAsyncState( CHAR * o_pszAsync, WORD i_wSize ) ;
 
 RESULT coevse_AddExtCmd( char C* i_szStrCmd ) ;
 

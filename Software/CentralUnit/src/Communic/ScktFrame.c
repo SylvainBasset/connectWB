@@ -62,6 +62,7 @@
    $12:      : Get charge history (response code 0x92) : The 10 last charge states
                are sent with the response (see ChargeState.c)
    $13:      : RAPI (openEvse) Sx commands history
+   $14:      : Get OpenEVSE asynchronous state
    $7F:      : "ScktFrame" reset (response code 0xFF) : reset the "ScktFrame" state
                <l_eFrmId>, in case of pending delayed response.
 
@@ -106,6 +107,7 @@ typedef enum                                 /* Frames command Ids */
    SFRM_ID_RAPI_CHARGEINFO,                  /* $11: Get charge information */
    SFRM_ID_CHARGE_HISTSTATE,                 /* $12: Get charge history */
    SFRM_ID_COEVSE_HIST,                      /* $13: Get RAPI Sx History */
+   SFRM_ID_COEVSE_ASYNCH,                    /* $14: Get OpenEVSE asynchronous state */
 
    SFRM_ID_ERRORS_LIST,                      /* $20: Get error list */
 
@@ -140,6 +142,7 @@ static s_FrameDesc const k_aFrameDesc [] =
    _D( RAPI_CHARGEINFO,  "$11:", "$91:", FALSE, FALSE ),
    _D( CHARGE_HISTSTATE, "$12:", "$92:", FALSE, FALSE ),
    _D( COEVSE_HIST,      "$13:", "$93:", FALSE, FALSE ),
+   _D( COEVSE_ASYNCH,    "$14:", "$94:", FALSE, FALSE ),
    _D( ERRORS_LIST,      "$20:", "$A0:", FALSE, FALSE ),
    _D( RESET,            "$7F:", "$FF:", FALSE, FALSE ),
 } ;
@@ -315,6 +318,11 @@ static void sfrm_ExecCmd( char C* i_pszArg )
 
       case SFRM_ID_COEVSE_HIST :
          coevse_GetHist( szStrInfo, sizeof(szStrInfo) ) ;
+         sfrm_SendRes( szStrInfo ) ;
+         break ;
+
+      case SFRM_ID_COEVSE_ASYNCH :
+         coevse_GetAsyncState( szStrInfo, sizeof(szStrInfo) ) ;
          sfrm_SendRes( szStrInfo ) ;
          break ;
 
